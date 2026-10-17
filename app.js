@@ -239,6 +239,7 @@
       toast("已加载 " + t.length + " 首音乐");
     } catch (err) {
       setLoading(false);
+      els.trackCount.textContent = "";
       showBanner(true);
       toast("加载失败：" + err.message, true);
     }
@@ -286,9 +287,14 @@
   }
 
   function setLoading(on) {
-    els.playlist.innerHTML = on ? '<div class="spinner"></div>' : "";
-    els.trackCount.textContent = on ? "加载中…" : "";
-    els.emptyState.hidden = on;
+    if (on) {
+      els.playlist.innerHTML = '<div class="spinner"></div>';
+      els.trackCount.textContent = "加载中…";
+      els.emptyState.hidden = true;
+    } else {
+      const sp = els.playlist.querySelector(".spinner");
+      if (sp) sp.remove();
+    }
   }
 
   function showBanner(show) {
