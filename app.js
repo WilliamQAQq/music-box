@@ -22,6 +22,7 @@
     trackCount: $("trackCount"),
     playlist: $("playlist"),
     emptyState: $("emptyState"),
+    viewToggle: $("viewToggle"),
     coverArt: $("coverArt"),
     trackTitle: $("trackTitle"),
     trackSub: $("trackSub"),
@@ -66,6 +67,7 @@
 
   let shuffle = localStorage.getItem("gh-shuffle") === "1";
   let repeat = localStorage.getItem("gh-repeat") || "none";
+  let view = localStorage.getItem("gh-view") || "artist";
   let isSeeking = false;
 
   const audio = els.audio;
@@ -188,7 +190,7 @@
 
       if (AUDIO_EXTS.indexOf(ext) !== -1) {
         const title = baseName.replace(/[_-]+/g, " ");
-        newTracks.push({ title, path: p, dir, url: rawUrl(branch, p) });
+        newTracks.push({ title, artist: "", album: "", path: p, dir, url: rawUrl(branch, p) });
       } else if (IMAGE_EXTS.indexOf(ext) !== -1) {
         if (!coverMap.has(dir) || COVER_NAMES.indexOf(baseName) !== -1) {
           coverMap.set(dir, rawUrl(branch, p));
@@ -227,6 +229,8 @@
       const dir = item.dir || (url.indexOf("/") !== -1 ? url.slice(0, url.lastIndexOf("/")) : "");
       t.push({
         title: String(item.title || url.slice(url.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")),
+        artist: item.artist ? String(item.artist) : "",
+        album: item.album ? String(item.album) : "",
         url: url,
         path: url,
         dir: dir,
@@ -350,39 +354,63 @@
   /* ---------------- playlist rendering ---------------- */
 
   function renderCount() {
-    els.trackCount.textContent = filteredTracks.length + " 首";
+    if (view === "artist") {
+      const artists = new Set(filteredTracks.map((i) => tracks[i].artist || "未分类"));
+      els.trackCount.textContent = filteredTracks.length + " 首 · " + artists.size + " 位歌手";
+    } else {
+      els.trackCount.textContent = filteredTracks.length + " 首";
+    }
+  }
+
+  function makeItem(tIndex, k, showMeta) {
+    const t = tracks[tIndex];
+    const li = document.createElement("li");
+    li.className = "playlist-item";
+    if (tIndex === currentIndex) li.classList.add("active");
+    if (tIndex === currentIndex && !audio.paused) li.classList.add("playing");
+
+    const idx = document.createElement("span");
+    idx.className = "idx";
+    idx.textContent = k + 1;
+
+    const eq = document.createElement("span");
+    eq.className = "eq";
+    eq.innerHTML = "<span></span><span></span><span></span>";
+
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = t.title;
+
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = showMeta && t.artist ? t.artist : (t.album || t.dir || "/");
+
+    li.append(idx, eq, name, meta);
+    li.addEventListener("click", () => playTrackByIndex(tIndex));
+    return li;
   }
 
   function renderPlaylist() {
     renderCount();
     const frag = document.createDocumentFragment();
-    filteredTracks.forEach((tIndex, k) => {
-      const t = tracks[tIndex];
-      const li = document.createElement("li");
-      li.className = "playlist-item";
-      if (tIndex === currentIndex) li.classList.add("active");
-      if (tIndex === currentIndex && !audio.paused) li.classList.add("playing");
-
-      const idx = document.createElement("span");
-      idx.className = "idx";
-      idx.textContent = k + 1;
-
-      const eq = document.createElement("span");
-      eq.className = "eq";
-      eq.innerHTML = "<span></span><span></span><span></span>";
-
-      const name = document.createElement("span");
-      name.className = "name";
-      name.textContent = t.title;
-
-      const meta = document.createElement("span");
-      meta.className = "meta";
-      meta.textContent = t.dir || "/";
-
-      li.append(idx, eq, name, meta);
-      li.addEventListener("click", () => playTrackByIndex(tIndex));
-      frag.appendChild(li);
-    });
+    if (view === "artist") {
+      let lastArtist = null;
+      filteredTracks.forEach((tIndex, k) => {
+        const artist = tracks[tIndex].artist || "未分类";
+        if (artist !== lastArtist) {
+          lastArtist = artist;
+          const hdr = document.createElement("li");
+          hdr.className = "playlist-header";
+          hdr.textContent = artist;
+          frag.appendChild(hdr);
+        }
+        frag.appendChild(makeItem(tIndex, k, false));
+      });
+    } else {
+      filteredTracks.forEach((tIndex, k) => {
+        frag.appendChild(makeItem(tIndex, k, true));
+      });
+    }
     els.playlist.innerHTML = "";
     els.playlist.appendChild(frag);
 
@@ -391,6 +419,21 @@
       if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   }
+
+  function setView(next) {
+    if (next !== "artist" && next !== "flat") return;
+    view = next;
+    localStorage.setItem("gh-view", view);
+    els.viewToggle.querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("on", b.dataset.view === view);
+    });
+    applyFilter();
+  }
+
+  els.viewToggle.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (btn) setView(btn.dataset.view);
+  });
 
   /* ---------------- player logic ---------------- */
 
@@ -411,7 +454,7 @@
     audio.src = t.url;
     audio.play().catch(() => toast("无法播放该文件", true));
     els.trackTitle.textContent = t.title;
-    els.trackSub.textContent = t.dir || "/";
+    els.trackSub.textContent = t.artist || t.dir || "/";
     const cover = lookupCover(t.dir);
     if (cover) els.coverArt.src = cover;
     renderPlaylist();
@@ -587,8 +630,8 @@
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: t.title,
-        artist: settings.owner,
-        album: settings.repo,
+        artist: t.artist || settings.owner,
+        album: t.album || settings.repo,
         artwork: cover ? [{ src: cover, sizes: "512x512" }] : [],
       });
       navigator.mediaSession.setActionHandler("play", togglePlay);
@@ -632,6 +675,7 @@
     loadSettings();
     updateRepeatUI();
     els.shuffleBtn.classList.toggle("on", shuffle);
+    setView(view);
     const v = parseInt(localStorage.getItem("gh-volume"), 10);
     if (!isNaN(v)) { els.volume.value = v; audio.volume = v / 100; els.muteBtn.classList.toggle("on", v === 0); }
     loadLibrary(false);

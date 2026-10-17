@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Generate music.json (playlist manifest) by scanning the music/ folder.
 
+Reads ID3 tags (artist/album/title) when available. Output: music.json at repo
+root, used by the web player.
+
 Run: python .github/gen_music_json.py
-Output: music.json at repo root, used by the web player.
 """
 import json
 import os
@@ -14,6 +16,18 @@ OUT = "music.json"
 AUDIO_EXTS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm"}
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 COVER_NAMES = {"cover", "folder", "album", "albumart", "artwork", "front", "poster"}
+
+
+def read_id3(path):
+    try:
+        from mutagen.easyid3 import EasyID3
+        t = EasyID3(path)
+        artist = (t.get("artist") or [""])[0].strip()
+        album = (t.get("album") or [""])[0].strip()
+        title = (t.get("title") or [""])[0].strip()
+        return artist, album, title
+    except Exception:
+        return "", "", ""
 
 
 def main():
@@ -31,10 +45,20 @@ def main():
             rel = os.path.join(root, fname).replace("\\", "/")
             d = os.path.dirname(rel)
             if ext in AUDIO_EXTS:
-                title = os.path.splitext(fname)[0]
-                title = title.replace("_", " ").replace("-", " ").strip()
-                title = " ".join(title.split())
-                tracks.append({"title": title, "url": rel, "dir": d})
+                artist, album, title = read_id3(os.path.join(root, fname))
+                if not title:
+                    title = os.path.splitext(fname)[0]
+                    title = title.replace("_", " ").replace("-", " ").strip()
+                    title = " ".join(title.split())
+                if title.endswith(" spotdown.org"):
+                    title = title[: -len(" spotdown.org")]
+                tracks.append({
+                    "title": title,
+                    "artist": artist,
+                    "album": album,
+                    "url": rel,
+                    "dir": d,
+                })
             elif ext in IMG_EXTS:
                 base = os.path.splitext(fname)[0].lower()
                 if base in COVER_NAMES or d not in covers:
@@ -48,10 +72,15 @@ def main():
                 break
             d = os.path.dirname(d)
 
+    tracks.sort(
+        key=lambda t: (t["artist"].lower(), t["title"].lower())
+    )
+
     with open(OUT, "w", encoding="utf-8") as fh:
         json.dump(tracks, fh, ensure_ascii=False, indent=2)
 
-    print("generated %s with %d tracks" % (OUT, len(tracks)))
+    artists = len({t["artist"] for t in tracks if t["artist"]})
+    print("generated %s with %d tracks (%d artists)" % (OUT, len(tracks), artists))
 
 
 if __name__ == "__main__":
