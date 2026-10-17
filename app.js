@@ -524,10 +524,12 @@
 
   function cycleRepeat() {
     const modes = ["none", "all", "one"];
+    const labels = { none: "循环关闭", all: "列表循环", one: "单曲循环" };
     const i = modes.indexOf(repeat);
     repeat = modes[(i + 1) % modes.length];
     localStorage.setItem("gh-repeat", repeat);
     updateRepeatUI();
+    toast("循环模式：" + labels[repeat]);
   }
 
   function updateRepeatUI() {

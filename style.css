@@ -288,6 +288,7 @@ button { cursor: pointer; background: none; border: none; color: inherit; font: 
 }
 .controls { display: flex; align-items: center; gap: 14px; }
 .ctrl-btn {
+  position: relative;
   display: grid; place-items: center;
   color: var(--muted);
   transition: color .15s, transform .05s;
@@ -295,6 +296,23 @@ button { cursor: pointer; background: none; border: none; color: inherit; font: 
 .ctrl-btn:hover { color: var(--text); }
 .ctrl-btn:active { transform: scale(.92); }
 .ctrl-btn.on { color: var(--accent2); }
+.ctrl-btn.repeat-one::after {
+  content: "1";
+  position: absolute;
+  top: -3px;
+  right: -7px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--accent2);
+  color: #0a0d14;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
 
 .play-btn {
   width: 46px; height: 46px;
