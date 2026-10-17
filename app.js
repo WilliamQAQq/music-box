@@ -1,8 +1,8 @@
 (function () {
   "use strict";
 
-  const STORE_KEY = "gh-music-box-settings";
-  const CACHE_KEY = "gh-music-box-cache";
+  const STORE_KEY = "gh-music-box-settings-v2";
+  const CACHE_KEY = "gh-music-box-cache-v2";
 
   const AUDIO_EXTS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "webm"];
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
@@ -214,6 +214,28 @@
 
   /* ---------------- loading ---------------- */
 
+  async function loadFromMusicJson() {
+    const res = await fetch("music.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("no music.json");
+    const list = await res.json();
+    if (!Array.isArray(list)) throw new Error("bad music.json");
+    const t = [];
+    const c = new Map();
+    list.forEach((item) => {
+      if (!item || !item.url) return;
+      const url = String(item.url);
+      const dir = item.dir || (url.indexOf("/") !== -1 ? url.slice(0, url.lastIndexOf("/")) : "");
+      t.push({
+        title: String(item.title || url.slice(url.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")),
+        url: url,
+        path: url,
+        dir: dir,
+      });
+      if (item.cover) c.set(dir, String(item.cover));
+    });
+    return { tracks: t, covers: c };
+  }
+
   async function loadLibrary(force) {
     if (!settings.owner || !settings.repo) {
       showBanner(true);
@@ -221,7 +243,7 @@
     }
 
     const cache = loadCache();
-    if (!force && cache && cache.owner === settings.owner && cache.repo === settings.repo) {
+    if (!force && cache && cache.owner === settings.owner && cache.repo === settings.repo && cache.tracks && cache.tracks.length) {
       applyLibrary(cache);
       showBanner(false);
       return;
@@ -229,14 +251,20 @@
 
     setLoading(true);
     try {
-      const branch = await getDefaultBranch();
-      const { tracks: t, covers: c } = await fetchTracks(branch);
-      tracks = t;
-      covers = c;
-      saveCache({ owner: settings.owner, repo: settings.repo, branch, tracks: t, covers: [...c] });
-      applyLibrary({ tracks: t, covers: c });
+      let data = null;
+      try {
+        data = await loadFromMusicJson();
+      } catch (e) { /* music.json 不存在时回退到 GitHub API */ }
+      if (!data || !data.tracks.length) {
+        const branch = await getDefaultBranch();
+        data = await fetchTracks(branch);
+      }
+      tracks = data.tracks;
+      covers = data.covers instanceof Map ? data.covers : new Map(data.covers || []);
+      saveCache({ owner: settings.owner, repo: settings.repo, branch: "", tracks: tracks, covers: [...covers] });
+      applyLibrary({ tracks: tracks, covers: covers });
       showBanner(false);
-      toast("已加载 " + t.length + " 首音乐");
+      toast("已加载 " + tracks.length + " 首音乐");
     } catch (err) {
       setLoading(false);
       els.trackCount.textContent = "";
