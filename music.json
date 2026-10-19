@@ -1,19 +1,5 @@
 [
   {
-    "title": "National Anthem United States Star Spangled Banner",
-    "artist": "",
-    "album": "",
-    "url": "music/National Anthem- United States - Star Spangled Banner.mp3",
-    "dir": "music"
-  },
-  {
-    "title": "United States of America National Anthem (Instrumental)",
-    "artist": "",
-    "album": "",
-    "url": "music/United States of America National Anthem (Instrumental).mp3",
-    "dir": "music"
-  },
-  {
     "title": "我不能隨便說",
     "artist": "ADO",
     "album": "Unknown Album",
@@ -578,6 +564,20 @@
     "artist": "羅大佑",
     "album": "Unknown Album",
     "url": "music/大家免著驚_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "National Anthem United States Star Spangled Banner",
+    "artist": "美国国歌",
+    "album": "",
+    "url": "music/National Anthem- United States - Star Spangled Banner.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "United States of America National Anthem (Instrumental)",
+    "artist": "美国国歌",
+    "album": "",
+    "url": "music/United States of America National Anthem (Instrumental).mp3",
     "dir": "music"
   },
   {

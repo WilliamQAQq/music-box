@@ -22,6 +22,8 @@ MANUAL_ARTIST = {
     "Augustin Hadelich plays Por Una Cabeza by Carlos Gardel (arr. Hadelich) - Augustin Hadelich.mp3": "Augustin Hadelich",
     "Francis_Shaw_-_Military_March_(SkySound7.com).mp3": "Francis Shaw",
     "Mandela Catalogue_ Amazing Grace (Full Version).mp3": "Mandela Catalogue",
+    "National Anthem- United States - Star Spangled Banner.mp3": "美国国歌",
+    "United States of America National Anthem (Instrumental).mp3": "美国国歌",
 }
 
 

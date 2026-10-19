@@ -474,6 +474,6 @@ button { cursor: pointer; background: none; border: none; color: inherit; font: 
   .player-right { grid-column: 2; }
   .content { padding-bottom: 210px; }
   .track-sub { display: none; }
-  .playlist-item .meta { display: none; }
+  .playlist-item .meta { max-width: 45%; }
   .vol { display: none; }
 }
