@@ -14,13 +14,6 @@
     "dir": "music"
   },
   {
-    "title": "Augustin Hadelich plays Por Una Cabeza by Carlos Gardel (arr. Hadelich) Augustin Hadelich",
-    "artist": "Augustin Hadelich",
-    "album": "",
-    "url": "music/Augustin Hadelich plays Por Una Cabeza by Carlos Gardel (arr. Hadelich) - Augustin Hadelich.mp3",
-    "dir": "music"
-  },
-  {
     "title": "deep in it",
     "artist": "berlioz, Ted Jasper",
     "album": "deep in it",
@@ -67,6 +60,13 @@
     "artist": "Black Panther",
     "album": "Unknown Album",
     "url": "music/別去糟蹋_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Por Una Cabeza",
+    "artist": "Carlos Gardel",
+    "album": "Las Canciones de Carlos Gardel",
+    "url": "music/Carlos Gardel - Por Una Cabeza (SPOTISAVER).mp3",
     "dir": "music"
   },
   {
