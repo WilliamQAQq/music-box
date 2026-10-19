@@ -21,7 +21,9 @@ jobs:
           fetch-depth: 1
 
       - name: Generate music.json
-        run: python .github/gen_music_json.py
+        run: |
+          python -m pip install --quiet mutagen
+          python .github/gen_music_json.py
 
       - name: Check for changes
         id: check
