@@ -17,6 +17,13 @@ AUDIO_EXTS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", 
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 COVER_NAMES = {"cover", "folder", "album", "albumart", "artwork", "front", "poster"}
 
+# Files without ID3 tags get a manual artist (key = exact filename).
+MANUAL_ARTIST = {
+    "Augustin Hadelich plays Por Una Cabeza by Carlos Gardel (arr. Hadelich) - Augustin Hadelich.mp3": "Augustin Hadelich",
+    "Francis_Shaw_-_Military_March_(SkySound7.com).mp3": "Francis Shaw",
+    "Mandela Catalogue_ Amazing Grace (Full Version).mp3": "Mandela Catalogue",
+}
+
 
 def read_id3(path):
     try:
@@ -46,6 +53,8 @@ def main():
             d = os.path.dirname(rel)
             if ext in AUDIO_EXTS:
                 artist, album, title = read_id3(os.path.join(root, fname))
+                if not artist:
+                    artist = MANUAL_ARTIST.get(fname, "")
                 if not title:
                     title = os.path.splitext(fname)[0]
                     title = title.replace("_", " ").replace("-", " ").strip()

@@ -1,19 +1,5 @@
 [
   {
-    "title": "Francis Shaw Military March (SkySound7.com)",
-    "artist": "",
-    "album": "",
-    "url": "music/Francis_Shaw_-_Military_March_(SkySound7.com).mp3",
-    "dir": "music"
-  },
-  {
-    "title": "Mandela Catalogue Amazing Grace (Full Version)",
-    "artist": "",
-    "album": "",
-    "url": "music/Mandela Catalogue_ Amazing Grace (Full Version).mp3",
-    "dir": "music"
-  },
-  {
     "title": "National Anthem United States Star Spangled Banner",
     "artist": "",
     "album": "",
@@ -39,6 +25,13 @@
     "artist": "Anthony Lazaro",
     "album": "Moody Wind",
     "url": "music/Moody Wind_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Augustin Hadelich plays Por Una Cabeza by Carlos Gardel (arr. Hadelich) Augustin Hadelich",
+    "artist": "Augustin Hadelich",
+    "album": "",
+    "url": "music/Augustin Hadelich plays Por Una Cabeza by Carlos Gardel (arr. Hadelich) - Augustin Hadelich.mp3",
     "dir": "music"
   },
   {
@@ -165,6 +158,13 @@
     "artist": "Etta Jones",
     "album": "Don't Go To Strangers (Rudy Van Gelder Remaster)",
     "url": "music/Don't Go To Strangers_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Francis Shaw Military March (SkySound7.com)",
+    "artist": "Francis Shaw",
+    "album": "",
+    "url": "music/Francis_Shaw_-_Military_March_(SkySound7.com).mp3",
     "dir": "music"
   },
   {
@@ -340,6 +340,13 @@
     "artist": "Louis Armstrong",
     "album": "Highlights From His Decca Years",
     "url": "music/When You're Smiling (The Whole World Smiles With You) - Without Intro_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Mandela Catalogue Amazing Grace (Full Version)",
+    "artist": "Mandela Catalogue",
+    "album": "",
+    "url": "music/Mandela Catalogue_ Amazing Grace (Full Version).mp3",
     "dir": "music"
   },
   {
