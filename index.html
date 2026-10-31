@@ -4,22 +4,37 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
-<title>GitHub 音乐盒</title>
-<link rel="stylesheet" href="style.css?v=5">
+<title>GitHub 音乐盒 · 维多利亚留声机</title>
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
 <header class="topbar">
   <div class="brand">
-    <span class="logo">&#9835;</span>
-    <h1>GitHub 音乐盒</h1>
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="23" height="23">
+        <!-- Flared Morning-Glory Gramophone Horn -->
+        <path fill="currentColor" d="M8.5 5.2 C13.2 5.4 17.6 8.3 20.6 11.4 L23.5 14.3 C24.6 15.4 24.4 17.2 23 18.1 L21.4 19.1 L20.4 17.7 L21.9 16.7 C22.5 16.3 22.6 15.5 22.1 15 L19.2 12.1 C16.4 9.5 12.6 12.6 8.5 15.8 C6.8 17.1 5 16.1 5 13.8 L5 7.6 C5 5.6 6.8 5.1 8.5 5.2 Z"/>
+        <ellipse cx="6.8" cy="10.8" rx="1.6" ry="4.6" fill="#f5dc96" opacity=".55"/>
+        <!-- Platter & Mahogany Base Cabinet -->
+        <rect x="8.5" y="19.2" width="13" height="1.5" rx="0.7" fill="currentColor"/>
+        <rect x="6.5" y="21.4" width="17" height="5.2" rx="1.1" fill="currentColor"/>
+        <rect x="9" y="23.2" width="12" height="1.6" rx="0.5" fill="#f5dc96" opacity=".55"/>
+        <!-- Hand Crank -->
+        <path d="M23.5 23.8 H26 V26.5 H27.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    <div class="brand-text">
+      <h1>GitHub 音乐盒</h1>
+      <span class="brand-sub">VICTORIAN PHONOGRAPH SALON</span>
+    </div>
   </div>
   <div class="topbar-actions">
-    <button id="reloadBtn" class="icon-btn" title="重新扫描仓库" aria-label="重新扫描仓库">
-      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+    <button id="reloadBtn" class="icon-btn" title="重新扫描唱片库" aria-label="重新扫描唱片库">
+      <svg viewBox="0 0 24 24" width="19" height="19"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
     </button>
-    <button id="settingsBtn" class="icon-btn" title="设置" aria-label="设置">
-      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+    <button id="settingsBtn" class="icon-btn" title="留声机柜设置" aria-label="设置">
+      <svg viewBox="0 0 24 24" width="19" height="19"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
     </button>
   </div>
 </header>
@@ -33,8 +48,14 @@
     <button id="bannerCta" class="primary-btn">打开设置</button>
   </section>
 
+  <div class="parlor-ornament" aria-hidden="true">
+    <span class="ornament-line"></span>
+    <span class="ornament-glyph">&#10086; MASTER RECORD CATALOGUE &#10086;</span>
+    <span class="ornament-line"></span>
+  </div>
+
   <div class="toolbar">
-    <input type="search" id="searchInput" class="search" placeholder="搜索曲目…" aria-label="搜索曲目">
+    <input type="search" id="searchInput" class="search" placeholder="检索曲目、歌者或专辑…" aria-label="搜索曲目">
     <div class="view-toggle" id="viewToggle">
       <button type="button" data-view="artist">按作者</button>
       <button type="button" data-view="flat">全部</button>
@@ -44,17 +65,32 @@
 
   <ul class="playlist" id="playlist" aria-label="播放列表"></ul>
   <div class="empty" id="emptyState" hidden>
-    <p>没有可播放的音乐文件</p>
+    <p>唱片柜中暂无可播放的曲目</p>
     <p class="hint">请检查仓库地址与目录路径是否正确</p>
   </div>
 </main>
 
 <footer class="player" id="player">
   <div class="player-track">
-    <img id="coverArt" class="cover" alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' fill='%23262a33'/><text x='32' y='40' font-size='26' text-anchor='middle' fill='%23888'>%E2%99%AB</text></svg>">
+    <div class="vinyl-stage">
+      <div class="vinyl-disc">
+        <img id="coverArt" class="cover" alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><radialGradient id='g' cx='50%25' cy='50%25' r='50%25'><stop offset='0%25' stop-color='%23a62c30'/><stop offset='75%25' stop-color='%2372191d'/><stop offset='100%25' stop-color='%234a0f12'/></radialGradient></defs><circle cx='32' cy='32' r='32' fill='url(%23g)'/><circle cx='32' cy='32' r='28' fill='none' stroke='%23e0b861' stroke-width='1.4'/><circle cx='32' cy='32' r='24' fill='none' stroke='%23e0b861' stroke-width='0.6' stroke-dasharray='2 2'/><text x='32' y='24' font-family='Georgia,serif' font-size='6.5' letter-spacing='1' text-anchor='middle' fill='%23f3d999'>GRAMOPHONE</text><text x='32' y='47' font-family='Georgia,serif' font-size='11' text-anchor='middle' fill='%23f3d999'>%E2%99%AB</text></svg>">
+        <span class="vinyl-spindle" aria-hidden="true"></span>
+      </div>
+      <svg class="tonearm" viewBox="0 0 72 64" width="72" height="64" aria-hidden="true">
+        <circle cx="60" cy="10" r="6.2" fill="#3a2514" stroke="#d9ae55" stroke-width="1.4"/>
+        <circle cx="60" cy="10" r="2.6" fill="#f1cf7d"/>
+        <path d="M60 10 C 59 22, 52 33, 42 42" fill="none" stroke="#e4bc64" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M60 10 C 59 22, 52 33, 42 42" fill="none" stroke="#fff2c2" stroke-width="0.7" stroke-linecap="round" opacity=".65"/>
+        <g transform="translate(40,43) rotate(36)">
+          <rect x="-3.5" y="-2.5" width="7" height="5" rx="1.2" fill="#b88832" stroke="#f3d483" stroke-width="0.9"/>
+          <line x1="-3.5" y1="0" x2="-6.5" y2="1.2" stroke="#f7e2a4" stroke-width="1.1" stroke-linecap="round"/>
+        </g>
+      </svg>
+    </div>
     <div class="track-meta">
       <div class="track-title" id="trackTitle">未播放</div>
-      <div class="track-sub" id="trackSub"></div>
+      <div class="track-sub" id="trackSub">轻触曲目，落针起奏</div>
     </div>
   </div>
 
@@ -67,8 +103,8 @@
         <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
       </button>
       <button id="playBtn" class="play-btn" title="播放/暂停" aria-label="播放/暂停">
-        <svg id="iconPlay" viewBox="0 0 24 24" width="30" height="30"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
-        <svg id="iconPause" viewBox="0 0 24 24" width="30" height="30" style="display:none"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        <svg id="iconPlay" viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+        <svg id="iconPause" viewBox="0 0 24 24" width="28" height="28" style="display:none"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
       </button>
       <button id="nextBtn" class="ctrl-btn" title="下一首" aria-label="下一首">
         <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
@@ -97,7 +133,7 @@
 <div class="modal" id="settingsModal" hidden>
   <div class="modal-box">
     <div class="modal-head">
-      <h2>仓库设置</h2>
+      <h2>唱片柜设置</h2>
       <button id="closeModalBtn" class="icon-btn" aria-label="关闭">&times;</button>
     </div>
     <form id="settingsForm">
@@ -135,6 +171,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

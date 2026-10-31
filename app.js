@@ -593,7 +593,19 @@
     playAt(pos);
   }
 
+  function syncSlider(el) {
+    if (!el) return;
+    const min = Number(el.min) || 0;
+    const rawMax = Number(el.max);
+    const max = rawMax > min ? rawMax : min + 1;
+    const val = rawMax > min ? Math.min(max, Math.max(min, Number(el.value) || 0)) : min;
+    el.style.setProperty("--attr-min", min);
+    el.style.setProperty("--attr-max", max);
+    el.style.setProperty("--control-value", val);
+  }
+
   function setPlayingUI(playing) {
+    document.body.classList.toggle("is-playing", playing);
     els.iconPlay.style.display = playing ? "none" : "";
     els.iconPause.style.display = playing ? "" : "none";
     els.playlist.querySelectorAll(".playlist-item").forEach((el) => {
@@ -625,6 +637,7 @@
     audio.src = t.url;
     els.seek.max = 0;
     els.seek.value = 0;
+    syncSlider(els.seek);
     els.curTime.textContent = "0:00";
     els.durTime.textContent = "0:00";
     safePlay();
@@ -713,6 +726,7 @@
   function updateDuration() {
     if (isFinite(audio.duration)) {
       els.seek.max = audio.duration;
+      syncSlider(els.seek);
       els.durTime.textContent = fmt(audio.duration);
     }
   }
@@ -723,6 +737,7 @@
   audio.addEventListener("timeupdate", () => {
     if (!isSeeking && isFinite(audio.duration)) {
       els.seek.value = audio.currentTime;
+      syncSlider(els.seek);
       els.curTime.textContent = fmt(audio.currentTime);
     }
   });
@@ -766,16 +781,19 @@
 
   els.seek.addEventListener("input", () => {
     isSeeking = true;
+    syncSlider(els.seek);
     els.curTime.textContent = fmt(parseFloat(els.seek.value));
   });
   els.seek.addEventListener("change", () => {
     if (isFinite(audio.duration)) audio.currentTime = parseFloat(els.seek.value);
+    syncSlider(els.seek);
     isSeeking = false;
   });
 
   function setVolume(v) {
     v = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
     els.volume.value = v;
+    syncSlider(els.volume);
     audio.volume = v / 100;
     localStorage.setItem("gh-volume", v);
     if (v > 0) lastVolume = v;
@@ -885,7 +903,10 @@
     if (!isNaN(v)) {
       if (v > 0) lastVolume = Math.min(100, v);
       setVolume(v);
+    } else {
+      syncSlider(els.volume);
     }
+    syncSlider(els.seek);
     setupMediaSession();
     loadLibrary(false);
   }

@@ -43,7 +43,7 @@ push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/�
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=5` 递增(如 `?v=6`)**。
+改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=6` 递增(如 `?v=7`)**。
 否则访问者浏览器用缓存旧 JS,看不到更新(本项目踩过这个坑)。
 
 ### 手动重新生成清单(本地)
