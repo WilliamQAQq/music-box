@@ -1,0 +1,71 @@
+# 项目交接说明(AGENTS.md)
+
+本文件供 AI 代码工具(如 Google Antigravity)与后续维护者快速理解本项目。
+
+## 项目是什么
+
+一个以 **GitHub 仓库为存储**的在线音乐播放器,部署在 GitHub Pages。
+
+- 在线地址:https://williamqaqq.github.io/music-box/
+- 仓库:https://github.com/WilliamQAQq/music-box (公开,约 475MB)
+- 纯前端项目,无框架、无构建步骤,三个静态文件即可运行。
+
+## 文件结构
+
+```
+/ (仓库根目录,即 GitHub Pages 站点根)
+├── index.html            页面结构
+├── style.css             样式(深色响应式)
+├── app.js                全部前端逻辑
+├── music.json            音乐清单(前端主数据源:标题/歌手/专辑/相对路径)
+├── music/                音乐文件(mp3 等,目前 86 首)
+└── .github/
+    ├── gen_music_json.py 清单生成脚本(扫描 music/ 并读取 ID3 标签)
+    └── workflows/update-music.yml   GitHub Actions:push 音乐后自动重跑脚本
+```
+
+## 核心机制
+
+1. 前端 `app.js` 启动后 `fetch("music.json")`(同源相对路径,`cache: no-store`)得到曲目列表并渲染。
+2. 曲目按 `artist` 分组显示(默认"按作者"视图,可切换"全部")。
+3. 点击播放时,`<audio>` 的 src 直接用 music.json 里的相对 URL(浏览器自动按页面域名解析)。
+4. 若 `music.json` 缺失或为空,前端自动回退到 GitHub API(`git/trees`)列文件(有 60 次/小时/IP 限流,仅作兜底)。
+
+## 日常操作
+
+### 加歌(唯一常规操作)
+```
+把 mp3 放入 music/ 文件夹
+git add .; git commit -m "music: xxx"; git push
+```
+push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/专辑)→ Pages 重新构建 → 刷新页面可见。
+
+### 改前端代码
+改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=3` 递增(如 `?v=4`)**。
+否则访问者浏览器用缓存旧 JS,看不到更新(本项目踩过这个坑)。
+
+### 手动重新生成清单(本地)
+```
+python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
+```
+
+## 注意事项 / 坑
+
+- **工作流依赖 mutagen**:`update-music.yml` 里那行 `python -m pip install --quiet mutagen` 不能删,否则 Actions 生成的 music.json 丢失所有 ID3 歌手信息(曾因此出过事故)。
+- **无 ID3 标签的文件**:在 `.github/gen_music_json.py` 的 `MANUAL_ARTIST` 字典里按"精确文件名"手动补歌手。
+- **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前约 475MB,单曲最大约 15.5MB。私有仓库无法免费启用 GitHub Pages,需保持公开。
+- **浏览器缓存**:music.json 用 `no-store` 拉取,加歌后刷新即见;前端 JS/CSS 靠 `?v=` 版本号破缓存。
+- **URL 编码**:前端用相对 URL(原样交给浏览器),API 兜底路径时按路径段 `encodeURIComponent`。
+
+## 技术要点(app.js)
+
+- 分组渲染:按 `artist` 字段在列表中插入 `playlist-header` 吸顶标题。
+- 循环三档:`none → all → one`;`repeat-one` 类给按钮加"1"角标。
+- 播放顺序 `order[]`/`pos` 支持随机播放;搜索过滤 `filteredTracks[]`。
+- 系统媒体键:Media Session API;键盘:空格/方向键/N/P/M。
+- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view`、`gh-volume`。
+
+## 交接对象
+
+- 仓库已公开,任何人可查看/克隆。
+- 如需写权限,把接收方加为仓库协作者,或将仓库转移到接收方账号。
