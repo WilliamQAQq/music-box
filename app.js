@@ -48,18 +48,21 @@
     setBranch: $("setBranch"),
     setPath: $("setPath"),
     setToken: $("setToken"),
+    resetSettingsBtn: $("resetSettingsBtn"),
     closeModalBtn: $("closeModalBtn"),
     formError: $("formError"),
     toast: $("toast"),
   };
 
-  let settings = {
+  const DEFAULT_SETTINGS = {
     owner: "WilliamQAQq",
     repo: "music-box",
     branch: "",
     path: "music",
     token: "",
   };
+
+  let settings = Object.assign({}, DEFAULT_SETTINGS);
 
   let tracks = [];        // { title, artist, album, url, path, dir }
   let covers = new Map(); // dir -> cover url
@@ -131,6 +134,16 @@
     closeSettings();
     loadLibrary(true);
   });
+
+  if (els.resetSettingsBtn) {
+    els.resetSettingsBtn.addEventListener("click", () => {
+      settings = Object.assign({}, DEFAULT_SETTINGS);
+      saveSettings();
+      fillSettingsForm();
+      closeSettings();
+      loadLibrary(true);
+    });
+  }
 
   /* ---------------- github api ---------------- */
 
@@ -240,13 +253,33 @@
         title: String(item.title || url.slice(url.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")),
         artist: item.artist ? String(item.artist) : "",
         album: item.album ? String(item.album) : "",
+        cover: item.cover ? String(item.cover) : "",
         url: url,
         path: url,
         dir: dir,
       });
-      if (item.cover) c.set(dir, String(item.cover));
+      if (item.cover && !c.has(dir)) c.set(dir, String(item.cover));
     });
     return { tracks: t, covers: c };
+  }
+
+  // 是否可使用本站同源 music.json(默认仓库且未指定其他分支，目录为空/music 或 music 子目录)
+  function canUseLocalManifest() {
+    if (settings.owner.toLowerCase() !== DEFAULT_SETTINGS.owner.toLowerCase()) return false;
+    if (settings.repo.toLowerCase() !== DEFAULT_SETTINGS.repo.toLowerCase()) return false;
+    if (settings.branch) return false;
+    const p = settings.path;
+    return !p || p === DEFAULT_SETTINGS.path || p.indexOf(DEFAULT_SETTINGS.path + "/") === 0;
+  }
+
+  function filterLocalManifest(data) {
+    const p = settings.path;
+    if (!p || p === DEFAULT_SETTINGS.path) return data;
+    const prefix = p.replace(/\/+$/, "") + "/";
+    return {
+      tracks: data.tracks.filter((t) => t.path.indexOf(prefix) === 0),
+      covers: data.covers,
+    };
   }
 
   function toCoverMap(c) {
@@ -259,7 +292,7 @@
 
   let loadSeq = 0;
 
-  // 有缓存时先秒开缓存，再在后台拉取最新 music.json，有变化就更新(加歌后刷新即可见)
+  // 有缓存时先秒开缓存；默认仓库同时在后台拉取最新 music.json，有变化就更新(加歌后刷新即可见)
   async function loadLibrary(force) {
     if (!settings.owner || !settings.repo) {
       showBanner(true);
@@ -267,22 +300,31 @@
     }
 
     const seq = ++loadSeq;
+    const useLocal = canUseLocalManifest();
     const cache = force ? null : loadCache();
-    const useCache = !!(cache && cache.owner === settings.owner && cache.repo === settings.repo &&
+    const useCache = !!(cache &&
+      cache.owner === settings.owner &&
+      cache.repo === settings.repo &&
+      (cache.branch || "") === settings.branch &&
+      (cache.path === undefined ? DEFAULT_SETTINGS.path : cache.path) === settings.path &&
       Array.isArray(cache.tracks) && cache.tracks.length);
 
     if (useCache) {
       applyLibrary(cache);
       showBanner(false);
+      // 自定义外部仓库走 GitHub API(有每小时限额)，命中缓存时不自动后台重扫，点刷新按钮再扫
+      if (!useLocal) return;
     } else {
       setLoading(true);
     }
 
     try {
       let data = null;
-      try {
-        data = await loadFromMusicJson();
-      } catch (e) { /* music.json 不存在时回退到 GitHub API */ }
+      if (useLocal) {
+        try {
+          data = filterLocalManifest(await loadFromMusicJson());
+        } catch (e) { /* music.json 不存在时回退到 GitHub API */ }
+      }
       if (!data || !data.tracks.length) {
         // 已有缓存时不为后台刷新消耗 GitHub API 限额
         if (useCache) return;
@@ -293,7 +335,14 @@
 
       const newCovers = toCoverMap(data.covers);
       const changed = !useCache || libraryKey(data.tracks, newCovers) !== libraryKey(cache.tracks, cache.covers);
-      saveCache({ owner: settings.owner, repo: settings.repo, branch: "", tracks: data.tracks, covers: [...newCovers] });
+      saveCache({
+        owner: settings.owner,
+        repo: settings.repo,
+        branch: settings.branch,
+        path: settings.path,
+        tracks: data.tracks,
+        covers: [...newCovers],
+      });
       if (changed) {
         applyLibrary({ tracks: data.tracks, covers: newCovers });
         toast((useCache ? "歌单已更新，共 " : "已加载 ") + data.tracks.length + " 首音乐");
@@ -544,13 +593,27 @@
     playAt(pos);
   }
 
+  function setPlayingUI(playing) {
+    els.iconPlay.style.display = playing ? "none" : "";
+    els.iconPause.style.display = playing ? "" : "none";
+    els.playlist.querySelectorAll(".playlist-item").forEach((el) => {
+      const isCur = Number(el.dataset.index) === currentIndex;
+      el.classList.toggle("playing", playing && isCur);
+    });
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+    }
+  }
+
   // play() 被切歌打断时会以 AbortError 拒绝，这属于正常情况，不应提示错误；
   // 真正的解码/网络错误会触发 audio 的 error 事件，在那里统一处理。
   function safePlay() {
     const p = audio.play();
     if (p && typeof p.catch === "function") {
       p.catch((e) => {
-        if (e && e.name === "NotAllowedError") toast("浏览器阻止了自动播放，请点击播放按钮", true);
+        if (!e || e.name === "AbortError") return;
+        setPlayingUI(false);
+        if (e.name === "NotAllowedError") toast("浏览器阻止了自动播放，请点击播放按钮", true);
       });
     }
   }
@@ -558,6 +621,7 @@
   function startPlayback() {
     const t = tracks[currentIndex];
     if (!t) return;
+    isSeeking = false;
     audio.src = t.url;
     els.seek.max = 0;
     els.seek.value = 0;
@@ -566,7 +630,7 @@
     safePlay();
     els.trackTitle.textContent = t.title;
     els.trackSub.textContent = t.artist || t.album || t.dir || "/";
-    const cover = lookupCover(t.dir);
+    const cover = t.cover || lookupCover(t.dir);
     els.coverArt.src = cover || DEFAULT_COVER;
     highlightActive(true);
     updateMediaSession(t, cover);
@@ -663,21 +727,11 @@
     }
   });
 
-  audio.addEventListener("play", () => {
-    els.iconPlay.style.display = "none";
-    els.iconPause.style.display = "";
-    els.playlist.querySelectorAll(".playlist-item.active").forEach((el) => el.classList.add("playing"));
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
-  });
+  audio.addEventListener("play", () => setPlayingUI(true));
 
   audio.addEventListener("playing", () => { errorStreak = 0; });
 
-  audio.addEventListener("pause", () => {
-    els.iconPlay.style.display = "";
-    els.iconPause.style.display = "none";
-    els.playlist.querySelectorAll(".playlist-item.playing").forEach((el) => el.classList.remove("playing"));
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
-  });
+  audio.addEventListener("pause", () => setPlayingUI(false));
 
   audio.addEventListener("ended", () => {
     if (repeat === "one") { restart(); return; }
@@ -686,9 +740,14 @@
 
   audio.addEventListener("error", () => {
     if (currentIndex === -1 || !audio.error) return;
+    setPlayingUI(false);
     const t = tracks[currentIndex];
     errorStreak++;
-    if (errorStreak >= Math.min(order.length || 1, MAX_ERROR_STREAK)) {
+    if (order.length <= 1 || (pos >= order.length - 1 && repeat !== "all")) {
+      toast("无法播放：" + (t ? t.title : ""), true);
+      return;
+    }
+    if (errorStreak >= Math.min(order.length, MAX_ERROR_STREAK)) {
       toast("连续 " + errorStreak + " 首无法播放，已停止(请检查网络)", true);
       return;
     }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>GitHub 音乐盒</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -123,15 +123,18 @@
       </label>
       <div class="modal-foot">
         <span class="form-error" id="formError"></span>
-        <button type="submit" class="primary-btn">保存并加载</button>
+        <div class="modal-actions">
+          <button type="button" id="resetSettingsBtn" class="ghost-btn">恢复默认</button>
+          <button type="submit" class="primary-btn">保存并加载</button>
+        </div>
       </div>
     </form>
-    <p class="hint modal-hint">说明：播放器优先读取本站的 music.json 歌单；仅当 music.json 缺失或为空时，才会按上面的仓库信息通过 GitHub API 列出音频文件(未填令牌时每小时限 60 次)。令牌只会保存在你自己的浏览器 localStorage 中，不会上传到任何服务器。</p>
+    <p class="hint modal-hint">说明：默认仓库直接读取本站 music.json 歌单(无需消耗 API 限额)；改为其他仓库或分支后，则通过 GitHub API 列出音频文件(未填令牌时每小时限 60 次)。令牌仅保存在本地浏览器 localStorage 中。</p>
   </div>
 </div>
 
 <div class="toast" id="toast" hidden></div>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

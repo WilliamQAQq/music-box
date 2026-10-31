@@ -431,6 +431,22 @@ button { cursor: pointer; background: none; border: none; color: inherit; font: 
   margin-top: 6px;
   gap: 10px;
 }
+.modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.ghost-btn {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--muted);
+  font-size: 13.5px;
+  transition: background .15s, color .15s;
+}
+.ghost-btn:hover { background: var(--bg4); color: var(--text); }
 .form-error { color: #ff6b6b; font-size: 13px; }
 .modal-hint { margin-top: 14px; font-size: 12px; line-height: 1.6; color: var(--muted); }
 
@@ -469,7 +485,7 @@ button { cursor: pointer; background: none; border: none; color: inherit; font: 
   .player {
     grid-template-columns: 1fr auto;
     height: auto;
-    padding: 10px 14px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
     gap: 8px;
   }
   .player-center { grid-column: 1 / -1; grid-row: 1; order: -1; }
@@ -478,4 +494,5 @@ button { cursor: pointer; background: none; border: none; color: inherit; font: 
   .content { padding-bottom: 210px; }
   .playlist-item .meta { max-width: 45%; }
   .vol { display: none; }
+  .toast { bottom: calc(168px + env(safe-area-inset-bottom, 0px)); }
 }

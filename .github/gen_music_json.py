@@ -89,7 +89,7 @@ def main():
             d = os.path.dirname(d)
 
     tracks.sort(
-        key=lambda t: (t["artist"].lower(), t["title"].lower())
+        key=lambda t: (t["artist"].lower(), t["artist"], t["title"].lower())
     )
 
     with open(OUT, "w", encoding="utf-8") as fh:
