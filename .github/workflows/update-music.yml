@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# 连续多次 push 时排队执行，避免两个任务同时提交 music.json 互相冲突
+concurrency:
+  group: update-music
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -18,27 +23,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: main          # 取最新 main(排队时前一个任务可能已提交过 music.json)
           fetch-depth: 1
 
-      - name: Generate music.json
-        run: |
-          python -m pip install --quiet mutagen
-          python .github/gen_music_json.py
+      - name: Install mutagen
+        # 不能删：没有 mutagen 时生成的 music.json 会丢失所有 ID3 歌手信息
+        run: python -m pip install --quiet mutagen
 
-      - name: Check for changes
-        id: check
-        run: |
-          if git diff --quiet -- music.json; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit and push
-        if: steps.check.outputs.changed == 'true'
+      - name: Generate, commit and push music.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add music.json
-          git commit -m "chore: update music.json"
-          git push
+          for attempt in 1 2 3; do
+            python .github/gen_music_json.py
+            if git diff --quiet -- music.json; then
+              echo "music.json unchanged"
+              exit 0
+            fi
+            git add music.json
+            git commit -m "chore: update music.json"
+            if git push; then
+              exit 0
+            fi
+            # 运行期间有人又 push 了：同步最新 main 后重新生成再试
+            echo "push rejected, retrying ($attempt)"
+            git fetch --depth=1 origin main
+            git reset --hard origin/main
+          done
+          exit 1

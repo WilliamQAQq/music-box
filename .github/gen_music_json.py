@@ -27,13 +27,19 @@ MANUAL_ARTIST = {
 
 
 def read_id3(path):
+    """Read artist/album/title tags. Works for mp3 (ID3), m4a/aac (MP4),
+    flac/ogg/opus (Vorbis comments) etc. via mutagen's easy interface."""
     try:
-        from mutagen.easyid3 import EasyID3
-        t = EasyID3(path)
-        artist = (t.get("artist") or [""])[0].strip()
-        album = (t.get("album") or [""])[0].strip()
-        title = (t.get("title") or [""])[0].strip()
-        return artist, album, title
+        import mutagen
+        t = mutagen.File(path, easy=True)
+        if t is None or not t.tags:
+            return "", "", ""
+
+        def first(key):
+            v = t.tags.get(key) or [""]
+            return str(v[0]).strip()
+
+        return first("artist"), first("album"), first("title")
     except Exception:
         return "", "", ""
 

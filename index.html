@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>GitHub 音乐盒</title>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -25,7 +25,7 @@
 </header>
 
 <main class="content">
-  <section class="banner" id="banner">
+  <section class="banner" id="banner" hidden>
     <div class="banner-text">
       <h2 id="bannerTitle">设置你的 GitHub 音乐仓库</h2>
       <p id="bannerSub">填入仓库信息后即可在线播放仓库里的音乐</p>
@@ -126,12 +126,12 @@
         <button type="submit" class="primary-btn">保存并加载</button>
       </div>
     </form>
-    <p class="hint modal-hint">说明：播放器通过 GitHub API 读取仓库中的音频文件并在线播放，适用于 GitHub Pages 免费托管。令牌只会保存在你自己的浏览器 localStorage 中，不会上传到任何服务器。</p>
+    <p class="hint modal-hint">说明：播放器优先读取本站的 music.json 歌单；仅当 music.json 缺失或为空时，才会按上面的仓库信息通过 GitHub API 列出音频文件(未填令牌时每小时限 60 次)。令牌只会保存在你自己的浏览器 localStorage 中，不会上传到任何服务器。</p>
   </div>
 </div>
 
 <div class="toast" id="toast" hidden></div>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

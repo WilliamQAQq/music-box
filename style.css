@@ -14,6 +14,9 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* 让 hidden 属性始终生效(否则 .banner 的 display:flex 会覆盖它，横幅永远隐藏不了) */
+[hidden] { display: none !important; }
+
 html, body {
   height: 100%;
 }
@@ -473,7 +476,6 @@ button { cursor: pointer; background: none; border: none; color: inherit; font: 
   .player-track { grid-column: 1; }
   .player-right { grid-column: 2; }
   .content { padding-bottom: 210px; }
-  .track-sub { display: none; }
   .playlist-item .meta { max-width: 45%; }
   .vol { display: none; }
 }

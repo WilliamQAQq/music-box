@@ -8,6 +8,9 @@
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
   const COVER_NAMES = ["cover", "folder", "album", "albumart", "artwork", "front", "poster"];
 
+  // 连续多少首播放失败后停止自动跳歌(防止断网时无限跳歌)
+  const MAX_ERROR_STREAK = 3;
+
   const $ = (id) => document.getElementById(id);
 
   const els = {
@@ -58,19 +61,22 @@
     token: "",
   };
 
-  let tracks = [];        // { title, url, path, dir }
+  let tracks = [];        // { title, artist, album, url, path, dir }
   let covers = new Map(); // dir -> cover url
-  let order = [];         // play order of track indices
-  let pos = -1;           // current position within order
-  let filteredTracks = []; // indices visible after search
-  let currentIndex = -1;  // index in tracks[]
+  let order = [];         // 当前播放上下文(tracks 下标),随机模式下为打乱后的顺序
+  let pos = -1;           // 当前曲目在 order 中的位置
+  let filteredTracks = []; // 搜索过滤后可见的 tracks 下标
+  let currentIndex = -1;  // 当前曲目在 tracks[] 中的下标
 
   let shuffle = localStorage.getItem("gh-shuffle") === "1";
   let repeat = localStorage.getItem("gh-repeat") || "none";
   let view = localStorage.getItem("gh-view") || "artist";
   let isSeeking = false;
+  let errorStreak = 0;
+  let lastVolume = 80;    // 取消静音时恢复的音量
 
   const audio = els.audio;
+  const DEFAULT_COVER = els.coverArt.getAttribute("src");
 
   /* ---------------- settings ---------------- */
 
@@ -105,7 +111,10 @@
   }
 
   els.settingsBtn.addEventListener("click", openSettings);
-  els.bannerCta.addEventListener("click", openSettings);
+  els.bannerCta.addEventListener("click", () => {
+    if (settings.owner && settings.repo) loadLibrary(true);
+    else openSettings();
+  });
   els.closeModalBtn.addEventListener("click", closeSettings);
   els.settingsModal.addEventListener("click", (e) => {
     if (e.target === els.settingsModal) closeSettings();
@@ -189,7 +198,7 @@
       const dir = p.slice(0, p.lastIndexOf("/"));
 
       if (AUDIO_EXTS.indexOf(ext) !== -1) {
-        const title = baseName.replace(/[_-]+/g, " ");
+        const title = p.slice(p.lastIndexOf("/") + 1, dot).replace(/[_-]+/g, " ");
         newTracks.push({ title, artist: "", album: "", path: p, dir, url: rawUrl(branch, p) });
       } else if (IMAGE_EXTS.indexOf(ext) !== -1) {
         if (!coverMap.has(dir) || COVER_NAMES.indexOf(baseName) !== -1) {
@@ -240,36 +249,58 @@
     return { tracks: t, covers: c };
   }
 
+  function toCoverMap(c) {
+    return c instanceof Map ? c : new Map(c || []);
+  }
+
+  function libraryKey(t, c) {
+    return JSON.stringify([t || [], [...toCoverMap(c)]]);
+  }
+
+  let loadSeq = 0;
+
+  // 有缓存时先秒开缓存，再在后台拉取最新 music.json，有变化就更新(加歌后刷新即可见)
   async function loadLibrary(force) {
     if (!settings.owner || !settings.repo) {
       showBanner(true);
       return;
     }
 
-    const cache = loadCache();
-    if (!force && cache && cache.owner === settings.owner && cache.repo === settings.repo && cache.tracks && cache.tracks.length) {
+    const seq = ++loadSeq;
+    const cache = force ? null : loadCache();
+    const useCache = !!(cache && cache.owner === settings.owner && cache.repo === settings.repo &&
+      Array.isArray(cache.tracks) && cache.tracks.length);
+
+    if (useCache) {
       applyLibrary(cache);
       showBanner(false);
-      return;
+    } else {
+      setLoading(true);
     }
 
-    setLoading(true);
     try {
       let data = null;
       try {
         data = await loadFromMusicJson();
       } catch (e) { /* music.json 不存在时回退到 GitHub API */ }
       if (!data || !data.tracks.length) {
+        // 已有缓存时不为后台刷新消耗 GitHub API 限额
+        if (useCache) return;
         const branch = await getDefaultBranch();
         data = await fetchTracks(branch);
       }
-      tracks = data.tracks;
-      covers = data.covers instanceof Map ? data.covers : new Map(data.covers || []);
-      saveCache({ owner: settings.owner, repo: settings.repo, branch: "", tracks: tracks, covers: [...covers] });
-      applyLibrary({ tracks: tracks, covers: covers });
+      if (seq !== loadSeq) return;
+
+      const newCovers = toCoverMap(data.covers);
+      const changed = !useCache || libraryKey(data.tracks, newCovers) !== libraryKey(cache.tracks, cache.covers);
+      saveCache({ owner: settings.owner, repo: settings.repo, branch: "", tracks: data.tracks, covers: [...newCovers] });
+      if (changed) {
+        applyLibrary({ tracks: data.tracks, covers: newCovers });
+        toast((useCache ? "歌单已更新，共 " : "已加载 ") + data.tracks.length + " 首音乐");
+      }
       showBanner(false);
-      toast("已加载 " + tracks.length + " 首音乐");
     } catch (err) {
+      if (seq !== loadSeq || useCache) return;
       setLoading(false);
       els.trackCount.textContent = "";
       showBanner(true);
@@ -294,9 +325,21 @@
   }
 
   function applyLibrary(data) {
+    // 歌单更新时按 url 重新映射当前曲目与播放顺序，避免正在播放的歌错位
+    const oldTracks = tracks;
     tracks = data.tracks;
-    covers = data.covers instanceof Map ? data.covers : new Map(data.covers);
+    covers = toCoverMap(data.covers);
+    const idxByUrl = new Map(tracks.map((t, i) => [t.url, i]));
+    const remap = (i) => {
+      const t = oldTracks[i];
+      return t && idxByUrl.has(t.url) ? idxByUrl.get(t.url) : -1;
+    };
+    if (currentIndex !== -1) currentIndex = remap(currentIndex);
+    order = order.map(remap).filter((i) => i !== -1);
+    pos = currentIndex !== -1 ? order.indexOf(currentIndex) : -1;
+
     if (!tracks.length) {
+      filteredTracks = [];
       els.emptyState.hidden = false;
       els.playlist.innerHTML = "";
       renderCount();
@@ -311,11 +354,15 @@
     const q = els.searchInput.value.trim().toLowerCase();
     filteredTracks = [];
     tracks.forEach((t, i) => {
-      if (!q || t.title.toLowerCase().indexOf(q) !== -1 || t.path.toLowerCase().indexOf(q) !== -1) {
+      if (!q ||
+        t.title.toLowerCase().indexOf(q) !== -1 ||
+        t.artist.toLowerCase().indexOf(q) !== -1 ||
+        t.album.toLowerCase().indexOf(q) !== -1 ||
+        t.path.toLowerCase().indexOf(q) !== -1) {
         filteredTracks.push(i);
       }
     });
-    renderPlaylist();
+    renderPlaylist(false);
   }
 
   function setLoading(on) {
@@ -333,9 +380,9 @@
     els.banner.hidden = !show;
     if (show) {
       if (settings.owner && settings.repo) {
-        els.bannerTitle.textContent = "音乐仓库加载失败";
-        els.bannerSub.textContent = "请检查仓库是否公开、地址是否正确，或添加访问令牌";
-        els.bannerCta.textContent = "重新配置";
+        els.bannerTitle.textContent = "音乐列表加载失败";
+        els.bannerSub.textContent = "请检查网络后重试；如需从其他 GitHub 仓库读取，可在右上角设置中修改";
+        els.bannerCta.textContent = "重试";
       } else {
         els.bannerTitle.textContent = "设置你的 GitHub 音乐仓库";
         els.bannerSub.textContent = "填入仓库信息后即可在线播放仓库里的音乐";
@@ -366,6 +413,7 @@
     const t = tracks[tIndex];
     const li = document.createElement("li");
     li.className = "playlist-item";
+    li.dataset.index = tIndex;
     if (tIndex === currentIndex) li.classList.add("active");
     if (tIndex === currentIndex && !audio.paused) li.classList.add("playing");
 
@@ -390,7 +438,7 @@
     return li;
   }
 
-  function renderPlaylist() {
+  function renderPlaylist(scrollToActive) {
     renderCount();
     const frag = document.createDocumentFragment();
     if (view === "artist") {
@@ -413,11 +461,23 @@
     }
     els.playlist.innerHTML = "";
     els.playlist.appendChild(frag);
+    if (scrollToActive) scrollActiveIntoView();
+  }
 
-    if (currentIndex !== -1) {
-      const el = els.playlist.querySelector(".playlist-item.active");
-      if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
+  // 切歌时只更新高亮，不重建整个列表
+  function highlightActive(scroll) {
+    els.playlist.querySelectorAll(".playlist-item").forEach((li) => {
+      const on = Number(li.dataset.index) === currentIndex;
+      li.classList.toggle("active", on);
+      li.classList.toggle("playing", on && !audio.paused);
+    });
+    if (scroll) scrollActiveIntoView();
+  }
+
+  function scrollActiveIntoView() {
+    if (currentIndex === -1) return;
+    const el = els.playlist.querySelector(".playlist-item.active");
+    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
   function setView(next) {
@@ -437,81 +497,121 @@
 
   /* ---------------- player logic ---------------- */
 
-  function playTrackByIndex(tIndex) {
-    if (order.length === 0 || !filteredTracks.includes(tIndex)) {
-      order = filteredTracks.slice();
+  function shuffleInPlace(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
     }
-    pos = order.indexOf(tIndex);
-    if (pos === -1) { order = filteredTracks.slice(); pos = order.indexOf(tIndex); }
-    if (pos === -1) return;
-    currentIndex = tIndex;
+    return a;
+  }
+
+  // 按当前随机开关排列播放顺序；first 若在列表中则排在最前
+  function arrangeOrder(list, first) {
+    const out = list.slice();
+    if (shuffle) {
+      shuffleInPlace(out);
+      const i = first == null ? -1 : out.indexOf(first);
+      if (i > 0) { out.splice(i, 1); out.unshift(first); }
+    } else {
+      out.sort((a, b) => a - b);
+    }
+    return out;
+  }
+
+  // 以当前可见列表(搜索结果)作为播放上下文
+  function buildOrder(first) {
+    order = arrangeOrder(filteredTracks, first);
+    pos = first == null ? -1 : order.indexOf(first);
+  }
+
+  function ensureOrder() {
+    if (order.length) return true;
+    if (!filteredTracks.length) return false;
+    buildOrder(currentIndex !== -1 && filteredTracks.indexOf(currentIndex) !== -1 ? currentIndex : null);
+    return order.length > 0;
+  }
+
+  function playAt(p) {
+    pos = p;
+    currentIndex = order[p];
     startPlayback();
+  }
+
+  function playTrackByIndex(tIndex) {
+    errorStreak = 0;
+    buildOrder(tIndex);
+    if (pos === -1) { order.unshift(tIndex); pos = 0; }
+    playAt(pos);
+  }
+
+  // play() 被切歌打断时会以 AbortError 拒绝，这属于正常情况，不应提示错误；
+  // 真正的解码/网络错误会触发 audio 的 error 事件，在那里统一处理。
+  function safePlay() {
+    const p = audio.play();
+    if (p && typeof p.catch === "function") {
+      p.catch((e) => {
+        if (e && e.name === "NotAllowedError") toast("浏览器阻止了自动播放，请点击播放按钮", true);
+      });
+    }
   }
 
   function startPlayback() {
     const t = tracks[currentIndex];
     if (!t) return;
     audio.src = t.url;
-    audio.play().catch(() => toast("无法播放该文件", true));
+    els.seek.max = 0;
+    els.seek.value = 0;
+    els.curTime.textContent = "0:00";
+    els.durTime.textContent = "0:00";
+    safePlay();
     els.trackTitle.textContent = t.title;
-    els.trackSub.textContent = t.artist || t.dir || "/";
+    els.trackSub.textContent = t.artist || t.album || t.dir || "/";
     const cover = lookupCover(t.dir);
-    if (cover) els.coverArt.src = cover;
-    renderPlaylist();
+    els.coverArt.src = cover || DEFAULT_COVER;
+    highlightActive(true);
     updateMediaSession(t, cover);
   }
 
-  function currentTrack() {
-    return currentIndex !== -1 ? tracks[currentIndex] : null;
-  }
-
-  function nextTrack() {
-    if (!order.length) return;
-    if (repeat === "one") { restart(); return; }
+  // auto=true 表示自然播完/出错后的自动切歌；手动点“下一首”传 false
+  function nextTrack(auto) {
+    if (!ensureOrder()) return;
+    if (pos < order.length - 1) { playAt(pos + 1); return; }
+    // 已到列表末尾：自然播完且没开列表循环则停止
+    if (auto === true && repeat !== "all") return;
     if (shuffle && order.length > 1) {
-      let n;
-      do { n = Math.floor(Math.random() * order.length); } while (n === pos && order.length > 1);
-      pos = n;
-    } else {
-      if (pos >= order.length - 1) {
-        if (repeat === "all") pos = 0;
-        else return;
-      } else {
-        pos++;
-      }
+      const last = order[order.length - 1];
+      order = arrangeOrder(order, null);
+      if (order[0] === last) order.push(order.shift()); // 新一轮不立刻重复刚播完的歌
     }
-    currentIndex = order[pos];
-    startPlayback();
+    playAt(0);
   }
 
   function prevTrack() {
-    if (audio.currentTime > 3 || !order.length) { restart(); return; }
-    if (shuffle && order.length > 1) {
-      let n;
-      do { n = Math.floor(Math.random() * order.length); } while (n === pos && order.length > 1);
-      pos = n;
-    } else if (pos > 0) {
-      pos--;
-    } else {
-      restart();
-      return;
-    }
-    currentIndex = order[pos];
-    startPlayback();
+    if (currentIndex !== -1 && audio.currentTime > 3) { restart(); return; }
+    if (!ensureOrder()) return;
+    if (pos > 0) { playAt(pos - 1); return; }
+    if (currentIndex === -1 || pos === -1) { playAt(0); return; }
+    if (repeat === "all" && order.length > 1) { playAt(order.length - 1); return; }
+    restart();
   }
 
   function restart() {
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    safePlay();
   }
 
   function togglePlay() {
-    if (currentIndex === -1 && order.length) {
-      playTrackByIndex(order[0]);
+    if (currentIndex === -1 && !audio.currentSrc) {
+      // 还没播过任何歌：从当前列表开头(随机模式下为随机一首)开始
+      if (ensureOrder()) playAt(pos >= 0 ? pos : 0);
       return;
     }
-    if (!currentTrack()) return;
-    if (audio.paused) audio.play().catch(() => toast("无法播放该文件", true));
+    if (audio.error && currentIndex !== -1) {
+      errorStreak = 0;
+      startPlayback();
+      return;
+    }
+    if (audio.paused) safePlay();
     else audio.pause();
   }
 
@@ -519,7 +619,12 @@
     shuffle = !shuffle;
     localStorage.setItem("gh-shuffle", shuffle ? "1" : "0");
     els.shuffleBtn.classList.toggle("on", shuffle);
-    if (shuffle) toast("已开启随机播放");
+    if (order.length) {
+      const cur = currentIndex !== -1 ? currentIndex : null;
+      order = arrangeOrder(order, cur);
+      pos = cur == null ? -1 : order.indexOf(cur);
+    }
+    toast(shuffle ? "已开启随机播放" : "已关闭随机播放");
   }
 
   function cycleRepeat() {
@@ -533,6 +638,7 @@
   }
 
   function updateRepeatUI() {
+    if (["none", "all", "one"].indexOf(repeat) === -1) repeat = "none";
     els.repeatBtn.classList.toggle("on", repeat !== "none");
     els.repeatBtn.classList.toggle("repeat-one", repeat === "one");
     els.repeatBtn.title = repeat === "none" ? "循环模式：关闭" : repeat === "all" ? "循环模式：列表循环" : "循环模式：单曲循环";
@@ -540,19 +646,15 @@
 
   /* ---------------- audio events ---------------- */
 
-  audio.addEventListener("loadedmetadata", () => {
+  function updateDuration() {
     if (isFinite(audio.duration)) {
       els.seek.max = audio.duration;
       els.durTime.textContent = fmt(audio.duration);
     }
-  });
+  }
 
-  audio.addEventListener("durationchange", () => {
-    if (isFinite(audio.duration)) {
-      els.seek.max = audio.duration;
-      els.durTime.textContent = fmt(audio.duration);
-    }
-  });
+  audio.addEventListener("loadedmetadata", updateDuration);
+  audio.addEventListener("durationchange", updateDuration);
 
   audio.addEventListener("timeupdate", () => {
     if (!isSeeking && isFinite(audio.duration)) {
@@ -565,32 +667,40 @@
     els.iconPlay.style.display = "none";
     els.iconPause.style.display = "";
     els.playlist.querySelectorAll(".playlist-item.active").forEach((el) => el.classList.add("playing"));
-    navigator.mediaSession && (navigator.mediaSession.playbackState = "playing");
+    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
   });
+
+  audio.addEventListener("playing", () => { errorStreak = 0; });
 
   audio.addEventListener("pause", () => {
     els.iconPlay.style.display = "";
     els.iconPause.style.display = "none";
     els.playlist.querySelectorAll(".playlist-item.playing").forEach((el) => el.classList.remove("playing"));
-    navigator.mediaSession && (navigator.mediaSession.playbackState = "paused");
+    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   });
 
   audio.addEventListener("ended", () => {
     if (repeat === "one") { restart(); return; }
-    nextTrack();
+    nextTrack(true);
   });
 
   audio.addEventListener("error", () => {
-    if (currentIndex !== -1) {
-      toast("无法播放：" + (tracks[currentIndex] ? tracks[currentIndex].path : ""), true);
-      nextTrack();
+    if (currentIndex === -1 || !audio.error) return;
+    const t = tracks[currentIndex];
+    errorStreak++;
+    if (errorStreak >= Math.min(order.length || 1, MAX_ERROR_STREAK)) {
+      toast("连续 " + errorStreak + " 首无法播放，已停止(请检查网络)", true);
+      return;
     }
+    toast("无法播放：" + (t ? t.title : ""), true);
+    // 出错时即使是单曲循环也跳到下一首，避免卡死在坏文件上
+    nextTrack(true);
   });
 
   /* ---------------- controls ---------------- */
 
   els.playBtn.addEventListener("click", togglePlay);
-  els.nextBtn.addEventListener("click", nextTrack);
+  els.nextBtn.addEventListener("click", () => nextTrack(false));
   els.prevBtn.addEventListener("click", prevTrack);
   els.shuffleBtn.addEventListener("click", toggleShuffle);
   els.repeatBtn.addEventListener("click", cycleRepeat);
@@ -600,21 +710,24 @@
     els.curTime.textContent = fmt(parseFloat(els.seek.value));
   });
   els.seek.addEventListener("change", () => {
-    audio.currentTime = parseFloat(els.seek.value);
+    if (isFinite(audio.duration)) audio.currentTime = parseFloat(els.seek.value);
     isSeeking = false;
   });
 
   function setVolume(v) {
+    v = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+    els.volume.value = v;
     audio.volume = v / 100;
     localStorage.setItem("gh-volume", v);
+    if (v > 0) lastVolume = v;
     els.muteBtn.classList.toggle("on", v === 0);
   }
 
-  els.volume.addEventListener("input", () => setVolume(parseInt(els.volume.value, 10)));
+  els.volume.addEventListener("input", () => setVolume(els.volume.value));
 
   els.muteBtn.addEventListener("click", () => {
-    if (audio.volume > 0) { els.volume.value = 0; setVolume(0); }
-    else { els.volume.value = 80; setVolume(80); }
+    if (Number(els.volume.value) > 0) setVolume(0);
+    else setVolume(lastVolume || 80);
   });
 
   function fmt(sec) {
@@ -627,6 +740,22 @@
 
   /* ---------------- media session ---------------- */
 
+  function setupMediaSession() {
+    if (!("mediaSession" in navigator)) return;
+    const handlers = {
+      play: () => { if (audio.paused) togglePlay(); },
+      pause: () => audio.pause(),
+      previoustrack: prevTrack,
+      nexttrack: () => nextTrack(false),
+      seekto: (d) => {
+        if (d && isFinite(d.seekTime) && isFinite(audio.duration)) audio.currentTime = d.seekTime;
+      },
+    };
+    Object.keys(handlers).forEach((k) => {
+      try { navigator.mediaSession.setActionHandler(k, handlers[k]); } catch (e) { /* 不支持该动作 */ }
+    });
+  }
+
   function updateMediaSession(t, cover) {
     if (!("mediaSession" in navigator)) return;
     try {
@@ -636,25 +765,40 @@
         album: t.album || settings.repo,
         artwork: cover ? [{ src: cover, sizes: "512x512" }] : [],
       });
-      navigator.mediaSession.setActionHandler("play", togglePlay);
-      navigator.mediaSession.setActionHandler("pause", togglePlay);
-      navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
-      navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
     } catch (e) { /* ignore */ }
   }
 
   /* ---------------- keyboard ---------------- */
 
   document.addEventListener("keydown", (e) => {
-    const tag = (e.target.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea") return;
+    if (!els.settingsModal.hidden) {
+      if (e.key === "Escape") closeSettings();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // 不拦截 Ctrl+P 等浏览器快捷键
+
+    const target = e.target;
+    const tag = (target.tagName || "").toLowerCase();
+    if (target.isContentEditable || tag === "textarea" || tag === "select") return;
+    if (tag === "input") {
+      if (target.type !== "range") return;            // 文本/搜索框里正常打字
+      if (e.key.indexOf("Arrow") === 0) return;       // 滑块用方向键自行调节
+    }
+    // 焦点在按钮上时，空格/回车交给按钮原生行为，避免“按一次触发两次”
+    if ((tag === "button" || tag === "a") && (e.key === " " || e.key === "Enter")) return;
+    if (e.repeat && e.key.indexOf("Arrow") !== 0) return;
+
     switch (e.key) {
       case " ": e.preventDefault(); togglePlay(); break;
-      case "ArrowRight": audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5); break;
-      case "ArrowLeft": audio.currentTime = Math.max(0, audio.currentTime - 5); break;
-      case "ArrowUp": e.preventDefault(); els.volume.value = Math.min(100, parseInt(els.volume.value, 10) + 5); setVolume(parseInt(els.volume.value, 10)); break;
-      case "ArrowDown": e.preventDefault(); els.volume.value = Math.max(0, parseInt(els.volume.value, 10) - 5); setVolume(parseInt(els.volume.value, 10)); break;
-      case "n": case "N": nextTrack(); break;
+      case "ArrowRight":
+        if (isFinite(audio.duration)) { e.preventDefault(); audio.currentTime = Math.min(audio.duration, audio.currentTime + 5); }
+        break;
+      case "ArrowLeft":
+        if (isFinite(audio.duration)) { e.preventDefault(); audio.currentTime = Math.max(0, audio.currentTime - 5); }
+        break;
+      case "ArrowUp": e.preventDefault(); setVolume(Number(els.volume.value) + 5); break;
+      case "ArrowDown": e.preventDefault(); setVolume(Number(els.volume.value) - 5); break;
+      case "n": case "N": nextTrack(false); break;
       case "p": case "P": prevTrack(); break;
       case "m": case "M": els.muteBtn.click(); break;
     }
@@ -677,9 +821,13 @@
     loadSettings();
     updateRepeatUI();
     els.shuffleBtn.classList.toggle("on", shuffle);
-    setView(view);
+    setView(view === "flat" ? "flat" : "artist");
     const v = parseInt(localStorage.getItem("gh-volume"), 10);
-    if (!isNaN(v)) { els.volume.value = v; audio.volume = v / 100; els.muteBtn.classList.toggle("on", v === 0); }
+    if (!isNaN(v)) {
+      if (v > 0) lastVolume = Math.min(100, v);
+      setVolume(v);
+    }
+    setupMediaSession();
     loadLibrary(false);
   }
 

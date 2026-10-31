@@ -27,6 +27,7 @@
 ## 核心机制
 
 1. 前端 `app.js` 启动后 `fetch("music.json")`(同源相对路径,`cache: no-store`)得到曲目列表并渲染。
+   老访客有 localStorage 缓存时先秒开缓存,同时后台拉最新 `music.json`,有变化自动刷新列表(加歌后刷新页面即见)。
 2. 曲目按 `artist` 分组显示(默认"按作者"视图,可切换"全部")。
 3. 点击播放时,`<audio>` 的 src 直接用 music.json 里的相对 URL(浏览器自动按页面域名解析)。
 4. 若 `music.json` 缺失或为空,前端自动回退到 GitHub API(`git/trees`)列文件(有 60 次/小时/IP 限流,仅作兜底)。
@@ -36,12 +37,13 @@
 ### 加歌(唯一常规操作)
 ```
 把 mp3 放入 music/ 文件夹
-git add .; git commit -m "music: xxx"; git push
+git pull --rebase; git add .; git commit -m "music: xxx"; git push
 ```
 push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/专辑)→ Pages 重新构建 → 刷新页面可见。
+先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=3` 递增(如 `?v=4`)**。
+改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=4` 递增(如 `?v=5`)**。
 否则访问者浏览器用缓存旧 JS,看不到更新(本项目踩过这个坑)。
 
 ### 手动重新生成清单(本地)
@@ -54,15 +56,20 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 - **工作流依赖 mutagen**:`update-music.yml` 里那行 `python -m pip install --quiet mutagen` 不能删,否则 Actions 生成的 music.json 丢失所有 ID3 歌手信息(曾因此出过事故)。
 - **无 ID3 标签的文件**:在 `.github/gen_music_json.py` 的 `MANUAL_ARTIST` 字典里按"精确文件名"手动补歌手。
 - **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前约 475MB,单曲最大约 15.5MB。私有仓库无法免费启用 GitHub Pages,需保持公开。
-- **浏览器缓存**:music.json 用 `no-store` 拉取,加歌后刷新即见;前端 JS/CSS 靠 `?v=` 版本号破缓存。
+- **浏览器缓存**:music.json 用 `no-store` 拉取,且有本地缓存时也会后台重新拉取,加歌后刷新即见;前端 JS/CSS 靠 `?v=` 版本号破缓存。
+- **`hidden` 属性**:style.css 里有全局 `[hidden]{display:none !important}`,不要删,否则带 `display` 样式的元素(如横幅)用 `hidden` 隐藏不掉。
 - **URL 编码**:前端用相对 URL(原样交给浏览器),API 兜底路径时按路径段 `encodeURIComponent`。
 
 ## 技术要点(app.js)
 
 - 分组渲染:按 `artist` 字段在列表中插入 `playlist-header` 吸顶标题。
 - 循环三档:`none → all → one`;`repeat-one` 类给按钮加"1"角标。
-- 播放顺序 `order[]`/`pos` 支持随机播放;搜索过滤 `filteredTracks[]`。
-- 系统媒体键:Media Session API;键盘:空格/方向键/N/P/M。
+- 播放顺序 `order[]`/`pos`:点歌时以当前可见列表(搜索结果)为播放上下文;随机模式为 Fisher-Yates 打乱后的顺序,所以"上一首"能回到真正播过的歌。
+- 自然播完到列表末尾:列表循环则从头(随机模式重新洗牌),否则停止;手动点"下一首"在末尾回到开头。单曲循环只影响自然播完,手动切歌照常切。
+- 播放出错自动跳下一首,连续 3 首失败即停止(防止断网时无限跳歌);`play()` 的 AbortError(切歌打断)不提示。
+- 系统媒体键:Media Session API(初始化时注册一次,play/pause 分开处理);键盘:空格/方向键/N/P/M,带 Ctrl/Alt/⌘ 时不拦截,设置弹窗打开时只响应 Esc。
+- 搜索匹配标题/歌手/专辑/路径。
+- 生成脚本用 `mutagen.File(..., easy=True)`,mp3/m4a/flac/ogg 都能读歌手标签。
 - localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view`、`gh-volume`。
 
 ## 交接对象
