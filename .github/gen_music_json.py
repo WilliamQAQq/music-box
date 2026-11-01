@@ -98,10 +98,14 @@ ARTIST_GENRE = {
     "任浩铭, 黄勇": "街巷叙事 · 民谣流行",
 
     # 8. 古典沙龙 · 剧场礼乐 (Classical, Tango & Ceremonial)
+    "benny martin/the wong janice": "古典沙龙 · 剧场礼乐",
     "carlos gardel": "古典沙龙 · 剧场礼乐",
     "erik satie/philippe entremont": "古典沙龙 · 剧场礼乐",
     "francis shaw": "古典沙龙 · 剧场礼乐",
     "mandela catalogue": "古典沙龙 · 剧场礼乐",
+    "pyotr leshchenko": "古典沙龙 · 剧场礼乐",
+    "the red army choir": "古典沙龙 · 剧场礼乐",
+    "юрий щербаков": "古典沙龙 · 剧场礼乐",
     "美国国歌": "古典沙龙 · 剧场礼乐",
 }
 
@@ -179,8 +183,9 @@ def main():
                     title = os.path.splitext(fname)[0]
                     title = title.replace("_", " ").replace("-", " ").strip()
                     title = " ".join(title.split())
-                if title.endswith(" spotdown.org"):
-                    title = title[: -len(" spotdown.org")]
+                for suffix in (" spotdown.org", " (SPOTISAVER)"):
+                    if title.endswith(suffix):
+                        title = title[: -len(suffix)].strip()
                 genre = resolve_genre(fname, artist, raw_genre)
                 tracks.append({
                     "title": title,
@@ -207,7 +212,7 @@ def main():
         key=lambda t: (t["artist"].lower(), t["artist"], t["title"].lower())
     )
 
-    with open(OUT, "w", encoding="utf-8") as fh:
+    with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(tracks, fh, ensure_ascii=False, indent=2)
 
     artists = len({t["artist"] for t in tracks if t["artist"]})

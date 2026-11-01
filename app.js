@@ -58,9 +58,9 @@
     },
     {
       id: "古典沙龙 · 剧场礼乐",
-      sub: "Erik Satie · Carlos Gardel · 进行曲与赞美诗",
+      sub: "Erik Satie · 卡农 · 俄式与古典探戈 · 红军合唱团",
       seal: "#88507c",
-      desc: "印象派钢琴、1935 古典探戈与庄重礼乐，重现旧日沙龙风华。",
+      desc: "大提琴钢琴室内乐、旧日俄式及阿根廷探戈、恢弘合唱与庄重礼乐，重现沙龙风华。",
     },
   ];
 
@@ -122,10 +122,14 @@
     "暗杠": "街巷叙事 · 民谣流行",
     "一杯陈豆浆": "街巷叙事 · 民谣流行",
     "任浩铭, 黄勇": "街巷叙事 · 民谣流行",
+    "benny martin/the wong janice": "古典沙龙 · 剧场礼乐",
     "carlos gardel": "古典沙龙 · 剧场礼乐",
     "erik satie/philippe entremont": "古典沙龙 · 剧场礼乐",
     "francis shaw": "古典沙龙 · 剧场礼乐",
     "mandela catalogue": "古典沙龙 · 剧场礼乐",
+    "pyotr leshchenko": "古典沙龙 · 剧场礼乐",
+    "the red army choir": "古典沙龙 · 剧场礼乐",
+    "юрий щербаков": "古典沙龙 · 剧场礼乐",
     "美国国歌": "古典沙龙 · 剧场礼乐",
   };
 
