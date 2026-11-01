@@ -4,6 +4,9 @@
   const STORE_KEY = "gh-music-box-settings-v2";
   const CACHE_KEY = "gh-music-box-cache-v2";
   const VIEW_KEY = "gh-view-v2";
+  const LYRICS_OPEN_KEY = "gh-lyrics-open";
+  const LYRICS_TRANS_KEY = "gh-lyrics-trans";
+  const LIVE_LYRICS_CACHE_KEY = "gh-lyrics-live-v1";
 
   const AUDIO_EXTS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "webm"];
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
@@ -159,6 +162,15 @@
     playlist: $("playlist"),
     emptyState: $("emptyState"),
     viewToggle: $("viewToggle"),
+    lyricsPanel: $("lyricsPanel"),
+    lyricsTrackName: $("lyricsTrackName"),
+    lyricsTransBtn: $("lyricsTransBtn"),
+    lyricsCloseBtn: $("lyricsCloseBtn"),
+    lyricsScroll: $("lyricsScroll"),
+    lyricsList: $("lyricsList"),
+    lyricsFollowBtn: $("lyricsFollowBtn"),
+    lyricsToggleBtn: $("lyricsToggleBtn"),
+    playerTrack: document.querySelector(".player-track"),
     coverArt: $("coverArt"),
     trackTitle: $("trackTitle"),
     trackSub: $("trackSub"),
@@ -208,9 +220,25 @@
   let shuffle = localStorage.getItem("gh-shuffle") === "1";
   let repeat = localStorage.getItem("gh-repeat") || "none";
   let view = localStorage.getItem(VIEW_KEY) || "genre";
+  let desktopLyricsOpen = localStorage.getItem(LYRICS_OPEN_KEY) !== "0";
+  let mobileLyricsOpen = false;
+  let showTrans = localStorage.getItem(LYRICS_TRANS_KEY) !== "0";
   let isSeeking = false;
   let errorStreak = 0;
   let lastVolume = 80;
+
+  // 滚动歌词状态
+  let lyricsCatalog = {};          // url -> { type, lrc, tlyric }
+  let liveLyricsCache = {};        // 外部仓库在线兜底缓存
+  let currentLyricState = null;    // { type: "none"|"instrumental"|"synced"|"plain", lines: [], hasTrans: false }
+  let activeLyricIndex = -1;
+  let userScrolling = false;
+  let isPointerTouchingLyrics = false;
+  let userScrollResumeTimer = null;
+  let lyricsScrollSeq = 0;
+  let programmaticScrollDepth = 0;
+  let programmaticScrollGuardUntil = 0;
+  const USER_SCROLL_RESUME_MS = 5500;
 
   const audio = els.audio;
   const DEFAULT_COVER = els.coverArt.getAttribute("src");
@@ -996,6 +1024,14 @@
     }
   }
 
+  function defaultTrackSub(t) {
+    if (!t) return "轻触歌单或曲目，落针起奏";
+    const subParts = [];
+    if (t.artist) subParts.push(t.artist);
+    if (t.genre) subParts.push(t.genre);
+    return subParts.length ? subParts.join(" · ") : (t.album || t.dir || "/");
+  }
+
   function startPlayback() {
     const t = tracks[currentIndex];
     if (!t) return;
@@ -1008,14 +1044,12 @@
     els.durTime.textContent = "0:00";
     safePlay();
     els.trackTitle.textContent = t.title;
-    const subParts = [];
-    if (t.artist) subParts.push(t.artist);
-    if (t.genre) subParts.push(t.genre);
-    els.trackSub.textContent = subParts.length ? subParts.join(" · ") : (t.album || t.dir || "/");
+    els.trackSub.textContent = defaultTrackSub(t);
     const cover = t.cover || lookupCover(t.dir);
     els.coverArt.src = cover || DEFAULT_COVER;
     highlightActive(true);
     updateMediaSession(t, cover);
+    loadTrackLyrics(t);
   }
 
   function nextTrack(auto) {
@@ -1041,6 +1075,9 @@
 
   function restart() {
     audio.currentTime = 0;
+    activeLyricIndex = -1;
+    exitUserScrollMode(true);
+    syncLyricsToTime(0, true);
     safePlay();
   }
 
@@ -1112,13 +1149,25 @@
       syncSlider(els.seek);
       els.curTime.textContent = fmt(audio.currentTime);
     }
+    if (!isSeeking) {
+      syncLyricsToTime(audio.currentTime, false);
+    }
+  });
+
+  audio.addEventListener("seeked", () => {
+    syncLyricsToTime(audio.currentTime, false);
   });
 
   audio.addEventListener("play", () => setPlayingUI(true));
 
   audio.addEventListener("playing", () => { errorStreak = 0; });
 
-  audio.addEventListener("pause", () => setPlayingUI(false));
+  audio.addEventListener("pause", () => {
+    setPlayingUI(false);
+    if (currentIndex !== -1 && tracks[currentIndex]) {
+      els.trackSub.textContent = defaultTrackSub(tracks[currentIndex]);
+    }
+  });
 
   audio.addEventListener("ended", () => {
     if (repeat === "one") { restart(); return; }
@@ -1153,12 +1202,16 @@
   els.seek.addEventListener("input", () => {
     isSeeking = true;
     syncSlider(els.seek);
-    els.curTime.textContent = fmt(parseFloat(els.seek.value));
+    const v = parseFloat(els.seek.value);
+    els.curTime.textContent = fmt(v);
+    syncLyricsToTime(v, true);
   });
   els.seek.addEventListener("change", () => {
-    if (isFinite(audio.duration)) audio.currentTime = parseFloat(els.seek.value);
+    const v = parseFloat(els.seek.value);
+    if (isFinite(audio.duration)) audio.currentTime = v;
     syncSlider(els.seek);
     isSeeking = false;
+    syncLyricsToTime(v, false);
   });
 
   function setVolume(v) {
@@ -1185,6 +1238,474 @@
     const s = sec % 60;
     return m + ":" + (s < 10 ? "0" : "") + s;
   }
+
+  /* ---------------- scrolling lyrics engine ---------------- */
+
+  function isMobileLyricsViewport() {
+    return !!(window.matchMedia && window.matchMedia("(max-width: 980px)").matches);
+  }
+
+  function isLyricsPanelVisible() {
+    return isMobileLyricsViewport() ? mobileLyricsOpen : desktopLyricsOpen;
+  }
+
+  function updateLyricsPanelUI() {
+    document.body.classList.toggle("lyrics-closed", !desktopLyricsOpen);
+    document.body.classList.toggle("mobile-lyrics-open", mobileLyricsOpen);
+    els.lyricsToggleBtn.classList.toggle("on", isLyricsPanelVisible());
+    els.lyricsPanel.classList.toggle("hide-trans", !showTrans);
+    els.lyricsTransBtn.classList.toggle("on", showTrans);
+    els.lyricsTransBtn.setAttribute("aria-pressed", showTrans ? "true" : "false");
+    if (isLyricsPanelVisible()) {
+      if (currentIndex !== -1 && tracks[currentIndex]) {
+        els.trackSub.textContent = defaultTrackSub(tracks[currentIndex]);
+      }
+      requestAnimationFrame(() => centerActiveLyric(true));
+    }
+  }
+
+  function toggleLyricsPanel() {
+    if (isMobileLyricsViewport()) {
+      mobileLyricsOpen = !mobileLyricsOpen;
+    } else {
+      desktopLyricsOpen = !desktopLyricsOpen;
+      localStorage.setItem(LYRICS_OPEN_KEY, desktopLyricsOpen ? "1" : "0");
+    }
+    updateLyricsPanelUI();
+  }
+
+  els.lyricsToggleBtn.addEventListener("click", toggleLyricsPanel);
+  els.lyricsCloseBtn.addEventListener("click", () => {
+    if (isMobileLyricsViewport()) {
+      mobileLyricsOpen = false;
+    } else {
+      desktopLyricsOpen = false;
+      localStorage.setItem(LYRICS_OPEN_KEY, "0");
+    }
+    updateLyricsPanelUI();
+  });
+
+  els.lyricsTransBtn.addEventListener("click", () => {
+    showTrans = !showTrans;
+    localStorage.setItem(LYRICS_TRANS_KEY, showTrans ? "1" : "0");
+    updateLyricsPanelUI();
+    centerActiveLyric(false);
+  });
+
+  if (els.playerTrack) {
+    els.playerTrack.addEventListener("click", () => {
+      if (isMobileLyricsViewport()) toggleLyricsPanel();
+    });
+  }
+
+  window.addEventListener("resize", () => {
+    els.lyricsToggleBtn.classList.toggle("on", isLyricsPanelVisible());
+  });
+
+  function loadLiveLyricsCache() {
+    try {
+      const raw = localStorage.getItem(LIVE_LYRICS_CACHE_KEY);
+      if (raw) liveLyricsCache = JSON.parse(raw) || {};
+    } catch (e) { liveLyricsCache = {}; }
+  }
+
+  function saveLiveLyricsCache() {
+    try {
+      localStorage.setItem(LIVE_LYRICS_CACHE_KEY, JSON.stringify(liveLyricsCache));
+    } catch (e) { /* ignore quota */ }
+  }
+
+  async function loadLyricsCatalog() {
+    loadLiveLyricsCache();
+    try {
+      const res = await fetch("lyrics.json", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && typeof data === "object") {
+        lyricsCatalog = data;
+        if (currentIndex !== -1 && tracks[currentIndex]) {
+          loadTrackLyrics(tracks[currentIndex]);
+        }
+      }
+    } catch (e) { /* 若缺失则走在线兜底 */ }
+  }
+
+  function parseTimedLines(rawText) {
+    if (!rawText) return { offsetSec: 0, timed: [], plain: [] };
+    let offsetSec = 0;
+    const offMatch = rawText.match(/\[offset:\s*([+-]?\d+)\s*\]/i);
+    if (offMatch) offsetSec = (parseInt(offMatch[1], 10) || 0) / 1000;
+
+    const timed = [];
+    const plain = [];
+    const tagRe = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+
+    rawText.split(/\r?\n/).forEach((rawLine) => {
+      const line = rawLine.trim();
+      if (!line) return;
+      if (/^\[(id|ar|ti|al|by|hash|sign|qq|total|re|ve|offset):/i.test(line)) return;
+
+      const stamps = [];
+      let m;
+      tagRe.lastIndex = 0;
+      while ((m = tagRe.exec(line)) !== null) {
+        const mins = parseInt(m[1], 10) || 0;
+        const secs = parseInt(m[2], 10) || 0;
+        const frac = m[3] ? Number("0." + m[3]) : 0;
+        stamps.push(Math.max(0, mins * 60 + secs + frac - offsetSec));
+      }
+      const text = line.replace(tagRe, "").trim();
+      if (!stamps.length) {
+        if (text) plain.push(text);
+        return;
+      }
+      if (!text) return;
+      stamps.forEach((t) => timed.push({ time: t, text: text }));
+    });
+
+    timed.sort((a, b) => a.time - b.time);
+    return { offsetSec, timed, plain };
+  }
+
+  function parseLrcBundle(entry) {
+    if (!entry) return { type: "none", lines: [], hasTrans: false };
+    if (entry.type === "instrumental") {
+      return { type: "instrumental", lines: [], hasTrans: false };
+    }
+
+    const main = parseTimedLines(entry.lrc || "");
+    if (!main.timed.length) {
+      if (main.plain.length) {
+        return {
+          type: "plain",
+          lines: main.plain.map((txt) => ({ time: null, text: txt, trans: "" })),
+          hasTrans: false,
+        };
+      }
+      return { type: "none", lines: [], hasTrans: false };
+    }
+
+    const transParsed = parseTimedLines(entry.tlyric || "");
+    let hasTrans = false;
+    const lines = main.timed.map((item) => ({
+      time: item.time,
+      text: item.text,
+      trans: "",
+    }));
+
+    if (transParsed.timed.length) {
+      let ti = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const target = lines[i].time;
+        while (
+          ti + 1 < transParsed.timed.length &&
+          Math.abs(transParsed.timed[ti + 1].time - target) <= Math.abs(transParsed.timed[ti].time - target)
+        ) {
+          ti++;
+        }
+        if (Math.abs(transParsed.timed[ti].time - target) <= 0.85) {
+          const trText = transParsed.timed[ti].text;
+          if (trText && trText !== "//" && trText !== lines[i].text) {
+            lines[i].trans = trText;
+            hasTrans = true;
+          }
+        }
+      }
+    }
+
+    return { type: "synced", lines, hasTrans };
+  }
+
+  async function fetchLiveLyricsFallback(track) {
+    const params = new URLSearchParams({ title: track.title || "" });
+    if (track.artist) params.set("artist", track.artist);
+    if (track.album && track.album.toLowerCase() !== "unknown album") {
+      params.set("album", track.album);
+    }
+    try {
+      const res = await fetch("https://api.lrc.cx/lyrics?" + params.toString());
+      if (!res.ok) return null;
+      const text = await res.text();
+      if (!text || !text.trim()) return null;
+      if (/纯音乐，请欣赏|此歌曲为没有填词的纯音乐/.test(text)) {
+        return { type: "instrumental" };
+      }
+      return { type: "synced", lrc: text };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function loadTrackLyrics(track) {
+    if (!track) return;
+    exitUserScrollMode(true);
+    activeLyricIndex = -1;
+    els.lyricsTrackName.textContent = track.artist ? (track.title + " · " + track.artist) : track.title;
+
+    let entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
+    if (!entry) {
+      els.lyricsTransBtn.hidden = true;
+      els.lyricsList.innerHTML = '<li class="lyric-empty">正在检索唱词…</li>';
+      const fetched = await fetchLiveLyricsFallback(track);
+      if (tracks[currentIndex] !== track) return;
+      if (fetched) {
+        liveLyricsCache[track.url] = fetched;
+        saveLiveLyricsCache();
+        entry = fetched;
+      }
+    }
+
+    currentLyricState = parseLrcBundle(entry);
+    renderLyricsView(track);
+    syncLyricsToTime(audio.currentTime || 0, true);
+  }
+
+  function renderLyricsView(track) {
+    const st = currentLyricState;
+    els.lyricsList.innerHTML = "";
+    programmaticScrollGuardUntil = Date.now() + 180;
+    els.lyricsScroll.scrollTop = 0;
+
+    if (!st || st.type === "none") {
+      els.lyricsTransBtn.hidden = true;
+      const li = document.createElement("li");
+      li.className = "lyric-empty";
+      li.textContent = "馆藏暂未收录此曲唱词";
+      els.lyricsList.appendChild(li);
+      return;
+    }
+
+    if (st.type === "instrumental") {
+      els.lyricsTransBtn.hidden = true;
+      const li = document.createElement("li");
+      li.className = "lyric-instrumental";
+      const badge = document.createElement("div");
+      badge.className = "lyric-inst-badge";
+      badge.textContent = "\u2726 INSTRUMENTAL · 纯器乐曲 \u2726";
+      const msg = document.createElement("p");
+      msg.textContent = "此曲为器乐演奏曲目，无唱词，敬请静心聆听留声旋律。";
+      li.append(badge, msg);
+      els.lyricsList.appendChild(li);
+      return;
+    }
+
+    els.lyricsTransBtn.hidden = !st.hasTrans;
+    const frag = document.createDocumentFragment();
+
+    st.lines.forEach((ln, idx) => {
+      const li = document.createElement("li");
+      li.className = "lyric-line" + (ln.time !== null ? " timed" : "");
+      li.dataset.idx = idx;
+
+      const mainSpan = document.createElement("span");
+      mainSpan.className = "lyric-main";
+      mainSpan.textContent = ln.text;
+      li.appendChild(mainSpan);
+
+      if (ln.trans) {
+        const trSpan = document.createElement("span");
+        trSpan.className = "lyric-trans";
+        trSpan.textContent = ln.trans;
+        li.appendChild(trSpan);
+      }
+
+      if (ln.time !== null) {
+        const tmSpan = document.createElement("span");
+        tmSpan.className = "lyric-time";
+        tmSpan.textContent = fmt(ln.time);
+        li.appendChild(tmSpan);
+        li.addEventListener("click", () => {
+          if (isFinite(audio.duration) || audio.readyState >= 1) {
+            audio.currentTime = ln.time;
+          }
+          exitUserScrollMode(true);
+          syncLyricsToTime(ln.time, false);
+          if (audio.paused && track) safePlay();
+        });
+      }
+
+      frag.appendChild(li);
+    });
+
+    els.lyricsList.appendChild(frag);
+  }
+
+  function findActiveLyricIndex(timeSec) {
+    const st = currentLyricState;
+    if (!st || !st.lines.length) return -1;
+    if (st.type === "plain") {
+      if (!isFinite(audio.duration) || audio.duration <= 0) return 0;
+      const ratio = Math.min(0.999, Math.max(0, timeSec / audio.duration));
+      return Math.floor(ratio * st.lines.length);
+    }
+    if (st.type !== "synced") return -1;
+
+    const target = timeSec + 0.12;
+    const lines = st.lines;
+    if (target < lines[0].time) return -1;
+
+    let lo = 0;
+    let hi = lines.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (lines[mid].time <= target) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    return hi;
+  }
+
+  function syncLyricsToTime(timeSec, immediate) {
+    const st = currentLyricState;
+    if (!st || (st.type !== "synced" && st.type !== "plain")) return;
+
+    const nextIdx = findActiveLyricIndex(timeSec);
+    if (nextIdx === activeLyricIndex && !immediate) return;
+    activeLyricIndex = nextIdx;
+
+    const items = els.lyricsList.children;
+    for (let i = 0; i < items.length; i++) {
+      items[i].classList.toggle("active", i === activeLyricIndex);
+      items[i].classList.toggle("past", activeLyricIndex > i);
+    }
+
+    if (
+      activeLyricIndex >= 0 &&
+      st.lines[activeLyricIndex] &&
+      !audio.paused &&
+      !isLyricsPanelVisible()
+    ) {
+      els.trackSub.textContent = "\u266A " + st.lines[activeLyricIndex].text;
+    }
+
+    if (activeLyricIndex >= 0 && !userScrolling) {
+      centerActiveLyric(immediate);
+    }
+  }
+
+  // 程序化滚动 Promise 封装(原生支持时直接返回 Promise，旧浏览器回退到 scrollend + 空闲计时)
+  function scrollToAsync(scroller, options) {
+    const result = scroller.scrollTo(options);
+    if (result instanceof Promise) {
+      return result;
+    }
+    return new Promise((resolve) => {
+      let timeoutId;
+      const finish = () => {
+        clearTimeout(timeoutId);
+        scroller.removeEventListener("scrollend", finish);
+        scroller.removeEventListener("scroll", onScroll);
+        resolve();
+      };
+      const onScroll = () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(finish, 100);
+      };
+      scroller.addEventListener("scrollend", finish, { once: true });
+      scroller.addEventListener("scroll", onScroll, { passive: true });
+      timeoutId = setTimeout(finish, 100);
+    });
+  }
+
+  async function centerActiveLyric(immediate) {
+    if (userScrolling || !isLyricsPanelVisible()) return;
+    const scroller = els.lyricsScroll;
+    const activeEl = els.lyricsList.querySelector(".lyric-line.active");
+    if (!scroller || !activeEl) return;
+
+    const targetTop = Math.max(
+      0,
+      activeEl.offsetTop - scroller.clientHeight / 2 + activeEl.offsetHeight / 2
+    );
+    if (Math.abs(scroller.scrollTop - targetTop) < 2) return;
+
+    const seq = ++lyricsScrollSeq;
+    const preferReduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const behavior = immediate || preferReduced ? "instant" : "smooth";
+
+    programmaticScrollDepth++;
+    programmaticScrollGuardUntil = Date.now() + 180;
+    try {
+      await scrollToAsync(scroller, { top: targetTop, behavior: behavior });
+    } finally {
+      programmaticScrollDepth = Math.max(0, programmaticScrollDepth - 1);
+      programmaticScrollGuardUntil = Date.now() + 180;
+    }
+    if (seq !== lyricsScrollSeq) return;
+  }
+
+  function scheduleAutoFollowResume() {
+    clearTimeout(userScrollResumeTimer);
+    if (!userScrolling || isPointerTouchingLyrics) return;
+    userScrollResumeTimer = setTimeout(() => {
+      exitUserScrollMode(false);
+    }, USER_SCROLL_RESUME_MS);
+  }
+
+  function enterUserScrollMode() {
+    userScrolling = true;
+    lyricsScrollSeq++;
+    els.lyricsFollowBtn.hidden = false;
+    scheduleAutoFollowResume();
+  }
+
+  function exitUserScrollMode(silent) {
+    userScrolling = false;
+    isPointerTouchingLyrics = false;
+    clearTimeout(userScrollResumeTimer);
+    els.lyricsFollowBtn.hidden = true;
+    if (!silent && activeLyricIndex >= 0) {
+      centerActiveLyric(false);
+    }
+  }
+
+  els.lyricsFollowBtn.addEventListener("click", () => exitUserScrollMode(false));
+
+  els.lyricsScroll.addEventListener("wheel", () => {
+    enterUserScrollMode();
+  }, { passive: true });
+
+  els.lyricsScroll.addEventListener("touchstart", () => {
+    isPointerTouchingLyrics = true;
+    clearTimeout(userScrollResumeTimer);
+  }, { passive: true });
+
+  els.lyricsScroll.addEventListener("touchmove", () => {
+    enterUserScrollMode();
+  }, { passive: true });
+
+  els.lyricsScroll.addEventListener("touchend", () => {
+    isPointerTouchingLyrics = false;
+    scheduleAutoFollowResume();
+  }, { passive: true });
+
+  els.lyricsScroll.addEventListener("touchcancel", () => {
+    isPointerTouchingLyrics = false;
+    scheduleAutoFollowResume();
+  }, { passive: true });
+
+  els.lyricsScroll.addEventListener("pointerdown", (e) => {
+    const rect = els.lyricsScroll.getBoundingClientRect();
+    // 拖拽滚动条滑块时进入用户手动滚动模式
+    if (e.clientX >= rect.right - 18) {
+      isPointerTouchingLyrics = true;
+      enterUserScrollMode();
+    }
+  });
+
+  window.addEventListener("pointerup", () => {
+    if (isPointerTouchingLyrics) {
+      isPointerTouchingLyrics = false;
+      scheduleAutoFollowResume();
+    }
+  });
+
+  els.lyricsScroll.addEventListener("scroll", () => {
+    if (userScrolling) {
+      scheduleAutoFollowResume();
+    } else if (programmaticScrollDepth === 0 && Date.now() > programmaticScrollGuardUntil) {
+      enterUserScrollMode();
+    }
+  }, { passive: true });
 
   /* ---------------- media session ---------------- */
 
@@ -1223,6 +1744,11 @@
       if (e.key === "Escape") closeSettings();
       return;
     }
+    if (e.key === "Escape" && mobileLyricsOpen) {
+      mobileLyricsOpen = false;
+      updateLyricsPanelUI();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     const target = e.target;
@@ -1233,6 +1759,14 @@
       if (e.key.indexOf("Arrow") === 0) return;
     }
     if ((tag === "button" || tag === "a") && (e.key === " " || e.key === "Enter")) return;
+    if (
+      target.closest &&
+      target.closest("#lyricsScroll") &&
+      (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown" || e.key === "Home" || e.key === "End")
+    ) {
+      enterUserScrollMode();
+      return;
+    }
     if (e.repeat && e.key.indexOf("Arrow") !== 0) return;
 
     switch (e.key) {
@@ -1248,6 +1782,7 @@
       case "n": case "N": nextTrack(false); break;
       case "p": case "P": prevTrack(); break;
       case "m": case "M": els.muteBtn.click(); break;
+      case "l": case "L": toggleLyricsPanel(); break;
     }
   });
 
@@ -1277,7 +1812,9 @@
       syncSlider(els.volume);
     }
     syncSlider(els.seek);
+    updateLyricsPanelUI();
     setupMediaSession();
+    loadLyricsCatalog();
     loadLibrary(false);
   }
 

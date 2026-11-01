@@ -6,12 +6,17 @@ style playlist categories. Output: music.json at repo root, used by the web play
 
 Run: python .github/gen_music_json.py
 """
+import base64
 import json
 import os
+import re
 import sys
+import urllib.parse
+import urllib.request
 
 MUSIC_DIR = "music"
 OUT = "music.json"
+LYRICS_OUT = "lyrics.json"
 
 AUDIO_EXTS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm"}
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -133,21 +138,131 @@ def infer_genre_from_tag(raw_genre):
     return raw_genre
 
 
-def read_tags(path):
-    """Read artist/album/title/genre tags across mp3/m4a/flac/ogg/opus."""
+def read_tags_and_info(path):
+    """Read artist/album/title/genre tags, duration, and embedded lyrics."""
     try:
         import mutagen
+        raw = mutagen.File(path)
+        dur = round(raw.info.length, 1) if raw and getattr(raw, "info", None) else 0
+        embedded_lrc = ""
+        if raw and getattr(raw, "tags", None):
+            for k in raw.tags.keys():
+                if k.startswith(("USLT", "©lyr", "LYRICS")):
+                    val = raw.tags[k]
+                    embedded_lrc = str(getattr(val, "text", val)).strip()
+                    if embedded_lrc:
+                        break
         t = mutagen.File(path, easy=True)
         if t is None or not t.tags:
-            return "", "", "", ""
+            return "", "", "", "", dur, embedded_lrc
 
         def first(key):
             v = t.tags.get(key) or [""]
             return str(v[0]).strip()
 
-        return first("artist"), first("album"), first("title"), first("genre")
+        return first("artist"), first("album"), first("title"), first("genre"), dur, embedded_lrc
     except Exception:
-        return "", "", "", ""
+        return "", "", "", "", 0, ""
+
+
+META_TAG_RE = re.compile(r"^\[(id|ar|ti|al|by|hash|sign|qq|total|re|ve):.*\]$", re.I)
+TIME_TAG_RE = re.compile(r"\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]")
+
+
+def clean_lrc_text(text):
+    if not text:
+        return ""
+    text = text.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+    out = []
+    for ln in text.split("\n"):
+        s = ln.strip()
+        if not s or META_TAG_RE.match(s) or s == "[offset:0]":
+            continue
+        out.append(s)
+    return "\n".join(out)
+
+
+def fetch_online_lyrics(artist, title, album, target_dur):
+    """Best-effort online LRC lookup for newly uploaded tracks."""
+    # 1. NetEase Cloud Music
+    try:
+        q = ("%s %s" % (artist, title)).strip()
+        data = urllib.parse.urlencode({"s": q, "type": 1, "offset": 0, "limit": 5}).encode("utf-8")
+        req = urllib.request.Request(
+            "https://music.163.com/api/search/get",
+            data=data,
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com", "Cookie": "NMTID=1; os=pc"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as r:
+            songs = (json.loads(r.read().decode("utf-8")).get("result") or {}).get("songs") or []
+        for s in songs[:3]:
+            sdur = (s.get("duration") or 0) / 1000.0
+            if target_dur > 0 and abs(sdur - target_dur) > 12:
+                continue
+            sid = s["id"]
+            lurl = "https://music.163.com/api/song/lyric?os=pc&id=%s&lv=-1&kv=-1&tv=-1" % sid
+            lreq = urllib.request.Request(lurl, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com"})
+            with urllib.request.urlopen(lreq, timeout=8) as lr:
+                lres = json.loads(lr.read().decode("utf-8"))
+            if lres.get("nolyric"):
+                return {"type": "instrumental"}
+            lrc = clean_lrc_text((lres.get("lrc") or {}).get("lyric") or "")
+            tlrc = clean_lrc_text((lres.get("tlyric") or {}).get("lyric") or "")
+            if "纯音乐，请欣赏" in lrc or "此歌曲为没有填词的纯音乐" in lrc:
+                return {"type": "instrumental"}
+            if len(TIME_TAG_RE.findall(lrc)) >= 3:
+                entry = {"type": "synced", "lrc": lrc}
+                if len(TIME_TAG_RE.findall(tlrc)) >= 3:
+                    entry["tlyric"] = tlrc
+                return entry
+    except Exception:
+        pass
+
+    # 2. Kugou LRC
+    try:
+        kw = ("%s %s" % (artist, title)).strip()
+        u = "http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=" + urllib.parse.quote(kw) + "&page=1&pagesize=4"
+        with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=8) as r:
+            info = (json.loads(r.read().decode("utf-8")).get("data") or {}).get("info") or []
+        for item in info[:2]:
+            sdur = item.get("duration") or 0
+            if target_dur > 0 and abs(sdur - target_dur) > 15:
+                continue
+            ku2 = "http://krcs.kugou.com/search?ver=1&man=yes&client=mobi&keyword=%s&duration=%d&hash=%s&album_audio_id=" % (
+                urllib.parse.quote(item.get("filename", "")),
+                int(sdur * 1000),
+                item.get("hash", ""),
+            )
+            with urllib.request.urlopen(urllib.request.Request(ku2, headers={"User-Agent": "Mozilla/5.0"}), timeout=8) as r2:
+                cands = json.loads(r2.read().decode("utf-8")).get("candidates") or []
+            if cands:
+                ku3 = "http://lyrics.kugou.com/download?ver=1&client=pc&id=%s&accesskey=%s&fmt=lrc&charset=utf8" % (
+                    cands[0]["id"],
+                    cands[0]["accesskey"],
+                )
+                with urllib.request.urlopen(urllib.request.Request(ku3, headers={"User-Agent": "Mozilla/5.0"}), timeout=8) as r3:
+                    dl = json.loads(r3.read().decode("utf-8"))
+                lrc = clean_lrc_text(base64.b64decode(dl.get("content", "")).decode("utf-8", errors="replace"))
+                if "纯音乐，请欣赏" in lrc:
+                    return {"type": "instrumental"}
+                if len(TIME_TAG_RE.findall(lrc)) >= 3:
+                    return {"type": "synced", "lrc": lrc}
+    except Exception:
+        pass
+
+    # 3. api.lrc.cx fallback
+    try:
+        params = {"title": title, "artist": artist}
+        if album and album != "Unknown Album":
+            params["album"] = album
+        u = "https://api.lrc.cx/lyrics?" + urllib.parse.urlencode(params)
+        with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "MusicBox/1.0"}), timeout=8) as r:
+            lrc = clean_lrc_text(r.read().decode("utf-8", errors="replace"))
+        if len(TIME_TAG_RE.findall(lrc)) >= 3:
+            return {"type": "synced", "lrc": lrc}
+    except Exception:
+        pass
+    return None
 
 
 def resolve_genre(fname, artist, raw_genre):
@@ -166,8 +281,17 @@ def main():
         print("music/ dir not found, nothing to do")
         return
 
+    existing_lyrics = {}
+    if os.path.isfile(LYRICS_OUT):
+        try:
+            with open(LYRICS_OUT, "r", encoding="utf-8") as lf:
+                existing_lyrics = json.load(lf) or {}
+        except Exception:
+            existing_lyrics = {}
+
     tracks = []
     covers = {}
+    new_lyrics = {}
 
     for root, dirs, files in os.walk(MUSIC_DIR):
         dirs.sort()
@@ -176,7 +300,8 @@ def main():
             rel = os.path.join(root, fname).replace("\\", "/")
             d = os.path.dirname(rel)
             if ext in AUDIO_EXTS:
-                artist, album, title, raw_genre = read_tags(os.path.join(root, fname))
+                full_path = os.path.join(root, fname)
+                artist, album, title, raw_genre, dur, embedded_lrc = read_tags_and_info(full_path)
                 if not artist:
                     artist = MANUAL_ARTIST.get(fname, "")
                 if not title:
@@ -195,6 +320,20 @@ def main():
                     "url": rel,
                     "dir": d,
                 })
+
+                # Sidecar .lrc next to audio overrides or populates lyrics
+                sidecar = os.path.splitext(full_path)[0] + ".lrc"
+                if os.path.isfile(sidecar):
+                    with open(sidecar, "r", encoding="utf-8", errors="replace") as sf:
+                        new_lyrics[rel] = {"type": "synced", "lrc": clean_lrc_text(sf.read())}
+                elif rel in existing_lyrics:
+                    new_lyrics[rel] = existing_lyrics[rel]
+                elif embedded_lrc:
+                    new_lyrics[rel] = {"type": "synced", "lrc": clean_lrc_text(embedded_lrc)}
+                else:
+                    fetched = fetch_online_lyrics(artist, title, album, dur)
+                    if fetched:
+                        new_lyrics[rel] = fetched
             elif ext in IMG_EXTS:
                 base = os.path.splitext(fname)[0].lower()
                 if base in COVER_NAMES or d not in covers:
@@ -215,9 +354,16 @@ def main():
     with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(tracks, fh, ensure_ascii=False, indent=2)
 
+    ordered_lyrics = {t["url"]: new_lyrics[t["url"]] for t in tracks if t["url"] in new_lyrics}
+    with open(LYRICS_OUT, "w", encoding="utf-8", newline="\n") as lf:
+        json.dump(ordered_lyrics, lf, ensure_ascii=False, separators=(",", ":"))
+
     artists = len({t["artist"] for t in tracks if t["artist"]})
     genres = len({t["genre"] for t in tracks if t["genre"]})
-    print("generated %s with %d tracks (%d artists, %d genres)" % (OUT, len(tracks), artists, genres))
+    print(
+        "generated %s (%d tracks, %d artists, %d genres) and %s (%d entries)"
+        % (OUT, len(tracks), artists, genres, LYRICS_OUT, len(ordered_lyrics))
+    )
 
 
 if __name__ == "__main__":

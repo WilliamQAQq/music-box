@@ -36,12 +36,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for attempt in 1 2 3; do
             python .github/gen_music_json.py
-            if git diff --quiet -- music.json; then
-              echo "music.json unchanged"
+            if git diff --quiet -- music.json lyrics.json; then
+              echo "music.json / lyrics.json unchanged"
               exit 0
             fi
-            git add music.json
-            git commit -m "chore: update music.json"
+            git add music.json lyrics.json
+            git commit -m "chore: update music.json and lyrics.json"
             if git push; then
               exit 0
             fi
