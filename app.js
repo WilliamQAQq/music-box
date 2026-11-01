@@ -3,6 +3,7 @@
 
   const STORE_KEY = "gh-music-box-settings-v2";
   const CACHE_KEY = "gh-music-box-cache-v2";
+  const VIEW_KEY = "gh-view-v2";
 
   const AUDIO_EXTS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "webm"];
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
@@ -10,6 +11,126 @@
 
   // 连续多少首播放失败后停止自动跳歌(防止断网时无限跳歌)
   const MAX_ERROR_STREAK = 3;
+
+  // 八大维多利亚风格唱片集定义(顺序即展示顺序)
+  const GENRE_PRESETS = [
+    {
+      id: "黄金年代 · 爵士名伶",
+      sub: "Billie Holiday · Ella · Chet Baker · Julie London",
+      seal: "#c98236",
+      desc: "1930–60 年代烟嗓名伶与摇摆黄金岁月，留声机最经典的温柔夜色。",
+    },
+    {
+      id: "交响爵士 · 浪漫夜曲",
+      sub: "Laufey & 冰岛交响乐团 · Anthony Lazaro",
+      seal: "#b85668",
+      desc: "古典管弦乐团与现代爵士女声的浪漫交织，宛如烛光音乐厅现场。",
+    },
+    {
+      id: "蓝调之音 · 器乐爵士",
+      sub: "Miles Davis · Coltrane · Ryo Fukui · Glenn Miller",
+      seal: "#4d8a88",
+      desc: "小号、萨克斯与钢琴三重奏的深夜即兴，兼具冷爵士与大乐队摇摆。",
+    },
+    {
+      id: "灵魂低吟 · 节奏蓝调",
+      sub: "Bill Withers · Etta James · Sam Cooke · 陶喆",
+      seal: "#bc6039",
+      desc: "深情滚烫的灵魂乐与节奏布鲁斯经典，直抵人心的律动与嘶吼。",
+    },
+    {
+      id: "先锋浪潮 · 独立摇滚",
+      sub: "万能青年旅店 · 草东 · 刺猬 · 惘闻 · 回春丹",
+      seal: "#5d8b67",
+      desc: "当代华语独立乐队、后摇器乐与合成器浪潮，锋利诗意的新声。",
+    },
+    {
+      id: "赤焰岁月 · 华语摇滚",
+      sub: "崔健 · 唐朝 · 窦唯 · 黑豹 · 二手玫瑰 · 罗大佑",
+      seal: "#a8333a",
+      desc: "华语摇滚开山火种与时代呐喊，粗粝炽热的经典现场记忆。",
+    },
+    {
+      id: "街巷叙事 · 民谣流行",
+      sub: "暗杠 · 一杯陈豆浆 · 任浩铭",
+      seal: "#b89a58",
+      desc: "温润质朴的城市民谣与华语金曲，适合静夜独酌的街巷故事。",
+    },
+    {
+      id: "古典沙龙 · 剧场礼乐",
+      sub: "Erik Satie · Carlos Gardel · 进行曲与赞美诗",
+      seal: "#88507c",
+      desc: "印象派钢琴、1935 古典探戈与庄重礼乐，重现旧日沙龙风华。",
+    },
+  ];
+
+  // 旧缓存兜底歌手->风格映射(与 .github/gen_music_json.py 保持一致)
+  const ARTIST_GENRE_MAP = {
+    "billie holiday": "黄金年代 · 爵士名伶",
+    "chet baker": "黄金年代 · 爵士名伶",
+    "dean martin": "黄金年代 · 爵士名伶",
+    "dinah washington": "黄金年代 · 爵士名伶",
+    "ella fitzgerald": "黄金年代 · 爵士名伶",
+    "ella fitzgerald, paul weston and his orchestra": "黄金年代 · 爵士名伶",
+    "etta jones": "黄金年代 · 爵士名伶",
+    "john coltrane, johnny hartman": "黄金年代 · 爵士名伶",
+    "julie london": "黄金年代 · 爵士名伶",
+    "louis armstrong": "黄金年代 · 爵士名伶",
+    "peggy lee": "黄金年代 · 爵士名伶",
+    "laufey, iceland symphony orchestra": "交响爵士 · 浪漫夜曲",
+    "laufey": "交响爵士 · 浪漫夜曲",
+    "anthony lazaro": "交响爵士 · 浪漫夜曲",
+    "duke ellington, john coltrane": "蓝调之音 · 器乐爵士",
+    "glenn miller": "蓝调之音 · 器乐爵士",
+    "lester young": "蓝调之音 · 器乐爵士",
+    "lester young, oscar peterson trio": "蓝调之音 · 器乐爵士",
+    "miles davis, john coltrane, bill evans": "蓝调之音 · 器乐爵士",
+    "oliver nelson": "蓝调之音 · 器乐爵士",
+    "ryo fukui": "蓝调之音 · 器乐爵士",
+    "sidney bechet, muggsy spanier": "蓝调之音 · 器乐爵士",
+    "berlioz, ted jasper": "蓝调之音 · 器乐爵士",
+    "bill withers": "灵魂低吟 · 节奏蓝调",
+    "etta james": "灵魂低吟 · 节奏蓝调",
+    "james brown": "灵魂低吟 · 节奏蓝调",
+    "sam cooke": "灵魂低吟 · 节奏蓝调",
+    "william bell": "灵魂低吟 · 节奏蓝调",
+    "david tao": "灵魂低吟 · 节奏蓝调",
+    "万能青年旅店": "先锋浪潮 · 独立摇滚",
+    "no party for cao dong": "先锋浪潮 · 独立摇滚",
+    "刺猬hedgehog": "先锋浪潮 · 独立摇滚",
+    "回春丹": "先锋浪潮 · 独立摇滚",
+    "海龟先生": "先锋浪潮 · 独立摇滚",
+    "蛙池": "先锋浪潮 · 独立摇滚",
+    "當代電影大師": "先锋浪潮 · 独立摇滚",
+    "wang wen": "先锋浪潮 · 独立摇滚",
+    "发光曲线": "先锋浪潮 · 独立摇滚",
+    "白紙扇（hardcore raver in tears）": "先锋浪潮 · 独立摇滚",
+    "快乐老家": "先锋浪潮 · 独立摇滚",
+    "vh (vast & hazy)": "先锋浪潮 · 独立摇滚",
+    "ado": "赤焰岁月 · 华语摇滚",
+    "black panther": "赤焰岁月 · 华语摇滚",
+    "dou wei": "赤焰岁月 · 华语摇滚",
+    "second hand rose": "赤焰岁月 · 华语摇滚",
+    "tang dynasty": "赤焰岁月 · 华语摇滚",
+    "wang feng": "赤焰岁月 · 华语摇滚",
+    "xtx (xie tianxiao)": "赤焰岁月 · 华语摇滚",
+    "xu wei": "赤焰岁月 · 华语摇滚",
+    "反光镜乐队": "赤焰岁月 · 华语摇滚",
+    "崔健": "赤焰岁月 · 华语摇滚",
+    "羅大佑": "赤焰岁月 · 华语摇滚",
+    "陳明章, 王明輝": "赤焰岁月 · 华语摇滚",
+    "暗杠": "街巷叙事 · 民谣流行",
+    "一杯陈豆浆": "街巷叙事 · 民谣流行",
+    "任浩铭, 黄勇": "街巷叙事 · 民谣流行",
+    "carlos gardel": "古典沙龙 · 剧场礼乐",
+    "erik satie/philippe entremont": "古典沙龙 · 剧场礼乐",
+    "francis shaw": "古典沙龙 · 剧场礼乐",
+    "mandela catalogue": "古典沙龙 · 剧场礼乐",
+    "美国国歌": "古典沙龙 · 剧场礼乐",
+  };
+
+  const GENRE_RANK = new Map(GENRE_PRESETS.map((g, idx) => [g.id, idx]));
+  const GENRE_META = new Map(GENRE_PRESETS.map((g) => [g.id, g]));
 
   const $ = (id) => document.getElementById(id);
 
@@ -21,6 +142,14 @@
     bannerCta: $("bannerCta"),
     reloadBtn: $("reloadBtn"),
     settingsBtn: $("settingsBtn"),
+    genreShelf: $("genreShelf"),
+    genreStage: $("genreStage"),
+    genreStageSeal: $("genreStageSeal"),
+    genreStageTitle: $("genreStageTitle"),
+    genreStageDesc: $("genreStageDesc"),
+    playGenreBtn: $("playGenreBtn"),
+    shuffleGenreBtn: $("shuffleGenreBtn"),
+    clearGenreBtn: $("clearGenreBtn"),
     searchInput: $("searchInput"),
     trackCount: $("trackCount"),
     playlist: $("playlist"),
@@ -64,22 +193,34 @@
 
   let settings = Object.assign({}, DEFAULT_SETTINGS);
 
-  let tracks = [];        // { title, artist, album, url, path, dir }
-  let covers = new Map(); // dir -> cover url
-  let order = [];         // 当前播放上下文(tracks 下标),随机模式下为打乱后的顺序
-  let pos = -1;           // 当前曲目在 order 中的位置
-  let filteredTracks = []; // 搜索过滤后可见的 tracks 下标
-  let currentIndex = -1;  // 当前曲目在 tracks[] 中的下标
+  let tracks = [];         // { title, artist, album, genre, cover, url, path, dir }
+  let covers = new Map();  // dir -> cover url
+  let order = [];          // 当前播放上下文(tracks 下标)
+  let pos = -1;            // 当前曲目在 order 中的位置
+  let filteredTracks = []; // 歌单筛选+搜索后按当前视图排序的 tracks 下标
+  let currentIndex = -1;   // 当前曲目在 tracks[] 中的下标
+  let activeGenre = "all"; // 当前选中的风格歌单("all" 表示全部馆藏)
 
   let shuffle = localStorage.getItem("gh-shuffle") === "1";
   let repeat = localStorage.getItem("gh-repeat") || "none";
-  let view = localStorage.getItem("gh-view") || "artist";
+  let view = localStorage.getItem(VIEW_KEY) || "genre";
   let isSeeking = false;
   let errorStreak = 0;
-  let lastVolume = 80;    // 取消静音时恢复的音量
+  let lastVolume = 80;
 
   const audio = els.audio;
   const DEFAULT_COVER = els.coverArt.getAttribute("src");
+
+  function inferGenre(artist, genre) {
+    if (genre) return String(genre);
+    if (!artist) return "";
+    return ARTIST_GENRE_MAP[String(artist).trim().toLowerCase()] || "";
+  }
+
+  function genreRank(g) {
+    if (!g) return 999;
+    return GENRE_RANK.has(g) ? GENRE_RANK.get(g) : 500;
+  }
 
   /* ---------------- settings ---------------- */
 
@@ -130,6 +271,7 @@
     settings.branch = els.setBranch.value.trim();
     settings.path = els.setPath.value.trim().replace(/^\/+|\/+$/g, "");
     settings.token = els.setToken.value.trim();
+    activeGenre = "all";
     saveSettings();
     closeSettings();
     loadLibrary(true);
@@ -138,6 +280,7 @@
   if (els.resetSettingsBtn) {
     els.resetSettingsBtn.addEventListener("click", () => {
       settings = Object.assign({}, DEFAULT_SETTINGS);
+      activeGenre = "all";
       saveSettings();
       fillSettingsForm();
       closeSettings();
@@ -212,7 +355,7 @@
 
       if (AUDIO_EXTS.indexOf(ext) !== -1) {
         const title = p.slice(p.lastIndexOf("/") + 1, dot).replace(/[_-]+/g, " ");
-        newTracks.push({ title, artist: "", album: "", path: p, dir, url: rawUrl(branch, p) });
+        newTracks.push({ title, artist: "", album: "", genre: "", cover: "", path: p, dir, url: rawUrl(branch, p) });
       } else if (IMAGE_EXTS.indexOf(ext) !== -1) {
         if (!coverMap.has(dir) || COVER_NAMES.indexOf(baseName) !== -1) {
           coverMap.set(dir, rawUrl(branch, p));
@@ -249,10 +392,12 @@
       if (!item || !item.url) return;
       const url = String(item.url);
       const dir = item.dir || (url.indexOf("/") !== -1 ? url.slice(0, url.lastIndexOf("/")) : "");
+      const artist = item.artist ? String(item.artist) : "";
       t.push({
         title: String(item.title || url.slice(url.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")),
-        artist: item.artist ? String(item.artist) : "",
+        artist: artist,
         album: item.album ? String(item.album) : "",
+        genre: inferGenre(artist, item.genre),
         cover: item.cover ? String(item.cover) : "",
         url: url,
         path: url,
@@ -263,7 +408,6 @@
     return { tracks: t, covers: c };
   }
 
-  // 是否可使用本站同源 music.json(默认仓库且未指定其他分支，目录为空/music 或 music 子目录)
   function canUseLocalManifest() {
     if (settings.owner.toLowerCase() !== DEFAULT_SETTINGS.owner.toLowerCase()) return false;
     if (settings.repo.toLowerCase() !== DEFAULT_SETTINGS.repo.toLowerCase()) return false;
@@ -292,7 +436,7 @@
 
   let loadSeq = 0;
 
-  // 有缓存时先秒开缓存；默认仓库同时在后台拉取最新 music.json，有变化就更新(加歌后刷新即可见)
+  // 有缓存时先秒开缓存；默认仓库同时在后台拉取最新 music.json，有变化就更新
   async function loadLibrary(force) {
     if (!settings.owner || !settings.repo) {
       showBanner(true);
@@ -312,7 +456,6 @@
     if (useCache) {
       applyLibrary(cache);
       showBanner(false);
-      // 自定义外部仓库走 GitHub API(有每小时限额)，命中缓存时不自动后台重扫，点刷新按钮再扫
       if (!useLocal) return;
     } else {
       setLoading(true);
@@ -326,7 +469,6 @@
         } catch (e) { /* music.json 不存在时回退到 GitHub API */ }
       }
       if (!data || !data.tracks.length) {
-        // 已有缓存时不为后台刷新消耗 GitHub API 限额
         if (useCache) return;
         const branch = await getDefaultBranch();
         data = await fetchTracks(branch);
@@ -374,10 +516,12 @@
   }
 
   function applyLibrary(data) {
-    // 歌单更新时按 url 重新映射当前曲目与播放顺序，避免正在播放的歌错位
     const oldTracks = tracks;
-    tracks = data.tracks;
+    tracks = (data.tracks || []).map((t) => Object.assign({}, t, {
+      genre: inferGenre(t.artist, t.genre),
+    }));
     covers = toCoverMap(data.covers);
+
     const idxByUrl = new Map(tracks.map((t, i) => [t.url, i]));
     const remap = (i) => {
       const t = oldTracks[i];
@@ -387,30 +531,214 @@
     order = order.map(remap).filter((i) => i !== -1);
     pos = currentIndex !== -1 ? order.indexOf(currentIndex) : -1;
 
+    if (activeGenre !== "all" && !tracks.some((t) => (t.genre || "其他典藏") === activeGenre)) {
+      activeGenre = "all";
+    }
+
     if (!tracks.length) {
       filteredTracks = [];
+      els.genreShelf.hidden = true;
+      els.genreStage.hidden = true;
       els.emptyState.hidden = false;
       els.playlist.innerHTML = "";
       renderCount();
       return;
     }
-    els.emptyState.hidden = true;
+    renderGenreShelf();
     applyFilter();
     setLoading(false);
   }
+
+  /* ---------------- style playlists shelf ---------------- */
+
+  function collectGenreItems() {
+    const counts = new Map();
+    let hasAnyGenre = false;
+    tracks.forEach((t) => {
+      if (t.genre) hasAnyGenre = true;
+      const g = t.genre || "其他典藏";
+      counts.set(g, (counts.get(g) || 0) + 1);
+    });
+    if (!hasAnyGenre) return [];
+
+    const items = [
+      {
+        id: "all",
+        name: "全部馆藏",
+        sub: "八大流派完整唱片库",
+        seal: "#d4a64a",
+        desc: "留声机全馆典藏唱片，涵盖爵士、灵魂蓝调、独立与华语摇滚、民谣及古典沙龙。",
+        count: tracks.length,
+      },
+    ];
+
+    GENRE_PRESETS.forEach((p) => {
+      const cnt = counts.get(p.id) || 0;
+      if (cnt > 0) {
+        items.push({ id: p.id, name: p.id, sub: p.sub, seal: p.seal, desc: p.desc, count: cnt });
+        counts.delete(p.id);
+      }
+    });
+
+    counts.forEach((cnt, id) => {
+      if (cnt > 0) {
+        items.push({ id: id, name: id, sub: "馆藏曲目精选", seal: "#9e7632", desc: "按曲风归档的唱片合集。", count: cnt });
+      }
+    });
+
+    return items;
+  }
+
+  function renderGenreShelf() {
+    const items = collectGenreItems();
+    if (!items.length) {
+      els.genreShelf.hidden = true;
+      els.genreStage.hidden = true;
+      return;
+    }
+    els.genreShelf.hidden = false;
+    const frag = document.createDocumentFragment();
+
+    items.forEach((it) => {
+      const card = document.createElement("div");
+      card.className = "genre-card" + (activeGenre === it.id ? " active" : "");
+      card.dataset.genre = it.id;
+      card.style.setProperty("--seal", it.seal);
+
+      const mainBtn = document.createElement("button");
+      mainBtn.type = "button";
+      mainBtn.className = "genre-card-main";
+      mainBtn.setAttribute("aria-pressed", activeGenre === it.id ? "true" : "false");
+
+      const disc = document.createElement("span");
+      disc.className = "genre-disc";
+      disc.setAttribute("aria-hidden", "true");
+
+      const body = document.createElement("span");
+      body.className = "genre-card-body";
+
+      const top = document.createElement("span");
+      top.className = "genre-card-top";
+
+      const name = document.createElement("span");
+      name.className = "genre-card-name";
+      name.textContent = it.name;
+
+      const count = document.createElement("span");
+      count.className = "genre-card-count";
+      count.textContent = it.count + " 首";
+
+      top.append(name, count);
+
+      const sub = document.createElement("span");
+      sub.className = "genre-card-sub";
+      sub.textContent = it.sub;
+
+      body.append(top, sub);
+      mainBtn.append(disc, body);
+      mainBtn.addEventListener("click", () => {
+        selectGenre(activeGenre === it.id && it.id !== "all" ? "all" : it.id);
+      });
+
+      const playBtn = document.createElement("button");
+      playBtn.type = "button";
+      playBtn.className = "genre-play-btn";
+      playBtn.title = "立即播放「" + it.name + "」";
+      playBtn.setAttribute("aria-label", "立即播放 " + it.name);
+      playBtn.textContent = "\u25B6";
+      playBtn.addEventListener("click", () => startGenrePlaylist(it.id, null));
+
+      card.append(mainBtn, playBtn);
+      frag.appendChild(card);
+    });
+
+    els.genreShelf.innerHTML = "";
+    els.genreShelf.appendChild(frag);
+    renderGenreStage();
+  }
+
+  function updateGenreShelfHighlight() {
+    els.genreShelf.querySelectorAll(".genre-card").forEach((card) => {
+      const on = card.dataset.genre === activeGenre;
+      card.classList.toggle("active", on);
+      const btn = card.querySelector(".genre-card-main");
+      if (btn) btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    renderGenreStage();
+  }
+
+  function renderGenreStage() {
+    if (activeGenre === "all" || els.genreShelf.hidden) {
+      els.genreStage.hidden = true;
+      return;
+    }
+    const meta = GENRE_META.get(activeGenre) || { seal: "#9e7632", desc: "按曲风归档的留声机歌单。" };
+    els.genreStage.hidden = false;
+    els.genreStage.style.setProperty("--seal", meta.seal);
+    els.genreStageTitle.textContent = activeGenre;
+    els.genreStageDesc.textContent = meta.desc;
+  }
+
+  function selectGenre(id) {
+    activeGenre = id || "all";
+    updateGenreShelfHighlight();
+    applyFilter();
+  }
+
+  // forceShuffle: null=保持当前随机设置，false=顺序播放，true=随机播放
+  function startGenrePlaylist(id, forceShuffle) {
+    activeGenre = id || "all";
+    if (els.searchInput.value) els.searchInput.value = "";
+    if (forceShuffle !== null) {
+      shuffle = !!forceShuffle;
+      localStorage.setItem("gh-shuffle", shuffle ? "1" : "0");
+      els.shuffleBtn.classList.toggle("on", shuffle);
+    }
+    updateGenreShelfHighlight();
+    applyFilter();
+    if (!filteredTracks.length) return;
+    errorStreak = 0;
+    buildOrder(null);
+    playAt(0);
+    const label = activeGenre === "all" ? "全部馆藏" : activeGenre;
+    toast((shuffle ? "随机起奏：" : "正在播放歌单：") + label);
+  }
+
+  els.playGenreBtn.addEventListener("click", () => startGenrePlaylist(activeGenre, false));
+  els.shuffleGenreBtn.addEventListener("click", () => startGenrePlaylist(activeGenre, true));
+  els.clearGenreBtn.addEventListener("click", () => selectGenre("all"));
+
+  /* ---------------- filtering & playlist rendering ---------------- */
 
   function applyFilter() {
     const q = els.searchInput.value.trim().toLowerCase();
     filteredTracks = [];
     tracks.forEach((t, i) => {
+      const g = t.genre || "其他典藏";
+      if (activeGenre !== "all" && g !== activeGenre) return;
       if (!q ||
         t.title.toLowerCase().indexOf(q) !== -1 ||
         t.artist.toLowerCase().indexOf(q) !== -1 ||
         t.album.toLowerCase().indexOf(q) !== -1 ||
+        g.toLowerCase().indexOf(q) !== -1 ||
         t.path.toLowerCase().indexOf(q) !== -1) {
         filteredTracks.push(i);
       }
     });
+
+    if (view === "genre") {
+      filteredTracks.sort((a, b) => {
+        const ga = tracks[a].genre || "其他典藏";
+        const gb = tracks[b].genre || "其他典藏";
+        const ra = genreRank(ga);
+        const rb = genreRank(gb);
+        if (ra !== rb) return ra - rb;
+        if (ga !== gb) return ga.localeCompare(gb, "zh-CN");
+        return a - b;
+      });
+    }
+
+    els.emptyState.hidden = !tracks.length || filteredTracks.length > 0;
     renderPlaylist(false);
   }
 
@@ -447,10 +775,18 @@
 
   els.searchInput.addEventListener("input", applyFilter);
 
-  /* ---------------- playlist rendering ---------------- */
-
   function renderCount() {
-    if (view === "artist") {
+    if (!filteredTracks.length) {
+      els.trackCount.textContent = "0 首";
+      return;
+    }
+    if (activeGenre !== "all") {
+      const artists = new Set(filteredTracks.map((i) => tracks[i].artist || "未分类"));
+      els.trackCount.textContent = filteredTracks.length + " 首 · " + artists.size + " 位歌手";
+    } else if (view === "genre") {
+      const genres = new Set(filteredTracks.map((i) => tracks[i].genre || "其他典藏"));
+      els.trackCount.textContent = filteredTracks.length + " 首 · " + genres.size + " 大风格";
+    } else if (view === "artist") {
       const artists = new Set(filteredTracks.map((i) => tracks[i].artist || "未分类"));
       els.trackCount.textContent = filteredTracks.length + " 首 · " + artists.size + " 位歌手";
     } else {
@@ -458,7 +794,19 @@
     }
   }
 
-  function makeItem(tIndex, k, showMeta) {
+  function formatItemMeta(t, mode) {
+    const cleanAlbum = t.album && t.album.toLowerCase() !== "unknown album" ? t.album : "";
+    if (mode === "genre") {
+      return t.artist || cleanAlbum || t.dir || "/";
+    }
+    if (mode === "artist") {
+      return cleanAlbum || t.genre || t.dir || "/";
+    }
+    if (t.artist && t.genre) return t.artist + " · " + t.genre;
+    return t.artist || cleanAlbum || t.genre || t.dir || "/";
+  }
+
+  function makeItem(tIndex, k, mode) {
     const t = tracks[tIndex];
     const li = document.createElement("li");
     li.className = "playlist-item";
@@ -480,7 +828,7 @@
 
     const meta = document.createElement("span");
     meta.className = "meta";
-    meta.textContent = showMeta && t.artist ? t.artist : (t.album || t.dir || "/");
+    meta.textContent = formatItemMeta(t, mode);
 
     li.append(idx, eq, name, meta);
     li.addEventListener("click", () => playTrackByIndex(tIndex));
@@ -490,7 +838,26 @@
   function renderPlaylist(scrollToActive) {
     renderCount();
     const frag = document.createDocumentFragment();
-    if (view === "artist") {
+    if (view === "genre" && activeGenre === "all") {
+      // 计算每个风格分组的曲目数用于标题展示
+      const groupCounts = new Map();
+      filteredTracks.forEach((tIndex) => {
+        const g = tracks[tIndex].genre || "其他典藏";
+        groupCounts.set(g, (groupCounts.get(g) || 0) + 1);
+      });
+      let lastGenre = null;
+      filteredTracks.forEach((tIndex, k) => {
+        const g = tracks[tIndex].genre || "其他典藏";
+        if (g !== lastGenre) {
+          lastGenre = g;
+          const hdr = document.createElement("li");
+          hdr.className = "playlist-header";
+          hdr.textContent = g + " (" + groupCounts.get(g) + " 首)";
+          frag.appendChild(hdr);
+        }
+        frag.appendChild(makeItem(tIndex, k, "genre"));
+      });
+    } else if (view === "artist") {
       let lastArtist = null;
       filteredTracks.forEach((tIndex, k) => {
         const artist = tracks[tIndex].artist || "未分类";
@@ -501,11 +868,12 @@
           hdr.textContent = artist;
           frag.appendChild(hdr);
         }
-        frag.appendChild(makeItem(tIndex, k, false));
+        frag.appendChild(makeItem(tIndex, k, "artist"));
       });
     } else {
+      const itemMode = view === "genre" ? "genre" : "flat";
       filteredTracks.forEach((tIndex, k) => {
-        frag.appendChild(makeItem(tIndex, k, true));
+        frag.appendChild(makeItem(tIndex, k, itemMode));
       });
     }
     els.playlist.innerHTML = "";
@@ -513,7 +881,6 @@
     if (scrollToActive) scrollActiveIntoView();
   }
 
-  // 切歌时只更新高亮，不重建整个列表
   function highlightActive(scroll) {
     els.playlist.querySelectorAll(".playlist-item").forEach((li) => {
       const on = Number(li.dataset.index) === currentIndex;
@@ -530,9 +897,9 @@
   }
 
   function setView(next) {
-    if (next !== "artist" && next !== "flat") return;
+    if (next !== "genre" && next !== "artist" && next !== "flat") next = "genre";
     view = next;
-    localStorage.setItem("gh-view", view);
+    localStorage.setItem(VIEW_KEY, view);
     els.viewToggle.querySelectorAll("button").forEach((b) => {
       b.classList.toggle("on", b.dataset.view === view);
     });
@@ -554,20 +921,17 @@
     return a;
   }
 
-  // 按当前随机开关排列播放顺序；first 若在列表中则排在最前
+  // 按当前随机开关排列播放顺序；非随机时保持界面所见的列表顺序
   function arrangeOrder(list, first) {
     const out = list.slice();
     if (shuffle) {
       shuffleInPlace(out);
       const i = first == null ? -1 : out.indexOf(first);
       if (i > 0) { out.splice(i, 1); out.unshift(first); }
-    } else {
-      out.sort((a, b) => a - b);
     }
     return out;
   }
 
-  // 以当前可见列表(搜索结果)作为播放上下文
   function buildOrder(first) {
     order = arrangeOrder(filteredTracks, first);
     pos = first == null ? -1 : order.indexOf(first);
@@ -617,8 +981,6 @@
     }
   }
 
-  // play() 被切歌打断时会以 AbortError 拒绝，这属于正常情况，不应提示错误；
-  // 真正的解码/网络错误会触发 audio 的 error 事件，在那里统一处理。
   function safePlay() {
     const p = audio.play();
     if (p && typeof p.catch === "function") {
@@ -642,23 +1004,24 @@
     els.durTime.textContent = "0:00";
     safePlay();
     els.trackTitle.textContent = t.title;
-    els.trackSub.textContent = t.artist || t.album || t.dir || "/";
+    const subParts = [];
+    if (t.artist) subParts.push(t.artist);
+    if (t.genre) subParts.push(t.genre);
+    els.trackSub.textContent = subParts.length ? subParts.join(" · ") : (t.album || t.dir || "/");
     const cover = t.cover || lookupCover(t.dir);
     els.coverArt.src = cover || DEFAULT_COVER;
     highlightActive(true);
     updateMediaSession(t, cover);
   }
 
-  // auto=true 表示自然播完/出错后的自动切歌；手动点“下一首”传 false
   function nextTrack(auto) {
     if (!ensureOrder()) return;
     if (pos < order.length - 1) { playAt(pos + 1); return; }
-    // 已到列表末尾：自然播完且没开列表循环则停止
     if (auto === true && repeat !== "all") return;
     if (shuffle && order.length > 1) {
       const last = order[order.length - 1];
       order = arrangeOrder(order, null);
-      if (order[0] === last) order.push(order.shift()); // 新一轮不立刻重复刚播完的歌
+      if (order[0] === last) order.push(order.shift());
     }
     playAt(0);
   }
@@ -679,7 +1042,6 @@
 
   function togglePlay() {
     if (currentIndex === -1 && !audio.currentSrc) {
-      // 还没播过任何歌：从当前列表开头(随机模式下为随机一首)开始
       if (ensureOrder()) playAt(pos >= 0 ? pos : 0);
       return;
     }
@@ -698,7 +1060,13 @@
     els.shuffleBtn.classList.toggle("on", shuffle);
     if (order.length) {
       const cur = currentIndex !== -1 ? currentIndex : null;
-      order = arrangeOrder(order, cur);
+      if (shuffle) {
+        order = arrangeOrder(order, cur);
+      } else if (filteredTracks.length && (cur === null || filteredTracks.indexOf(cur) !== -1)) {
+        order = filteredTracks.slice();
+      } else {
+        order = order.slice().sort((a, b) => a - b);
+      }
       pos = cur == null ? -1 : order.indexOf(cur);
     }
     toast(shuffle ? "已开启随机播放" : "已关闭随机播放");
@@ -767,7 +1135,6 @@
       return;
     }
     toast("无法播放：" + (t ? t.title : ""), true);
-    // 出错时即使是单曲循环也跳到下一首，避免卡死在坏文件上
     nextTrack(true);
   });
 
@@ -839,7 +1206,7 @@
       navigator.mediaSession.metadata = new MediaMetadata({
         title: t.title,
         artist: t.artist || settings.owner,
-        album: t.album || settings.repo,
+        album: (t.album && t.album.toLowerCase() !== "unknown album" ? t.album : "") || t.genre || settings.repo,
         artwork: cover ? [{ src: cover, sizes: "512x512" }] : [],
       });
     } catch (e) { /* ignore */ }
@@ -852,16 +1219,15 @@
       if (e.key === "Escape") closeSettings();
       return;
     }
-    if (e.ctrlKey || e.metaKey || e.altKey) return; // 不拦截 Ctrl+P 等浏览器快捷键
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     const target = e.target;
     const tag = (target.tagName || "").toLowerCase();
     if (target.isContentEditable || tag === "textarea" || tag === "select") return;
     if (tag === "input") {
-      if (target.type !== "range") return;            // 文本/搜索框里正常打字
-      if (e.key.indexOf("Arrow") === 0) return;       // 滑块用方向键自行调节
+      if (target.type !== "range") return;
+      if (e.key.indexOf("Arrow") === 0) return;
     }
-    // 焦点在按钮上时，空格/回车交给按钮原生行为，避免“按一次触发两次”
     if ((tag === "button" || tag === "a") && (e.key === " " || e.key === "Enter")) return;
     if (e.repeat && e.key.indexOf("Arrow") !== 0) return;
 
@@ -898,7 +1264,7 @@
     loadSettings();
     updateRepeatUI();
     els.shuffleBtn.classList.toggle("on", shuffle);
-    setView(view === "flat" ? "flat" : "artist");
+    setView(view);
     const v = parseInt(localStorage.getItem("gh-volume"), 10);
     if (!isNaN(v)) {
       if (v > 0) lastVolume = Math.min(100, v);

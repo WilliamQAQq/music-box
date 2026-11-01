@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -50,23 +50,41 @@
 
   <div class="parlor-ornament" aria-hidden="true">
     <span class="ornament-line"></span>
-    <span class="ornament-glyph">&#10086; MASTER RECORD CATALOGUE &#10086;</span>
+    <span class="ornament-glyph">&#10086; CURATED RECORD COLLECTIONS · 风格歌单 &#10086;</span>
     <span class="ornament-line"></span>
   </div>
 
+  <section class="genre-shelf" id="genreShelf" aria-label="风格歌单" hidden></section>
+
   <div class="toolbar">
-    <input type="search" id="searchInput" class="search" placeholder="检索曲目、歌者或专辑…" aria-label="搜索曲目">
+    <input type="search" id="searchInput" class="search" placeholder="检索曲目、歌者、风格或专辑…" aria-label="搜索曲目">
     <div class="view-toggle" id="viewToggle">
+      <button type="button" data-view="genre">按风格</button>
       <button type="button" data-view="artist">按作者</button>
       <button type="button" data-view="flat">全部</button>
     </div>
     <span class="count" id="trackCount">0 首</span>
   </div>
 
+  <section class="genre-stage" id="genreStage" hidden>
+    <div class="genre-stage-main">
+      <span class="genre-stage-seal" id="genreStageSeal" aria-hidden="true"></span>
+      <div class="genre-stage-info">
+        <h2 id="genreStageTitle"></h2>
+        <p id="genreStageDesc"></p>
+      </div>
+    </div>
+    <div class="genre-stage-actions">
+      <button type="button" id="playGenreBtn" class="primary-btn sm-btn">&#9654; 顺序起奏</button>
+      <button type="button" id="shuffleGenreBtn" class="ghost-btn sm-btn">随机起奏</button>
+      <button type="button" id="clearGenreBtn" class="ghost-btn sm-btn">返回全馆</button>
+    </div>
+  </section>
+
   <ul class="playlist" id="playlist" aria-label="播放列表"></ul>
   <div class="empty" id="emptyState" hidden>
-    <p>唱片柜中暂无可播放的曲目</p>
-    <p class="hint">请检查仓库地址与目录路径是否正确</p>
+    <p>唱片柜中暂无匹配的曲目</p>
+    <p class="hint">可尝试清空搜索词或切换回「全部馆藏」</p>
   </div>
 </main>
 
@@ -90,7 +108,7 @@
     </div>
     <div class="track-meta">
       <div class="track-title" id="trackTitle">未播放</div>
-      <div class="track-sub" id="trackSub">轻触曲目，落针起奏</div>
+      <div class="track-sub" id="trackSub">轻触歌单或曲目，落针起奏</div>
     </div>
   </div>
 
@@ -171,6 +189,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

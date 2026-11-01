@@ -15,9 +15,9 @@
 ```
 / (仓库根目录,即 GitHub Pages 站点根)
 ├── index.html            页面结构
-├── style.css             样式(深色响应式)
+├── style.css             样式(维多利亚黑胶留声机复古主题,响应式)
 ├── app.js                全部前端逻辑
-├── music.json            音乐清单(前端主数据源:标题/歌手/专辑/相对路径)
+├── music.json            音乐清单(前端主数据源:标题/歌手/专辑/风格/相对路径)
 ├── music/                音乐文件(mp3 等,目前 86 首)
 └── .github/
     ├── gen_music_json.py 清单生成脚本(扫描 music/ 并读取 ID3 标签)
@@ -28,7 +28,7 @@
 
 1. 前端 `app.js` 启动后 `fetch("music.json")`(同源相对路径,`cache: no-store`)得到曲目列表并渲染。
    老访客有 localStorage 缓存时先秒开缓存,同时后台拉最新 `music.json`,有变化自动刷新列表(加歌后刷新页面即见)。
-2. 曲目按 `artist` 分组显示(默认"按作者"视图,可切换"全部")。
+2. 顶部展示八大「风格歌单」唱片集卡片(可一键整张播放或筛选进入歌单),列表支持「按风格 / 按作者 / 全部」三种视图切换(默认"按风格")。
 3. 点击播放时,`<audio>` 的 src 直接用 music.json 里的相对 URL(浏览器自动按页面域名解析)。
 4. 若 `music.json` 缺失或为空,前端自动回退到 GitHub API(`git/trees`)列文件(有 60 次/小时/IP 限流,仅作兜底)。
 
@@ -43,7 +43,7 @@ push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/�
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=6` 递增(如 `?v=7`)**。
+改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=7` 递增(如 `?v=8`)**。
 否则访问者浏览器用缓存旧 JS,看不到更新(本项目踩过这个坑)。
 
 ### 手动重新生成清单(本地)
@@ -54,7 +54,7 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 ## 注意事项 / 坑
 
 - **工作流依赖 mutagen**:`update-music.yml` 里那行 `python -m pip install --quiet mutagen` 不能删,否则 Actions 生成的 music.json 丢失所有 ID3 歌手信息(曾因此出过事故)。
-- **无 ID3 标签的文件**:在 `.github/gen_music_json.py` 的 `MANUAL_ARTIST` 字典里按"精确文件名"手动补歌手。
+- **无 ID3 标签的文件 / 风格归类**:在 `.github/gen_music_json.py` 的 `MANUAL_ARTIST` 补歌手,`ARTIST_GENRE` / `MANUAL_GENRE` 维护风格歌单映射(无映射时自动按 ID3 `genre` 标签推断或归入"其他典藏")。
 - **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前约 475MB,单曲最大约 15.5MB。私有仓库无法免费启用 GitHub Pages,需保持公开。
 - **浏览器缓存**:music.json 用 `no-store` 拉取,且有本地缓存时也会后台重新拉取,加歌后刷新即见;前端 JS/CSS 靠 `?v=` 版本号破缓存。
 - **`hidden` 属性**:style.css 里有全局 `[hidden]{display:none !important}`,不要删,否则带 `display` 样式的元素(如横幅)用 `hidden` 隐藏不掉。
@@ -68,9 +68,9 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 - 自然播完到列表末尾:列表循环则从头(随机模式重新洗牌),否则停止;手动点"下一首"在末尾回到开头。单曲循环只影响自然播完,手动切歌照常切。
 - 播放出错自动跳下一首,连续 3 首失败即停止(防止断网时无限跳歌);`play()` 的 AbortError(切歌打断)不提示。
 - 系统媒体键:Media Session API(初始化时注册一次,play/pause 分开处理);键盘:空格/方向键/N/P/M,带 Ctrl/Alt/⌘ 时不拦截,设置弹窗打开时只响应 Esc。
-- 搜索匹配标题/歌手/专辑/路径。
-- 生成脚本用 `mutagen.File(..., easy=True)`,mp3/m4a/flac/ogg 都能读歌手标签。
-- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view`、`gh-volume`。
+- 搜索匹配标题/歌手/专辑/风格/路径。
+- 生成脚本用 `mutagen.File(..., easy=True)`,mp3/m4a/flac/ogg 都能读歌手与风格标签。
+- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`。
 
 ## 交接对象
 
