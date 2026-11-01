@@ -1,0 +1,114 @@
+<div align="center">
+
+# 🎺 GitHub Music Box · Victorian Phonograph Salon
+
+**A Victorian Vinyl Gramophone Salon Hosted on GitHub Pages**  
+*Zero Backend · Framework-Free · Automated ID3 Tag & Synced LRC Lyrics Cloud Record Cabinet*
+
+[**简体中文**](README.md) · **English**
+
+[![Live Salon](https://img.shields.io/badge/%E2%96%B6_Listen_Live-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
+[![Tracks](https://img.shields.io/badge/Records-90_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
+[![Genres](https://img.shields.io/badge/Collections-8_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections)
+[![Lyrics](https://img.shields.io/badge/Scrolling_Lyrics-Synced_Bilingual_LRC-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
+
+### 👉 [Enter the Live Phonograph Salon: https://williamqaqq.github.io/music-box/](https://williamqaqq.github.io/music-box/)
+
+</div>
+
+---
+
+## ✨ Salon Preview
+
+<p align="center">
+  <img src=".github/assets/preview-desktop.webp" alt="GitHub Music Box Desktop Victorian Gramophone & Synced Bilingual Lyrics Preview" width="100%">
+</p>
+
+<details>
+<summary>📱 Click to expand Mobile "Libretto Scroll" Preview</summary>
+<br>
+<p align="center">
+  <img src=".github/assets/preview-mobile.webp" alt="GitHub Music Box Mobile Scrolling Lyrics Drawer Preview" width="360">
+</p>
+</details>
+
+---
+
+## 🏛️ Key Highlights
+
+- **Victorian Vinyl Gramophone Aesthetic**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and a responsive layout that adapts from a two-column desktop salon to a slide-up mobile drawer.
+- **Eight Curated Record Collections**: **90 tracks across 64 artists**, organized into eight wax-sealed style collections. Start any collection in sequential or shuffle mode with a single click, or switch seamlessly between **By Genre / By Artist / All Tracks** views.
+- **Time-Synced Scrolling Lyrics (Victorian Libretto Folio)**:
+  - **75 vocal tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**36 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **15 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
+  - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
+  - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
+- **Zero API Rate Limits · Instant Load & Hot Refresh**: Reads same-origin static manifests ([`music.json`](music.json) and [`lyrics.json`](lyrics.json)) paired with `localStorage` caching for instant startup and silent background refreshes. Also supports pointing to any public or private GitHub repository via the top-right **⚙️ Cabinet Settings** modal (falling back to the GitHub Trees API).
+- **Refined Playback Engineering**: Native `Media Session API` integration (hardware media keys, headphone controls, OS lock-screen artwork), true Fisher-Yates shuffle history (`Previous` returns to the actual track you just heard), 3-mode repeat (`Off / All / One`), and automatic skip-circuit-breaker on network errors.
+
+---
+
+## 💿 Curated Record Collections
+
+| Collection | Featured Artists | Curatorial Notes | Tracks |
+| :--- | :--- | :--- | :---: |
+| **黄金年代 · 爵士名伶**<br>*(Golden Era Vocal Jazz)* | Billie Holiday · Ella Fitzgerald · Chet Baker · Julie London | 1930s–60s smoky jazz divas, crooners, and velvet swing standards | **18** |
+| **交响爵士 · 浪漫夜曲**<br>*(Symphonic & Night Jazz)* | Laufey & Iceland Symphony Orchestra · Anthony Lazaro | Contemporary vocal jazz interwoven with lush orchestral arrangements | **16** |
+| **先锋浪潮 · 独立摇滚**<br>*(Indie Rock & Post-Rock)* | Omnipotent Youth Society · No Party For Cao Dong · Hedgehog · Wang Wen | Contemporary Chinese indie bands, post-rock instrumentals, and synth-wave | **15** |
+| **赤焰岁月 · 华语摇滚**<br>*(Chinese Rock Pioneers)* | Cui Jian · Tang Dynasty · Dou Wei · Black Panther · Second Hand Rose · Lo Ta-yu | Foundational anthems and raw live energy from the golden age of Chinese rock | **13** |
+| **古典沙龙 · 剧场礼乐**<br>*(Classical Salon & Tango)* | Erik Satie · Pachelbel's Canon · Pyotr Leshchenko · Carlos Gardel · Red Army Choir | Chamber cello & piano, vintage Russian and Argentine tangos, and choral marches | **10** |
+| **蓝调之音 · 器乐爵士**<br>*(Instrumental Jazz & Cool Bop)* | Miles Davis · John Coltrane · Ryo Fukui · Glenn Miller | Late-night trumpet, saxophone, and piano trio improvisations & big band swing | **9** |
+| **灵魂低吟 · 节奏蓝调**<br>*(Classic Soul & R&B)* | Bill Withers · Etta James · Sam Cooke · David Tao | Warm, heartfelt soul classics, blues ballads, and rhythm & blues grooves | **6** |
+| **街巷叙事 · 民谣流行**<br>*(Urban Folk & Ballads)* | Angang · Chen Doujiang · Ren Haoming | Intimate acoustic storytelling and Mandarin folk-pop melodies | **3** |
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Key | Action | Key | Action |
+| :---: | :--- | :---: | :--- |
+| `Space` | Play / Pause | `N` / `P` | Next / Previous track |
+| `←` / `→` | Seek backward / forward 5s | `M` | Mute / Unmute |
+| `↑` / `↓` | Volume +5% / -5% | `L` / `Esc` | Toggle / Close scrolling lyrics panel |
+
+---
+
+## 📦 Adding Music & Automated Workflow
+
+This project is 100% static with zero build steps. To add new tracks, simply drop audio files (`.mp3`, `.m4a`, `.flac`, `.ogg`, `.wav`, etc., optionally alongside matching `.lrc` files or folder cover images) into [`music/`](music) and push:
+
+```bash
+git pull --rebase
+git add .
+git commit -m "music: add new tracks"
+git push
+```
+
+Once pushed, the GitHub Actions workflow [`.github/workflows/update-music.yml`](.github/workflows/update-music.yml) automatically runs [`.github/gen_music_json.py`](.github/gen_music_json.py) to:
+1. Extract embedded ID3 artist, album, title, genre, and `USLT` lyrics tags via `mutagen` and assign the track to its curated style collection;
+2. Search and match time-synced `.lrc` lyrics online for newly added songs;
+3. Commit the updated [`music.json`](music.json) and [`lyrics.json`](lyrics.json) back to `main` and trigger a GitHub Pages deployment.
+
+### Connect Your Own Repository or Fork
+- **Switch Source on the Fly**: Click **⚙️ Cabinet Settings** in the top-right corner of the player and enter any GitHub `Owner` and `Repo` (plus an optional `ghp_` token stored only in your browser's `localStorage` for private repositories).
+- **Deploy Your Own Salon**: Fork this repository → replace tracks in [`music/`](music) and update `DEFAULT_SETTINGS` in [`app.js`](app.js) → enable GitHub Pages (`Deploy from a branch: main / root`) in your repository settings.
+
+---
+
+## 🗂️ Repository Structure
+
+```text
+music-box/
+├── README.md                       # Chinese repository showcase homepage
+├── README_EN.md                    # English repository showcase homepage
+├── index.html                      # Player markup (Victorian 2-column salon & Libretto folio)
+├── style.css                       # Victorian vinyl gramophone theme & responsive styles
+├── app.js                          # Playback, genre filtering, search & LRC scrolling lyrics engine
+├── music.json                      # Track manifest (title / artist / album / genre / relative path)
+├── lyrics.json                     # Synced LRC lyrics catalog (lyrics / translations / instrumental flags)
+├── music/                          # Audio files directory (currently 90 tracks)
+├── AGENTS.md                       # Technical architecture & maintainer handover notes
+└── .github/
+    ├── assets/                     # High-DPI WebP preview screenshots for README
+    ├── gen_music_json.py           # ID3 tag scanner, genre classifier & online lyrics fetcher
+    └── workflows/update-music.yml  # GitHub Actions workflow triggered on music/** pushes
+```

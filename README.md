@@ -5,6 +5,8 @@
 **一座架设在 GitHub Pages 上的维多利亚黑胶留声机沙龙**  
 *零后端 · 无框架 · 自动解析标签与滚动唱词的云端私人唱片柜*
 
+**简体中文** · [**English**](README_EN.md)
+
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_%E5%9C%A8%E7%BA%BF%E8%90%BD%E9%92%88%E8%AF%95%E5%90%AC-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
 [![Tracks](https://img.shields.io/badge/%E9%A6%86%E8%97%8F%E5%94%B1%E7%89%87-90_%E9%A6%96-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
 [![Genres](https://img.shields.io/badge/%E9%A3%8E%E6%A0%BC%E6%AD%8C%E5%8D%95-8_%E5%A4%A7%E6%B5%81%E6%B4%BE-4d8a88?style=for-the-badge&labelColor=24150e)](#-%E9%A6%86%E8%97%8F%E5%85%AB%E5%A4%A7%E9%A3%8E%E6%A0%BC%E6%AD%8C%E5%8D%95)
@@ -96,6 +98,8 @@ git push
 
 ```text
 music-box/
+├── README.md                       # 仓库中文展示主页
+├── README_EN.md                    # 仓库英文展示主页 (English README)
 ├── index.html                      # 播放器页面结构（维多利亚沙龙双栏与唱词卷轴）
 ├── style.css                       # 复古黑胶留声机主题样式与响应式布局
 ├── app.js                          # 核心播控、歌单筛选、搜索与 LRC 滚动歌词引擎

@@ -14,7 +14,8 @@
 
 ```
 / (仓库根目录,即 GitHub Pages 站点根)
-├── README.md             GitHub 仓库展示主页
+├── README.md             GitHub 仓库中文展示主页
+├── README_EN.md          GitHub 仓库英文展示主页
 ├── index.html            页面结构
 ├── style.css             样式(维多利亚黑胶留声机复古主题,响应式)
 ├── app.js                全部前端逻辑(含歌单筛选与时间轴滚动歌词引擎)
