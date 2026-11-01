@@ -1,0 +1,110 @@
+<div align="center">
+
+# 🎺 GitHub 音乐盒 · Victorian Phonograph Salon
+
+**一座架设在 GitHub Pages 上的维多利亚黑胶留声机沙龙**  
+*零后端 · 无框架 · 自动解析标签与滚动唱词的云端私人唱片柜*
+
+[![Live Salon](https://img.shields.io/badge/%E2%96%B6_%E5%9C%A8%E7%BA%BF%E8%90%BD%E9%92%88%E8%AF%95%E5%90%AC-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
+[![Tracks](https://img.shields.io/badge/%E9%A6%86%E8%97%8F%E5%94%B1%E7%89%87-90_%E9%A6%96-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
+[![Genres](https://img.shields.io/badge/%E9%A3%8E%E6%A0%BC%E6%AD%8C%E5%8D%95-8_%E5%A4%A7%E6%B5%81%E6%B4%BE-4d8a88?style=for-the-badge&labelColor=24150e)](#-%E9%A6%86%E8%97%8F%E5%85%AB%E5%A4%A7%E9%A3%8E%E6%A0%BC%E6%AD%8C%E5%8D%95)
+[![Lyrics](https://img.shields.io/badge/%E6%BB%9A%E5%8A%A8%E5%94%B1%E8%AF%8D-LRC_%E5%8F%8C%E8%AF%AD%E5%90%8C%E6%AD%A5-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
+
+### 👉 [立即进入在线留声机：https://williamqaqq.github.io/music-box/](https://williamqaqq.github.io/music-box/)
+
+</div>
+
+---
+
+## ✨ 沙龙实景预览
+
+<p align="center">
+  <img src=".github/assets/preview-desktop.webp" alt="GitHub 音乐盒 桌面端维多利亚黑胶留声机与双语滚动唱词预览" width="100%">
+</p>
+
+<details>
+<summary>📱 展开查看移动端「唱词卷轴」实机画面</summary>
+<br>
+<p align="center">
+  <img src=".github/assets/preview-mobile.webp" alt="GitHub 音乐盒 移动端滚动唱词抽屉预览" width="360">
+</p>
+</details>
+
+---
+
+## 🏛️ 核心特性
+
+- **维多利亚黑胶留声机美学**：深邃锦缎暗纹壁纸、胡桃木镶嵌古铜机柜、随旋律旋转的黑胶唱盘与唱臂落针动画，支持桌面端双栏沙龙与移动端自适应布局。
+- **八大流派典藏唱片集**：全馆 **64 位音乐人、90 首曲目**按音乐脉络归档为八张火漆封缄歌单，支持一键「顺序起奏 / 随机起奏」，并可在 **按风格 / 按作者 / 全部** 三种视图间无缝切换。
+- **双语时间轴滚动唱词（Libretto 唱词卷轴）**：
+  - 全馆 **75 首人声曲目**配备逐句同步 `.lrc` 时间轴歌词（其中 **36 首外语曲目内置双语译文**，可通过 `译` 按钮一键切换），**15 首器乐曲目**展示专属纯器乐铭牌。
+  - **随乐滚动 + 自由翻阅**：唱词随音乐平滑居中推进；当用户通过滚轮、触屏或滚动条主动翻阅时自动暂停跟随，并提供 **「↻ 回到当前唱词」** 按钮（或静置 5.5 秒自动恢复同步）。
+  - **点句即达**：点击任意带时间轴的唱词行即可直接跳转至对应播放时刻。
+- **零 API 限流 · 秒开热更新**：默认同源拉取静态清单 [`music.json`](music.json) 与 [`lyrics.json`](lyrics.json)，结合 `localStorage` 本地缓存实现老访客秒开与后台无感更新；同时支持在右上角 **⚙️ 唱片柜设置** 中填入任意 GitHub 公开/私有仓库（自动通过 GitHub Trees API 扫描播放）。
+- **完备的播控细节**：原生接入 `Media Session API`（支持键盘多媒体键、耳机线控与系统锁屏封面控播）、Fisher-Yates 真随机播放历史（点「上一首」能回到真正听过的歌）、三档循环（关闭 / 列表 / 单曲「1」角标）及连续失败熔断保护。
+
+---
+
+## 💿 馆藏八大风格歌单
+
+| 唱片集名称 | 代表音乐人 | 曲风导览 | 曲目数 |
+| :--- | :--- | :--- | :---: |
+| **黄金年代 · 爵士名伶** | Billie Holiday · Ella Fitzgerald · Chet Baker · Julie London | 1930–60 年代烟嗓名伶与摇摆黄金岁月，留声机最经典的温柔夜色 | **18 首** |
+| **交响爵士 · 浪漫夜曲** | Laufey & 冰岛交响乐团 · Anthony Lazaro | 古典管弦乐团与现代爵士女声的浪漫交织，宛如烛光音乐厅现场 | **16 首** |
+| **先锋浪潮 · 独立摇滚** | 万能青年旅店 · 草东没有派对 · 刺猬 · 惘闻 · 回春丹 | 当代华语独立乐队、后摇器乐与合成器浪潮，锋利诗意的新声 | **15 首** |
+| **赤焰岁月 · 华语摇滚** | 崔健 · 唐朝 · 窦唯 · 黑豹 · 二手玫瑰 · 罗大佑 | 华语摇滚开山火种与时代呐喊，粗粝炽热的经典现场记忆 | **13 首** |
+| **古典沙龙 · 剧场礼乐** | Erik Satie · 帕赫贝尔卡农 · 俄式与古典探戈 · 红军合唱团 | 大提琴钢琴室内乐、旧日俄式及阿根廷探戈、恢弘合唱与庄重礼乐 | **10 首** |
+| **蓝调之音 · 器乐爵士** | Miles Davis · John Coltrane · Ryo Fukui · Glenn Miller | 小号、萨克斯与钢琴三重奏的深夜即兴，兼具冷爵士与大乐队摇摆 | **9 首** |
+| **灵魂低吟 · 节奏蓝调** | Bill Withers · Etta James · Sam Cooke · 陶喆 | 深情滚烫的灵魂乐与节奏布鲁斯经典，直抵人心的律动与嘶吼 | **6 首** |
+| **街巷叙事 · 民谣流行** | 暗杠 · 一杯陈豆浆 · 任浩铭 | 温润质朴的城市民谣与华语金曲，适合静夜独酌的街巷故事 | **3 首** |
+
+---
+
+## ⌨️ 快捷键一览
+
+| 按键 | 功能 | 按键 | 功能 |
+| :---: | :--- | :---: | :--- |
+| `Space` | 播放 / 暂停 | `N` / `P` | 下一首 / 上一首 |
+| `←` / `→` | 快退 / 快进 5 秒 | `M` | 静音 / 恢复音量 |
+| `↑` / `↓` | 音量增加 / 减小 5% | `L` / `Esc` | 展开或收起滚动唱词面板 |
+
+---
+
+## 📦 日常加歌与自动化部署
+
+本项目纯静态无构建步骤，新增音乐只需将音频文件（支持 `.mp3` / `.m4a` / `.flac` / `.ogg` / `.wav` 等，可选附带同名 `.lrc` 歌词或目录封面图）放入 [`music/`](music) 目录并推送：
+
+```bash
+git pull --rebase
+git add .
+git commit -m "music: 新增曲目"
+git push
+```
+
+推送后，GitHub Actions 工作流 [`.github/workflows/update-music.yml`](.github/workflows/update-music.yml) 会自动运行 [`.github/gen_music_json.py`](.github/gen_music_json.py)：
+1. 通过 `mutagen` 自动读取音频内嵌 ID3 歌手、专辑、曲名、流派与内嵌歌词标签，归入对应风格歌单；
+2. 自动为新增曲目检索匹配时间轴 `.lrc` 滚动歌词；
+3. 自动提交更新 [`music.json`](music.json) 与 [`lyrics.json`](lyrics.json) 并触发 GitHub Pages 重新发布，刷新网页即可收听。
+
+### 复刻或连接你自己的仓库
+- **临时切换音源**：打开播放器右上角 **⚙️ 唱片柜设置**，填入任意 GitHub 用户名与仓库名（私有仓库可填入仅保存在本地浏览器的 `ghp_` Token），即可直接在线播放。
+- **Fork 部署个人站点**：Fork 本仓库 → 替换 [`music/`](music) 中的音频并修改 [`app.js`](app.js) 中的 `DEFAULT_SETTINGS` → 在仓库 `Settings → Pages` 开启 `Deploy from a branch (main / root)` 即可拥有同款私人黑胶音乐馆。
+
+---
+
+## 🗂️ 仓库结构
+
+```text
+music-box/
+├── index.html                      # 播放器页面结构（维多利亚沙龙双栏与唱词卷轴）
+├── style.css                       # 复古黑胶留声机主题样式与响应式布局
+├── app.js                          # 核心播控、歌单筛选、搜索与 LRC 滚动歌词引擎
+├── music.json                      # 曲目主清单（标题 / 歌手 / 专辑 / 风格 / 相对路径）
+├── lyrics.json                     # 全馆时间轴滚动歌词库（原文 / 双语译文 / 器乐标记）
+├── music/                          # 馆藏音频文件目录（当前 90 首）
+├── AGENTS.md                       # 项目技术细节与维护交接文档
+└── .github/
+    ├── assets/                     # README 实机预览截图
+    ├── gen_music_json.py           # ID3 标签扫描、流派归类与在线歌词生成脚本
+    └── workflows/update-music.yml  # Push 音乐后自动更新清单的 GitHub Actions 工作流
+```

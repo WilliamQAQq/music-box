@@ -14,6 +14,7 @@
 
 ```
 / (仓库根目录,即 GitHub Pages 站点根)
+├── README.md             GitHub 仓库展示主页
 ├── index.html            页面结构
 ├── style.css             样式(维多利亚黑胶留声机复古主题,响应式)
 ├── app.js                全部前端逻辑(含歌单筛选与时间轴滚动歌词引擎)
@@ -21,7 +22,8 @@
 ├── lyrics.json           全馆时间轴滚动歌词库(LRC 原文/双语译文/纯器乐标记)
 ├── music/                音乐文件(mp3 等,目前 90 首)
 └── .github/
-    ├── gen_music_json.py 清单生成脚本(扫描 music/ 并读取 ID3 标签)
+    ├── assets/           README 实机预览图
+    ├── gen_music_json.py 清单生成脚本(扫描 music/ 并读取 ID3 标签与在线歌词)
     └── workflows/update-music.yml   GitHub Actions:push 音乐后自动重跑脚本
 ```
 
