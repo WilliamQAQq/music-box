@@ -16,55 +16,111 @@
   // 连续多少首播放失败后停止自动跳歌(防止断网时无限跳歌)
   const MAX_ERROR_STREAK = 3;
 
-  // 八大维多利亚风格唱片集定义(顺序即展示顺序)
+  // 十四大维多利亚风格唱片集与国歌军乐特辑定义(顺序即展示顺序)
   const GENRE_PRESETS = [
     {
       id: "黄金年代 · 爵士名伶",
+      category: "salon",
       sub: "Billie Holiday · Ella · Chet Baker · Julie London",
       seal: "#c98236",
       desc: "1930–60 年代烟嗓名伶与摇摆黄金岁月，留声机最经典的温柔夜色。",
     },
     {
       id: "交响爵士 · 浪漫夜曲",
+      category: "salon",
       sub: "Laufey & 冰岛交响乐团 · Anthony Lazaro",
       seal: "#b85668",
       desc: "古典管弦乐团与现代爵士女声的浪漫交织，宛如烛光音乐厅现场。",
     },
     {
       id: "蓝调之音 · 器乐爵士",
+      category: "salon",
       sub: "Miles Davis · Coltrane · Ryo Fukui · Glenn Miller",
       seal: "#4d8a88",
       desc: "小号、萨克斯与钢琴三重奏的深夜即兴，兼具冷爵士与大乐队摇摆。",
     },
     {
       id: "灵魂低吟 · 节奏蓝调",
+      category: "salon",
       sub: "Bill Withers · Etta James · Sam Cooke · 陶喆",
       seal: "#bc6039",
       desc: "深情滚烫的灵魂乐与节奏布鲁斯经典，直抵人心的律动与嘶吼。",
     },
     {
       id: "先锋浪潮 · 独立摇滚",
+      category: "salon",
       sub: "万能青年旅店 · 草东 · 刺猬 · 惘闻 · 回春丹",
       seal: "#5d8b67",
       desc: "当代华语独立乐队、后摇器乐与合成器浪潮，锋利诗意的新声。",
     },
     {
       id: "赤焰岁月 · 华语摇滚",
+      category: "salon",
       sub: "崔健 · 唐朝 · 窦唯 · 黑豹 · 二手玫瑰 · 罗大佑",
       seal: "#a8333a",
       desc: "华语摇滚开山火种与时代呐喊，粗粝炽热的经典现场记忆。",
     },
     {
       id: "街巷叙事 · 民谣流行",
+      category: "salon",
       sub: "暗杠 · 一杯陈豆浆 · 任浩铭",
       seal: "#b89a58",
       desc: "温润质朴的城市民谣与华语金曲，适合静夜独酌的街巷故事。",
     },
     {
       id: "古典沙龙 · 剧场礼乐",
+      category: "salon",
       sub: "Erik Satie · 肖邦/德彪西/贝多芬 · 卡鲁索/帕瓦罗蒂 · 红军合唱团",
       seal: "#88507c",
       desc: "大提琴钢琴室内乐、旧日俄式及阿根廷探戈、恢弘合唱与庄重礼乐，重现沙龙风华。",
+    },
+    {
+      id: "国歌军乐 · 中国",
+      category: "military",
+      flag: "🇨🇳",
+      sub: "义勇军进行曲 · 歌唱祖国 · 保卫黄河 · 游击队歌",
+      seal: "#de2910",
+      desc: "巍巍华夏，赤旗飘扬。庄严雄壮的国家颂歌、波澜壮阔的黄河大合唱与嘹亮铿锵的军旅进行曲。",
+    },
+    {
+      id: "国歌军乐 · 美国",
+      category: "military",
+      flag: "🇺🇸",
+      sub: "星条旗之歌 · 星条旗永不落 · 共和国战歌 · 战车向前进",
+      seal: "#1e3a8a",
+      desc: "雄壮军乐铜管与合唱经典，苏萨经典进行曲与行进战歌，重现历史仪仗风采。",
+    },
+    {
+      id: "国歌军乐 · 俄罗斯",
+      category: "military",
+      flag: "🇷🇺",
+      sub: "牢不可破的联盟 · 神圣的战争 · 告别斯拉夫少女 · 草原啊草原",
+      seal: "#991b1b",
+      desc: "红旗歌舞团恢弘深沉的男声合唱，二战伟大战火记忆与铜管军礼典范。",
+    },
+    {
+      id: "国歌军乐 · 法国",
+      category: "military",
+      flag: "🇫🇷",
+      sub: "马赛曲 · 游击队之歌 · 洛林进行曲 · 桑布尔与默兹",
+      seal: "#1d4ed8",
+      desc: "法兰西大革命与反法西斯抵抗运动传世军歌，激昂号角与革命卫队合唱。",
+    },
+    {
+      id: "国歌军乐 · 德国",
+      category: "military",
+      flag: "🇩🇪",
+      sub: "德意志之歌 · 普鲁士荣誉 · 旧友进行曲 · 霍亨弗里德贝格",
+      seal: "#4b5563",
+      desc: "古典欧洲军乐体系代表作，海顿国歌旋律与严谨宏大的经典步骑兵仪仗军乐。",
+    },
+    {
+      id: "国歌军乐 · 日本",
+      category: "military",
+      flag: "🇯🇵",
+      sub: "君之代 · 军舰进行曲 · 敷岛舰进行曲 · 拔刀队",
+      seal: "#b45309",
+      desc: "明治与昭和初期黑胶唱片经典行进军乐与雅乐国歌，历史留声机原声重现。",
     },
   ];
 
@@ -143,6 +199,23 @@
     "claude debussy": "古典沙龙 · 剧场礼乐",
     "ludwig van beethoven": "古典沙龙 · 剧场礼乐",
     "antonio vivaldi": "古典沙龙 · 剧场礼乐",
+    "中国人民解放军军乐团": "国歌军乐 · 中国",
+    "中央乐团合唱团": "国歌军乐 · 中国",
+    "中国人民解放军总政歌舞团": "国歌军乐 · 中国",
+    "the united states military ensemble": "国歌军乐 · 美国",
+    "john philip sousa": "国歌军乐 · 美国",
+    "the sandpiper chorus": "国歌军乐 · 美国",
+    "le choeur des enfants de montmartre": "国歌军乐 · 法国",
+    "germaine sablon": "国歌军乐 · 法国",
+    "michel nowak ensemble": "国歌军乐 · 德国",
+    "berliner harmonie orchester": "国歌军乐 · 德国",
+    "carl teike": "国歌军乐 · 德国",
+    "trompeterkorps des kavallerie-regiments 6": "国歌军乐 · 德国",
+    "josef franz wagner": "国歌军乐 · 德国",
+    "日本典礼合唱团": "国歌军乐 · 日本",
+    "濑户口藤吉": "国歌军乐 · 日本",
+    "夏尔·勒鲁": "国歌军乐 · 日本",
+    "imperial ensemble": "国歌军乐 · 日本",
   };
 
   const GENRE_RANK = new Map(GENRE_PRESETS.map((g, idx) => [g.id, idx]));
@@ -226,6 +299,7 @@
   let filteredTracks = []; // 歌单筛选+搜索后按当前视图排序的 tracks 下标
   let currentIndex = -1;   // 当前曲目在 tracks[] 中的下标
   let activeGenre = "all"; // 当前选中的风格歌单("all" 表示全部馆藏)
+  let shelfCategory = "all"; // 当前专区分组 ("all" | "salon" | "military")
 
   let shuffle = localStorage.getItem("gh-shuffle") === "1";
   let repeat = localStorage.getItem("gh-repeat") || "none";
@@ -612,10 +686,11 @@
     const items = [
       {
         id: "all",
+        category: "all",
         name: "全部馆藏",
-        sub: "八大流派完整唱片库",
+        sub: "十四大专区完整唱片库",
         seal: "#d4a64a",
-        desc: "留声机全馆典藏唱片，涵盖爵士、灵魂蓝调、独立与华语摇滚、民谣及古典沙龙。",
+        desc: "留声机全馆典藏唱片，涵盖爵士、灵魂蓝调、独立与华语摇滚、古典沙龙及六国国歌军乐特辑。",
         count: tracks.length,
       },
     ];
@@ -623,16 +698,29 @@
     GENRE_PRESETS.forEach((p) => {
       const cnt = counts.get(p.id) || 0;
       if (cnt > 0) {
-        items.push({ id: p.id, name: p.id, sub: p.sub, seal: p.seal, desc: p.desc, count: cnt });
+        if (shelfCategory === "all" || p.category === shelfCategory) {
+          items.push({
+            id: p.id,
+            category: p.category,
+            flag: p.flag || "",
+            name: p.id,
+            sub: p.sub,
+            seal: p.seal,
+            desc: p.desc,
+            count: cnt,
+          });
+        }
         counts.delete(p.id);
       }
     });
 
-    counts.forEach((cnt, id) => {
-      if (cnt > 0) {
-        items.push({ id: id, name: id, sub: "馆藏曲目精选", seal: "#9e7632", desc: "按曲风归档的唱片合集。", count: cnt });
-      }
-    });
+    if (shelfCategory === "all") {
+      counts.forEach((cnt, id) => {
+        if (cnt > 0) {
+          items.push({ id: id, category: "other", name: id, sub: "馆藏曲目精选", seal: "#9e7632", desc: "按曲风归档的唱片合集。", count: cnt });
+        }
+      });
+    }
 
     return items;
   }
@@ -670,7 +758,13 @@
 
       const name = document.createElement("span");
       name.className = "genre-card-name";
-      name.textContent = it.name;
+      if (it.flag) {
+        const flag = document.createElement("span");
+        flag.className = "genre-card-flag";
+        flag.textContent = it.flag;
+        name.appendChild(flag);
+      }
+      name.appendChild(document.createTextNode(it.name));
 
       const count = document.createElement("span");
       count.className = "genre-card-count";
@@ -2067,6 +2161,24 @@
     toastTimer = setTimeout(() => { els.toast.hidden = true; }, 2600);
   }
 
+  function initShelfTabs() {
+    const tabWrap = $("genreShelfTabs");
+    if (!tabWrap) return;
+    tabWrap.querySelectorAll(".shelf-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const cat = btn.dataset.category || "all";
+        if (cat === shelfCategory) return;
+        shelfCategory = cat;
+        tabWrap.querySelectorAll(".shelf-tab").forEach((b) => {
+          const on = b.dataset.category === shelfCategory;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        renderGenreShelf();
+      });
+    });
+  }
+
   /* ---------------- init ---------------- */
 
   function init() {
@@ -2074,6 +2186,7 @@
     updateRepeatUI();
     els.shuffleBtn.classList.toggle("on", shuffle);
     setView(view);
+    initShelfTabs();
     const v = parseInt(localStorage.getItem("gh-volume"), 10);
     if (!isNaN(v)) {
       if (v > 0) lastVolume = Math.min(100, v);

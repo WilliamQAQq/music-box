@@ -40,6 +40,14 @@
     "dir": "music"
   },
   {
+    "title": "Preußens Gloria (普鲁士荣誉进行曲)",
+    "artist": "Berliner Harmonie Orchester",
+    "album": "Königlich Preußische Armeemärsche",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Berliner Harmonie Orchester - Preussens Gloria.mp3",
+    "dir": "music"
+  },
+  {
     "title": "deep in it",
     "artist": "berlioz, Ted Jasper",
     "album": "deep in it",
@@ -93,6 +101,14 @@
     "album": "Unknown Album",
     "genre": "赤焰岁月 · 华语摇滚",
     "url": "music/別去糟蹋_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Alte Kameraden (旧友进行曲)",
+    "artist": "Carl Teike",
+    "album": "Deutsche Traditionsmärsche",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Carl Teike - Alte Kameraden.mp3",
     "dir": "music"
   },
   {
@@ -240,11 +256,27 @@
     "dir": "music"
   },
   {
+    "title": "Le Chant des Partisans (游击队之歌)",
+    "artist": "Germaine Sablon",
+    "album": "Chants de la Résistance Française 1943",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Germaine Sablon - Le Chant des Partisans.mp3",
+    "dir": "music"
+  },
+  {
     "title": "In the Mood",
     "artist": "Glenn Miller",
     "album": "Greatest Hits",
     "genre": "蓝调之音 · 器乐爵士",
     "url": "music/In the Mood_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Japanese National March (日本国仪仗进行曲)",
+    "artist": "Imperial Ensemble",
+    "album": "Historical Japanese Ceremonial Marches",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/Imperial Ensemble - Japanese National March.mp3",
     "dir": "music"
   },
   {
@@ -261,6 +293,22 @@
     "album": "John Coltrane And Johnny Hartman",
     "genre": "黄金年代 · 爵士名伶",
     "url": "music/My One And Only Love_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "The Stars and Stripes Forever (星条旗永不落)",
+    "artist": "John Philip Sousa",
+    "album": "American Military Marches",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/John Philip Sousa - The Stars and Stripes Forever.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Unter dem Doppeladler (双鹰旗下进行曲)",
+    "artist": "Josef Franz Wagner",
+    "album": "Historische Deutsche Militärmärsche",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Josef Franz Wagner - Unter dem Doppeladler.mp3",
     "dir": "music"
   },
   {
@@ -408,6 +456,38 @@
     "dir": "music"
   },
   {
+    "title": "La Marseillaise (马赛曲 - 法国国歌)",
+    "artist": "Le Choeur des Enfants de Montmartre",
+    "album": "Marches et Chants Révolutionnaires Français",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Le Choeur des Enfants de Montmartre - La Marseillaise.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Le Chant des Girondins (吉伦特派人之歌)",
+    "artist": "Le Choeur des Enfants de Montmartre",
+    "album": "Marches et Chants Révolutionnaires Français",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Le Choeur des Enfants de Montmartre - Le Chant des Girondins.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Le Régiment de Sambre-et-Meuse (桑布尔与默兹进行曲)",
+    "artist": "Le Choeur des Enfants de Montmartre",
+    "album": "Marches et Chants Révolutionnaires Français",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Le Choeur des Enfants de Montmartre - Le Regiment de Sambre et Meuse.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Marche Lorraine (洛林进行曲)",
+    "artist": "Le Choeur des Enfants de Montmartre",
+    "album": "Marches et Chants Révolutionnaires Français",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Le Choeur des Enfants de Montmartre - Marche Lorraine.mp3",
+    "dir": "music"
+  },
+  {
     "title": "These Foolish Things - Remastered 1995",
     "artist": "Lester Young",
     "album": "The Complete Aladdin Recordings Of Lester Young",
@@ -461,6 +541,14 @@
     "album": "",
     "genre": "古典沙龙 · 剧场礼乐",
     "url": "music/Mandela Catalogue_ Amazing Grace (Full Version).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Das Lied der Deutschen (德意志之歌 - 德国国歌)",
+    "artist": "Michel Nowak Ensemble",
+    "album": "Deutsche Nationalhymne & Marschmusik",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Michel Nowak Ensemble - Das Lied der Deutschen (Deutschlandlied).mp3",
     "dir": "music"
   },
   {
@@ -560,6 +648,22 @@
     "dir": "music"
   },
   {
+    "title": "Along the Vales and Hills (跨过高山，越过平原)",
+    "artist": "The Red Army Choir",
+    "album": "Soviet Red Army Songs",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/The Red Army Choir - Along the Vales and Hills.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Farewell of Slavianka (告别斯拉夫少女)",
+    "artist": "The Red Army Choir",
+    "album": "Russian Military Marches",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/The Red Army Choir - Farewell of Slavianka.mp3",
+    "dir": "music"
+  },
+  {
     "title": "Kalinka (Калинка)",
     "artist": "The Red Army Choir",
     "album": "Soviet & Russian Choral Classics",
@@ -576,11 +680,75 @@
     "dir": "music"
   },
   {
+    "title": "Polyushko-polye (草原啊草原 / Полюшко-поле)",
+    "artist": "The Red Army Choir",
+    "album": "Soviet Red Army Songs",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/The Red Army Choir - Polyushko-polye.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "State Anthem of the Soviet Union (牢不可破的联盟)",
+    "artist": "The Red Army Choir",
+    "album": "Soviet & Russian Patriotic Hymns",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/The Red Army Choir - State Anthem of the Soviet Union.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "The Sacred War (神圣的战争 / Священная война)",
+    "artist": "The Red Army Choir",
+    "album": "Great Patriotic War Anthems",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/The Red Army Choir - The Sacred War (Священная война).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Коробейники",
     "artist": "The Red Army Choir",
     "album": "Антология, Часть №1",
     "genre": "古典沙龙 · 剧场礼乐",
     "url": "music/The Red Army Choir - Коробейники (SPOTISAVER).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Battle Hymn of the Republic (共和国战歌)",
+    "artist": "The Sandpiper Chorus",
+    "album": "God Bless America",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/The Sandpiper Chorus - Battle Hymn of the Republic.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "The Caissons Go Rolling Along (战车向前进 - 陆军军歌)",
+    "artist": "The Sandpiper Chorus",
+    "album": "God Bless America",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/The Sandpiper Chorus - The Caissons Go Rolling Along.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "The Marines' Hymn (海军陆战队赞歌)",
+    "artist": "The Sandpiper Chorus",
+    "album": "God Bless America",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/The Sandpiper Chorus - The Marines' Hymn (Halls of Montezuma).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "The Star-Spangled Banner (星条旗之歌)",
+    "artist": "The United States Military Ensemble",
+    "album": "National Anthems & Marches of America",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/United States Military Ensemble - The Star-Spangled Banner.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Der Hohenfriedberger Marsch (霍亨弗里德贝格进行曲)",
+    "artist": "Trompeterkorps des Kavallerie-Regiments 6",
+    "album": "Historische Deutsche Militärmärsche",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Trompeterkorps des Kavallerie-Regiments 6 - Der Hohenfriedberger Marsch.mp3",
     "dir": "music"
   },
   {
@@ -664,6 +832,46 @@
     "dir": "music"
   },
   {
+    "title": "义勇军进行曲 (中华人民共和国国歌)",
+    "artist": "中国人民解放军军乐团",
+    "album": "国歌军乐精选 · 华夏赤旗",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/中国人民解放军军乐团 - 义勇军进行曲 (中华人民共和国国歌).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "游击队歌",
+    "artist": "中国人民解放军总政歌舞团",
+    "album": "国歌军乐精选 · 华夏赤旗",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/中国人民解放军总政歌舞团 - 游击队歌.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "保卫黄河",
+    "artist": "中央乐团合唱团",
+    "album": "黄河大合唱",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/中央乐团合唱团 - 保卫黄河.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "我们走在大路上",
+    "artist": "中央乐团合唱团",
+    "album": "国歌军乐精选 · 华夏赤旗",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/中央乐团合唱团 - 我们走在大路上.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "歌唱祖国",
+    "artist": "中央乐团合唱团",
+    "album": "国歌军乐精选 · 华夏赤旗",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/中央乐团合唱团 - 歌唱祖国.mp3",
+    "dir": "music"
+  },
+  {
     "title": "你看到的我",
     "artist": "任浩铭, 黄勇",
     "album": "你看到的我",
@@ -712,6 +920,14 @@
     "dir": "music"
   },
   {
+    "title": "拔刀队进行曲 (Battōtai)",
+    "artist": "夏尔·勒鲁",
+    "album": "日本古典儀仗與典禮軍樂",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/夏尔·勒鲁 - 拔刀队进行曲 (Battotai).mp3",
+    "dir": "music"
+  },
+  {
     "title": "新长征路上的摇滚",
     "artist": "崔健",
     "album": "新长征路上的摇滚",
@@ -728,6 +944,14 @@
     "dir": "music"
   },
   {
+    "title": "君之代 (Kimigayo - 日本国歌)",
+    "artist": "日本典礼合唱团",
+    "album": "日本古典儀仗與典禮軍樂",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/日本典礼合唱团 - 君之代 (Kimigayo).mp3",
+    "dir": "music"
+  },
+  {
     "title": "說書人",
     "artist": "暗杠",
     "album": "寥寥",
@@ -741,6 +965,22 @@
     "album": "海龟先生",
     "genre": "先锋浪潮 · 独立摇滚",
     "url": "music/玛卡瑞纳_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "军舰进行曲 (Gunkan Kōshinkyoku)",
+    "artist": "濑户口藤吉",
+    "album": "Polydor 333 昭和初期黑胶典藏",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/濑户口藤吉 - 军舰进行曲 (Gunkan Koshinkyoku).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "敷岛舰进行曲 (Shikishima March)",
+    "artist": "濑户口藤吉",
+    "album": "Polydor 333 昭和初期黑胶典藏",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/濑户口藤吉 - 敷岛舰进行曲 (Shikishima March).mp3",
     "dir": "music"
   },
   {

@@ -120,6 +120,33 @@ ARTIST_GENRE = {
     "claude debussy": "古典沙龙 · 剧场礼乐",
     "ludwig van beethoven": "古典沙龙 · 剧场礼乐",
     "antonio vivaldi": "古典沙龙 · 剧场礼乐",
+
+    # 9. 国歌军乐 · 中国 (National Anthems & Military Marches - China)
+    "中国人民解放军军乐团": "国歌军乐 · 中国",
+    "中央乐团合唱团": "国歌军乐 · 中国",
+    "中国人民解放军总政歌舞团": "国歌军乐 · 中国",
+
+    # 10. 国歌军乐 · 美国 (National Anthems & Military Marches - USA)
+    "the united states military ensemble": "国歌军乐 · 美国",
+    "john philip sousa": "国歌军乐 · 美国",
+    "the sandpiper chorus": "国歌军乐 · 美国",
+
+    # 11. 国歌军乐 · 法国 (National Anthems & Military Marches - France)
+    "le choeur des enfants de montmartre": "国歌军乐 · 法国",
+    "germaine sablon": "国歌军乐 · 法国",
+
+    # 12. 国歌军乐 · 德国 (National Anthems & Military Marches - Germany)
+    "michel nowak ensemble": "国歌军乐 · 德国",
+    "berliner harmonie orchester": "国歌军乐 · 德国",
+    "carl teike": "国歌军乐 · 德国",
+    "trompeterkorps des kavallerie-regiments 6": "国歌军乐 · 德国",
+    "josef franz wagner": "国歌军乐 · 德国",
+
+    # 13. 国歌军乐 · 日本 (National Anthems & Military Marches - Japan)
+    "日本典礼合唱团": "国歌军乐 · 日本",
+    "濑户口藤吉": "国歌军乐 · 日本",
+    "夏尔·勒鲁": "国歌军乐 · 日本",
+    "imperial ensemble": "国歌军乐 · 日本",
 }
 
 MANUAL_GENRE = {}
@@ -276,6 +303,8 @@ def fetch_online_lyrics(artist, title, album, target_dur):
 def resolve_genre(fname, artist, raw_genre):
     if fname in MANUAL_GENRE:
         return MANUAL_GENRE[fname]
+    if raw_genre and raw_genre.startswith("国歌军乐"):
+        return raw_genre
     if artist:
         mapped = ARTIST_GENRE.get(artist.strip().lower())
         if mapped:

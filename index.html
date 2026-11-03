@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 
@@ -54,6 +54,12 @@
         <span class="ornament-line"></span>
         <span class="ornament-glyph">&#10086; CURATED RECORD COLLECTIONS · 风格歌单 &#10086;</span>
         <span class="ornament-line"></span>
+      </div>
+
+      <div class="genre-shelf-tabs" id="genreShelfTabs" role="tablist" aria-label="唱片专区分类">
+        <button type="button" class="shelf-tab on" data-category="all" role="tab" aria-selected="true">全部专区 (14)</button>
+        <button type="button" class="shelf-tab" data-category="salon" role="tab" aria-selected="false">&#127927; 沙龙流派 (8)</button>
+        <button type="button" class="shelf-tab" data-category="military" role="tab" aria-selected="false">&#127930; 国歌军乐 (6)</button>
       </div>
 
       <section class="genre-shelf" id="genreShelf" aria-label="风格歌单" hidden></section>
@@ -216,6 +222,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

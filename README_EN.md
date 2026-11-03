@@ -8,8 +8,8 @@
 [**简体中文**](README.md) · **English**
 
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_Listen_Live-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
-[![Tracks](https://img.shields.io/badge/Records-100_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
-[![Genres](https://img.shields.io/badge/Collections-8_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections)
+[![Tracks](https://img.shields.io/badge/Records-130_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
+[![Genres](https://img.shields.io/badge/Collections-14_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections)
 [![Lyrics](https://img.shields.io/badge/Scrolling_Lyrics-Synced_Bilingual_LRC-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
 
 ### 👉 [Enter the Live Phonograph Salon: https://williamqaqq.github.io/music-box/](https://williamqaqq.github.io/music-box/)
@@ -37,9 +37,9 @@
 ## 🏛️ Key Highlights
 
 - **Victorian Vinyl Gramophone Aesthetic**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and a responsive layout that adapts from a two-column desktop salon to a slide-up mobile drawer.
-- **Eight Curated Record Collections**: **100 tracks across 72 artists**, organized into eight wax-sealed style collections. Start any collection in sequential or shuffle mode with a single click, or switch seamlessly between **By Genre / By Artist / All Tracks** views.
+- **14 Curated Record Collections & National Anthem Editions**: **130 tracks across 89 artists**, organized into 8 salon genres and 6 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
 - **Time-Synced Scrolling Lyrics (Victorian Libretto Folio)**:
-  - **81 vocal tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**42 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **19 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
+  - **98 vocal tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**54 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **32 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
 - **Zero API Rate Limits · Instant Load & Hot Refresh**: Reads same-origin static manifests ([`music.json`](music.json) and [`lyrics.json`](lyrics.json)) paired with `localStorage` caching for instant startup and silent background refreshes. Also supports pointing to any public or private GitHub repository via the top-right **⚙️ Cabinet Settings** modal (falling back to the GitHub Trees API).
@@ -52,18 +52,31 @@
 
 ---
 
-## 💿 Curated Record Collections
+## 💿 Curated Record Collections (14 Editions)
+
+### 🎷 Salon Genres (8 Collections)
 
 | Collection | Featured Artists | Curatorial Notes | Tracks |
 | :--- | :--- | :--- | :---: |
+| **古典沙龙 · 剧场礼乐**<br>*(Classical Salon & Tango)* | Erik Satie · Pachelbel's Canon · Chopin / Debussy / Beethoven · Caruso / Pavarotti · Red Army Choir | Chamber cello & piano, vintage Russian and Argentine tangos, and choral marches | **20** |
 | **黄金年代 · 爵士名伶**<br>*(Golden Era Vocal Jazz)* | Billie Holiday · Ella Fitzgerald · Chet Baker · Julie London | 1930s–60s smoky jazz divas, crooners, and velvet swing standards | **18** |
 | **交响爵士 · 浪漫夜曲**<br>*(Symphonic & Night Jazz)* | Laufey & Iceland Symphony Orchestra · Anthony Lazaro | Contemporary vocal jazz interwoven with lush orchestral arrangements | **16** |
 | **先锋浪潮 · 独立摇滚**<br>*(Indie Rock & Post-Rock)* | Omnipotent Youth Society · No Party For Cao Dong · Hedgehog · Wang Wen | Contemporary Chinese indie bands, post-rock instrumentals, and synth-wave | **15** |
 | **赤焰岁月 · 华语摇滚**<br>*(Chinese Rock Pioneers)* | Cui Jian · Tang Dynasty · Dou Wei · Black Panther · Second Hand Rose · Lo Ta-yu | Foundational anthems and raw live energy from the golden age of Chinese rock | **13** |
-| **古典沙龙 · 剧场礼乐**<br>*(Classical Salon & Tango)* | Erik Satie · Pachelbel's Canon · Chopin / Debussy / Beethoven · Caruso / Pavarotti · Red Army Choir | Chamber cello & piano, vintage Russian and Argentine tangos, and choral marches | **20** |
 | **蓝调之音 · 器乐爵士**<br>*(Instrumental Jazz & Cool Bop)* | Miles Davis · John Coltrane · Ryo Fukui · Glenn Miller | Late-night trumpet, saxophone, and piano trio improvisations & big band swing | **9** |
 | **灵魂低吟 · 节奏蓝调**<br>*(Classic Soul & R&B)* | Bill Withers · Etta James · Sam Cooke · David Tao | Warm, heartfelt soul classics, blues ballads, and rhythm & blues grooves | **6** |
 | **街巷叙事 · 民谣流行**<br>*(Urban Folk & Ballads)* | Angang · Chen Doujiang · Ren Haoming | Intimate acoustic storytelling and Mandarin folk-pop melodies | **3** |
+
+### 🎺 National Anthems & Military Marches (6 Nations)
+
+| Country Edition | Featured Tracks | Highlights | Tracks |
+| :--- | :--- | :--- | :---: |
+| 🇨🇳 **国歌军乐 · 中国**<br>*(China Anthems & Marches)* | March of the Volunteers · Ode to the Motherland · Defend the Yellow River · Guerrilla Song | Historic brass band national anthem, grand choral Yellow River Cantata & revolutionary marches | **5** |
+| 🇺🇸 **国歌军乐 · 美国**<br>*(USA Anthems & Marches)* | The Star-Spangled Banner · The Stars and Stripes Forever · Battle Hymn of the Republic | John Philip Sousa military marches, American Civil War chorales & Armed Forces hymns | **5** |
+| 🇷🇺 **国歌军乐 · 俄罗斯**<br>*(Russia & Soviet Marches)* | State Anthem of the USSR · The Sacred War · Farewell of Slavianka · Polyushko-polye | Powerful Red Army Choir & brass band recordings from the Great Patriotic War | **5** |
+| 🇫🇷 **国歌军乐 · 法国**<br>*(France Anthems & Marches)* | La Marseillaise · Le Chant des Partisans · Marche Lorraine · Sambre-et-Meuse | French Revolutionary brass fanfares, WWII Resistance chants & Montmartre choir | **5** |
+| 🇩🇪 **国歌军乐 · 德国**<br>*(Germany Traditional Marches)* | Das Lied der Deutschen · Preußens Gloria · Alte Kameraden · Hohenfriedberger | Classical European ceremonial brass repertoire, Haydn anthem & Prussian infantry marches | **5** |
+| 🇯🇵 **国歌军乐 · 日本**<br>*(Japan Ceremonial Marches)* | Kimigayo · Gunkan Kōshinkyoku · Shikishima March · Battōtai · National March | Vintage Meiji/Taisho/Showa 78 RPM gramophone brass marches & imperial anthem | **5** |
 
 ---
 
