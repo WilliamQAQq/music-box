@@ -62,7 +62,7 @@
     },
     {
       id: "古典沙龙 · 剧场礼乐",
-      sub: "Erik Satie · 卡农 · 俄式与古典探戈 · 红军合唱团",
+      sub: "Erik Satie · 肖邦/德彪西/贝多芬 · 卡鲁索/帕瓦罗蒂 · 红军合唱团",
       seal: "#88507c",
       desc: "大提琴钢琴室内乐、旧日俄式及阿根廷探戈、恢弘合唱与庄重礼乐，重现沙龙风华。",
     },
@@ -135,6 +135,14 @@
     "the red army choir": "古典沙龙 · 剧场礼乐",
     "юрий щербаков": "古典沙龙 · 剧场礼乐",
     "美国国歌": "古典沙龙 · 剧场礼乐",
+    "feodor chaliapin": "古典沙龙 · 剧场礼乐",
+    "enrico caruso": "古典沙龙 · 剧场礼乐",
+    "enrico caruso, alma gluck": "古典沙龙 · 剧场礼乐",
+    "luciano pavarotti": "古典沙龙 · 剧场礼乐",
+    "arthur rubinstein": "古典沙龙 · 剧场礼乐",
+    "claude debussy": "古典沙龙 · 剧场礼乐",
+    "ludwig van beethoven": "古典沙龙 · 剧场礼乐",
+    "antonio vivaldi": "古典沙龙 · 剧场礼乐",
   };
 
   const GENRE_RANK = new Map(GENRE_PRESETS.map((g, idx) => [g.id, idx]));

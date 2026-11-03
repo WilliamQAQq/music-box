@@ -112,6 +112,14 @@ ARTIST_GENRE = {
     "the red army choir": "古典沙龙 · 剧场礼乐",
     "юрий щербаков": "古典沙龙 · 剧场礼乐",
     "美国国歌": "古典沙龙 · 剧场礼乐",
+    "feodor chaliapin": "古典沙龙 · 剧场礼乐",
+    "enrico caruso": "古典沙龙 · 剧场礼乐",
+    "enrico caruso, alma gluck": "古典沙龙 · 剧场礼乐",
+    "luciano pavarotti": "古典沙龙 · 剧场礼乐",
+    "arthur rubinstein": "古典沙龙 · 剧场礼乐",
+    "claude debussy": "古典沙龙 · 剧场礼乐",
+    "ludwig van beethoven": "古典沙龙 · 剧场礼乐",
+    "antonio vivaldi": "古典沙龙 · 剧场礼乐",
 }
 
 MANUAL_GENRE = {}

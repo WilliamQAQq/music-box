@@ -8,7 +8,7 @@
 [**简体中文**](README.md) · **English**
 
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_Listen_Live-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
-[![Tracks](https://img.shields.io/badge/Records-90_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
+[![Tracks](https://img.shields.io/badge/Records-100_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
 [![Genres](https://img.shields.io/badge/Collections-8_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections)
 [![Lyrics](https://img.shields.io/badge/Scrolling_Lyrics-Synced_Bilingual_LRC-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
 
@@ -37,9 +37,9 @@
 ## 🏛️ Key Highlights
 
 - **Victorian Vinyl Gramophone Aesthetic**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and a responsive layout that adapts from a two-column desktop salon to a slide-up mobile drawer.
-- **Eight Curated Record Collections**: **90 tracks across 64 artists**, organized into eight wax-sealed style collections. Start any collection in sequential or shuffle mode with a single click, or switch seamlessly between **By Genre / By Artist / All Tracks** views.
+- **Eight Curated Record Collections**: **100 tracks across 72 artists**, organized into eight wax-sealed style collections. Start any collection in sequential or shuffle mode with a single click, or switch seamlessly between **By Genre / By Artist / All Tracks** views.
 - **Time-Synced Scrolling Lyrics (Victorian Libretto Folio)**:
-  - **75 vocal tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**36 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **15 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
+  - **81 vocal tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**42 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **19 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
 - **Zero API Rate Limits · Instant Load & Hot Refresh**: Reads same-origin static manifests ([`music.json`](music.json) and [`lyrics.json`](lyrics.json)) paired with `localStorage` caching for instant startup and silent background refreshes. Also supports pointing to any public or private GitHub repository via the top-right **⚙️ Cabinet Settings** modal (falling back to the GitHub Trees API).
@@ -60,7 +60,7 @@
 | **交响爵士 · 浪漫夜曲**<br>*(Symphonic & Night Jazz)* | Laufey & Iceland Symphony Orchestra · Anthony Lazaro | Contemporary vocal jazz interwoven with lush orchestral arrangements | **16** |
 | **先锋浪潮 · 独立摇滚**<br>*(Indie Rock & Post-Rock)* | Omnipotent Youth Society · No Party For Cao Dong · Hedgehog · Wang Wen | Contemporary Chinese indie bands, post-rock instrumentals, and synth-wave | **15** |
 | **赤焰岁月 · 华语摇滚**<br>*(Chinese Rock Pioneers)* | Cui Jian · Tang Dynasty · Dou Wei · Black Panther · Second Hand Rose · Lo Ta-yu | Foundational anthems and raw live energy from the golden age of Chinese rock | **13** |
-| **古典沙龙 · 剧场礼乐**<br>*(Classical Salon & Tango)* | Erik Satie · Pachelbel's Canon · Pyotr Leshchenko · Carlos Gardel · Red Army Choir | Chamber cello & piano, vintage Russian and Argentine tangos, and choral marches | **10** |
+| **古典沙龙 · 剧场礼乐**<br>*(Classical Salon & Tango)* | Erik Satie · Pachelbel's Canon · Chopin / Debussy / Beethoven · Caruso / Pavarotti · Red Army Choir | Chamber cello & piano, vintage Russian and Argentine tangos, and choral marches | **20** |
 | **蓝调之音 · 器乐爵士**<br>*(Instrumental Jazz & Cool Bop)* | Miles Davis · John Coltrane · Ryo Fukui · Glenn Miller | Late-night trumpet, saxophone, and piano trio improvisations & big band swing | **9** |
 | **灵魂低吟 · 节奏蓝调**<br>*(Classic Soul & R&B)* | Bill Withers · Etta James · Sam Cooke · David Tao | Warm, heartfelt soul classics, blues ballads, and rhythm & blues grooves | **6** |
 | **街巷叙事 · 民谣流行**<br>*(Urban Folk & Ballads)* | Angang · Chen Doujiang · Ren Haoming | Intimate acoustic storytelling and Mandarin folk-pop melodies | **3** |

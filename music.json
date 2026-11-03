@@ -16,6 +16,22 @@
     "dir": "music"
   },
   {
+    "title": "The Four Seasons: Spring (La Primavera - I. Allegro)",
+    "artist": "Antonio Vivaldi",
+    "album": "Vivaldi: Le Quattro Stagioni",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/Antonio Vivaldi - The Four Seasons Spring (Allegro).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Chopin: Nocturne in E-flat major, Op. 9 No. 2",
+    "artist": "Arthur Rubinstein",
+    "album": "Chopin: Nocturnes",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/Arthur Rubinstein - Chopin Nocturne in E-flat major Op. 9 No. 2.mp3",
+    "dir": "music"
+  },
+  {
     "title": "Canon In D - Piano & Cello",
     "artist": "Benny Martin/The Wong Janice",
     "album": "Canon In D (Piano & Cello)",
@@ -96,6 +112,14 @@
     "dir": "music"
   },
   {
+    "title": "Suite Bergamasque: Clair de Lune",
+    "artist": "Claude Debussy",
+    "album": "Debussy: Piano Works",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/Claude Debussy - Clair de Lune.mp3",
+    "dir": "music"
+  },
+  {
     "title": "找自己",
     "artist": "David Tao",
     "album": "I'm O.K.",
@@ -160,6 +184,22 @@
     "dir": "music"
   },
   {
+    "title": "'O Sole Mio",
+    "artist": "Enrico Caruso",
+    "album": "Neapolitan Classical Salon",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/Enrico Caruso - 'O Sole Mio.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "La Traviata: Brindisi (Libiamo ne' lieti calici)",
+    "artist": "Enrico Caruso, Alma Gluck",
+    "album": "Verdi: La Traviata",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/Enrico Caruso, Alma Gluck - Verdi La Traviata Brindisi.mp3",
+    "dir": "music"
+  },
+  {
     "title": "Gymnopédie No. 1",
     "artist": "Erik Satie/Philippe Entremont",
     "album": "Erik Satie & Friends",
@@ -181,6 +221,14 @@
     "album": "Don't Go To Strangers (Rudy Van Gelder Remaster)",
     "genre": "黄金年代 · 爵士名伶",
     "url": "music/Don't Go To Strangers_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Dark Eyes (Очи чёрные)",
+    "artist": "Feodor Chaliapin",
+    "album": "Russian Salon Romances",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/Feodor Chaliapin - Dark Eyes (Очи чёрные).mp3",
     "dir": "music"
   },
   {
@@ -392,6 +440,22 @@
     "dir": "music"
   },
   {
+    "title": "Turandot: Nessun Dorma",
+    "artist": "Luciano Pavarotti",
+    "album": "Puccini: Turandot",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/Luciano Pavarotti - Turandot Nessun Dorma.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Moonlight Sonata, Op. 27 No. 2: I. Adagio sostenuto",
+    "artist": "Ludwig van Beethoven",
+    "album": "Beethoven: Piano Sonatas",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/Ludwig van Beethoven - Moonlight Sonata (Adagio sostenuto).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Mandela Catalogue Amazing Grace (Full Version)",
     "artist": "Mandela Catalogue",
     "album": "",
@@ -493,6 +557,22 @@
     "album": "Unknown Album",
     "genre": "赤焰岁月 · 华语摇滚",
     "url": "music/天堂_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Kalinka (Калинка)",
+    "artist": "The Red Army Choir",
+    "album": "Soviet & Russian Choral Classics",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/The Red Army Choir - Kalinka (Калинка).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Katyusha (Катюша)",
+    "artist": "The Red Army Choir",
+    "album": "Soviet & Russian Choral Classics",
+    "genre": "古典沙龙 · 剧场礼乐",
+    "url": "music/The Red Army Choir - Katyusha (Катюша).mp3",
     "dir": "music"
   },
   {
