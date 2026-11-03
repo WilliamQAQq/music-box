@@ -7,6 +7,7 @@
   const LYRICS_OPEN_KEY = "gh-lyrics-open";
   const LYRICS_TRANS_KEY = "gh-lyrics-trans";
   const LIVE_LYRICS_CACHE_KEY = "gh-lyrics-live-v1";
+  const VINYL_FX_KEY = "gh-vinyl-fx";
 
   const AUDIO_EXTS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "webm"];
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
@@ -170,6 +171,7 @@
     lyricsList: $("lyricsList"),
     lyricsFollowBtn: $("lyricsFollowBtn"),
     lyricsToggleBtn: $("lyricsToggleBtn"),
+    vinylFxBtn: $("vinylFxBtn"),
     playerTrack: document.querySelector(".player-track"),
     coverArt: $("coverArt"),
     trackTitle: $("trackTitle"),
@@ -239,6 +241,12 @@
   let programmaticScrollDepth = 0;
   let programmaticScrollGuardUntil = 0;
   const USER_SCROLL_RESUME_MS = 5500;
+
+  // 模拟黑胶留声机音效引擎状态
+  let vinylFxEnabled = localStorage.getItem(VINYL_FX_KEY) === "1";
+  let audioCtx = null;
+  let vinylNodes = null;
+  const BASE_VINYL_NOISE_GAIN = 0.048;
 
   const audio = els.audio;
   const DEFAULT_COVER = els.coverArt.getAttribute("src");
@@ -1158,18 +1166,29 @@
     syncLyricsToTime(audio.currentTime, false);
   });
 
-  audio.addEventListener("play", () => setPlayingUI(true));
+  audio.addEventListener("play", () => {
+    setPlayingUI(true);
+    if (vinylFxEnabled) initVinylAudioEngine();
+    ensureAudioContextResumed();
+    updateVinylAudioGraph(false);
+  });
 
-  audio.addEventListener("playing", () => { errorStreak = 0; });
+  audio.addEventListener("playing", () => {
+    errorStreak = 0;
+    ensureAudioContextResumed();
+    updateVinylAudioGraph(false);
+  });
 
   audio.addEventListener("pause", () => {
     setPlayingUI(false);
+    updateVinylAudioGraph(false);
     if (currentIndex !== -1 && tracks[currentIndex]) {
       els.trackSub.textContent = defaultTrackSub(tracks[currentIndex]);
     }
   });
 
   audio.addEventListener("ended", () => {
+    updateVinylAudioGraph(false);
     if (repeat === "one") { restart(); return; }
     nextTrack(true);
   });
@@ -1222,6 +1241,7 @@
     localStorage.setItem("gh-volume", v);
     if (v > 0) lastVolume = v;
     els.muteBtn.classList.toggle("on", v === 0);
+    updateVinylAudioGraph(false);
   }
 
   els.volume.addEventListener("input", () => setVolume(els.volume.value));
@@ -1237,6 +1257,247 @@
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  /* ---------------- vinyl record emulation engine (Web Audio DSP) ---------------- */
+
+  function createVinylNoiseBuffer(ctx) {
+    const sampleRate = ctx.sampleRate;
+    const length = sampleRate * 8; // 8 秒双声道无缝循环
+    const buffer = ctx.createBuffer(2, length, sampleRate);
+    const ch0 = buffer.getChannelData(0);
+    const ch1 = buffer.getChannelData(1);
+
+    // 1. 唱片纹路摩擦与针底噪声(粉红/布朗过滤噪声)
+    let b0_0 = 0, b1_0 = 0, b2_0 = 0;
+    let b0_1 = 0, b1_1 = 0, b2_1 = 0;
+    const rpmPeriod = sampleRate * (60 / 33.333); // 约 1.8 秒一转(33.3 RPM)
+
+    for (let i = 0; i < length; i++) {
+      const w0 = Math.random() * 2 - 1;
+      const w1 = Math.random() * 2 - 1;
+
+      b0_0 = 0.992 * b0_0 + w0 * 0.055;
+      b1_0 = 0.96 * b1_0 + w0 * 0.075;
+      b2_0 = 0.85 * b2_0 + w0 * 0.15;
+      const p0 = (b0_0 + b1_0 + b2_0) * 0.055;
+
+      b0_1 = 0.992 * b0_1 + w1 * 0.055;
+      b1_1 = 0.96 * b1_1 + w1 * 0.075;
+      b2_1 = 0.85 * b2_1 + w1 * 0.15;
+      const p1 = (b0_1 + b1_1 + b2_1) * 0.055;
+
+      const rotPhase = (i % rpmPeriod) / rpmPeriod;
+      const rotMod = 1 + 0.22 * Math.sin(rotPhase * Math.PI * 2);
+
+      ch0[i] = p0 * rotMod * 0.16;
+      ch1[i] = p1 * rotMod * 0.16;
+    }
+
+    // 2. 真实随机尘粒爆音与黑胶炒豆声(不同强度的瞬态脉冲)
+    const numClicks = Math.floor(length * (5.5 / sampleRate));
+    for (let c = 0; c < numClicks; c++) {
+      const clickPos = Math.floor(Math.random() * (length - 400));
+      const isPop = Math.random() < 0.16;
+      const strength = isPop ? (0.16 + Math.random() * 0.26) : (0.035 + Math.random() * 0.08);
+      const sign = Math.random() > 0.5 ? 1 : -1;
+      const pan = Math.random();
+      const decaySamples = isPop ? 45 : 18;
+
+      for (let j = 0; j < decaySamples; j++) {
+        const env = Math.exp(-j / (decaySamples * 0.26));
+        const val = sign * strength * env * (Math.random() * 0.5 + 0.5);
+        ch0[clickPos + j] += val * (1 - pan);
+        ch1[clickPos + j] += val * pan;
+      }
+    }
+
+    // 3. 周期性转盘微弱微划痕
+    const scratchPhase = Math.floor(sampleRate * 0.38);
+    for (let r = 0; r < Math.floor(length / rpmPeriod); r++) {
+      const pos = Math.floor(r * rpmPeriod + scratchPhase);
+      if (pos + 60 < length) {
+        for (let j = 0; j < 30; j++) {
+          const env = Math.exp(-j / 8);
+          const val = 0.09 * env * (Math.random() * 0.5 + 0.5);
+          ch0[pos + j] += val;
+          ch1[pos + j] += val * 0.65;
+        }
+      }
+    }
+
+    return buffer;
+  }
+
+  function makeVinylSaturationCurve() {
+    const n = 4096;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / (n - 1) - 1;
+      curve[i] = Math.tanh(x * 1.25) / Math.tanh(1.25);
+    }
+    return curve;
+  }
+
+  function initVinylAudioEngine() {
+    if (vinylNodes) return true;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return false;
+      if (!audioCtx) audioCtx = new AudioContextClass();
+
+      const source = audioCtx.createMediaElementSource(audio);
+
+      // 原声直通(dry)
+      const dryGain = audioCtx.createGain();
+      dryGain.gain.value = vinylFxEnabled ? 0 : 1;
+      source.connect(dryGain);
+      dryGain.connect(audioCtx.destination);
+
+      // 黑胶音效链(wet)
+      const wetGain = audioCtx.createGain();
+      wetGain.gain.value = vinylFxEnabled ? 1 : 0;
+
+      // 1. 高通滤波: 削减超低频隆隆声
+      const hp = audioCtx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 52;
+      hp.Q.value = 0.7;
+
+      // 2. 温暖低频垫底(lowshelf)
+      const warmShelf = audioCtx.createBiquadFilter();
+      warmShelf.type = "lowshelf";
+      warmShelf.frequency.value = 180;
+      warmShelf.gain.value = 2.2;
+
+      // 3. 唱针与号角中频共鸣峰(peaking)
+      const midRes = audioCtx.createBiquadFilter();
+      midRes.type = "peaking";
+      midRes.frequency.value = 2200;
+      midRes.gain.value = 1.6;
+      midRes.Q.value = 1.0;
+
+      // 4. 复古高频滚降(低通滤波，削弱数码刺耳感)
+      const lp = audioCtx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 6800;
+      lp.Q.value = 1.0;
+
+      // 5. 胆管/磁带唱针软饱和(Waveshaper)
+      const shaper = audioCtx.createWaveShaper();
+      shaper.curve = makeVinylSaturationCurve();
+      shaper.oversample = "2x";
+
+      // 6. 抖晃与唱盘微颤(Wow & Flutter)
+      const delay = audioCtx.createDelay();
+      delay.delayTime.value = 0.015;
+
+      const wowOsc = audioCtx.createOscillator();
+      wowOsc.frequency.value = 0.555; // 33.3 RPM 转速周期
+      const wowGain = audioCtx.createGain();
+      wowGain.gain.value = 0.00028;
+      wowOsc.connect(wowGain);
+      wowGain.connect(delay.delayTime);
+      wowOsc.start();
+
+      const flutterOsc = audioCtx.createOscillator();
+      flutterOsc.frequency.value = 4.8;
+      flutterOsc.type = "triangle";
+      const flutterGain = audioCtx.createGain();
+      flutterGain.gain.value = 0.00006;
+      flutterOsc.connect(flutterGain);
+      flutterGain.connect(delay.delayTime);
+      flutterOsc.start();
+
+      // 连接黑胶音乐处理链
+      source.connect(hp);
+      hp.connect(warmShelf);
+      warmShelf.connect(midRes);
+      midRes.connect(lp);
+      lp.connect(shaper);
+      shaper.connect(delay);
+      delay.connect(wetGain);
+      wetGain.connect(audioCtx.destination);
+
+      // 7. 真实唱针底噪与炒豆声发生器
+      const noiseBuffer = createVinylNoiseBuffer(audioCtx);
+      const noiseSource = audioCtx.createBufferSource();
+      noiseSource.buffer = noiseBuffer;
+      noiseSource.loop = true;
+
+      const noiseHp = audioCtx.createBiquadFilter();
+      noiseHp.type = "highpass";
+      noiseHp.frequency.value = 140;
+
+      const noiseLp = audioCtx.createBiquadFilter();
+      noiseLp.type = "lowpass";
+      noiseLp.frequency.value = 2800;
+
+      const noiseGain = audioCtx.createGain();
+      noiseGain.gain.value = 0; // 初始静音，起播时淡入
+
+      noiseSource.connect(noiseHp);
+      noiseHp.connect(noiseLp);
+      noiseLp.connect(noiseGain);
+      noiseGain.connect(audioCtx.destination);
+      noiseSource.start();
+
+      vinylNodes = {
+        dryGain,
+        wetGain,
+        noiseGain,
+      };
+
+      updateVinylAudioGraph(true);
+      return true;
+    } catch (e) {
+      console.warn("Vinyl audio emulation unavailable:", e);
+      return false;
+    }
+  }
+
+  function getTargetNoiseGain() {
+    if (!vinylFxEnabled || audio.paused || audio.volume <= 0) return 0;
+    return BASE_VINYL_NOISE_GAIN * Math.min(1, Math.max(0, audio.volume));
+  }
+
+  function updateVinylAudioGraph(immediate) {
+    if (!vinylNodes || !audioCtx) return;
+    const time = audioCtx.currentTime;
+    const rampTime = immediate ? 0.005 : 0.04;
+    const targetDry = vinylFxEnabled ? 0 : 1;
+    const targetWet = vinylFxEnabled ? 1 : 0;
+    const targetNoise = getTargetNoiseGain();
+
+    vinylNodes.dryGain.gain.setTargetAtTime(targetDry, time, rampTime);
+    vinylNodes.wetGain.gain.setTargetAtTime(targetWet, time, rampTime);
+    vinylNodes.noiseGain.gain.setTargetAtTime(targetNoise, time, rampTime);
+  }
+
+  function ensureAudioContextResumed() {
+    if (audioCtx && audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+  }
+
+  function updateVinylUI() {
+    if (els.vinylFxBtn) {
+      els.vinylFxBtn.classList.toggle("on", vinylFxEnabled);
+      els.vinylFxBtn.setAttribute("aria-pressed", vinylFxEnabled ? "true" : "false");
+    }
+    document.body.classList.toggle("vinyl-fx-active", vinylFxEnabled);
+  }
+
+  function toggleVinylFx() {
+    vinylFxEnabled = !vinylFxEnabled;
+    localStorage.setItem(VINYL_FX_KEY, vinylFxEnabled ? "1" : "0");
+    if (vinylFxEnabled) {
+      initVinylAudioEngine();
+    }
+    ensureAudioContextResumed();
+    updateVinylAudioGraph(false);
+    updateVinylUI();
+    toast(vinylFxEnabled ? "已开启黑胶唱片音效 · 温暖模拟与唱针底噪" : "已关闭黑胶音效 · 还原数码原声");
   }
 
   /* ---------------- scrolling lyrics engine ---------------- */
@@ -1783,6 +2044,7 @@
       case "p": case "P": prevTrack(); break;
       case "m": case "M": els.muteBtn.click(); break;
       case "l": case "L": toggleLyricsPanel(); break;
+      case "v": case "V": toggleVinylFx(); break;
     }
   });
 
@@ -1813,6 +2075,10 @@
     }
     syncSlider(els.seek);
     updateLyricsPanelUI();
+    updateVinylUI();
+    if (els.vinylFxBtn) {
+      els.vinylFxBtn.addEventListener("click", toggleVinylFx);
+    }
     setupMediaSession();
     loadLyricsCatalog();
     loadLibrary(false);

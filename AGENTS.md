@@ -47,7 +47,7 @@ push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/�
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=9` 递增(如 `?v=10`)**。
+改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=10` 递增(如 `?v=11`)**。
 否则访问者浏览器用缓存旧 JS,看不到更新(本项目踩过这个坑)。
 
 ### 手动重新生成清单(本地)
@@ -74,7 +74,8 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 - 系统媒体键:Media Session API(初始化时注册一次,play/pause 分开处理);键盘:空格/方向键/N/P/M,带 Ctrl/Alt/⌘ 时不拦截,设置弹窗打开时只响应 Esc。
 - 搜索匹配标题/歌手/专辑/风格/路径。
 - 生成脚本用 `mutagen.File(..., easy=True)`,mp3/m4a/flac/ogg 都能读歌手与风格标签。
-- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`。
+- 模拟黑胶音效: Web Audio API (高低通/中频峰化滤波、软饱和饱和器、33.3 RPM 抖晃延迟调制与无缝粉红噪声/炒豆爆音发生器)。
+- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`、`gh-lyrics-open`、`gh-lyrics-trans`、`gh-vinyl-fx`。
 
 ## 交接对象
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -164,6 +164,7 @@
   </div>
 
   <div class="player-right">
+    <button id="vinylFxBtn" class="ctrl-btn vinyl-fx-btn" title="模拟黑胶唱片音效 (快捷键 V)" aria-label="模拟黑胶唱片音效" aria-pressed="false">胶</button>
     <button id="lyricsToggleBtn" class="ctrl-btn lyrics-toggle-btn" title="展开/收起滚动歌词 (L)" aria-label="展开或收起滚动歌词">词</button>
     <button id="muteBtn" class="ctrl-btn" title="静音" aria-label="静音">
       <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05a4.5 4.5 0 0 0 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
@@ -172,7 +173,7 @@
   </div>
 </footer>
 
-<audio id="audio" preload="metadata"></audio>
+<audio id="audio" preload="metadata" crossorigin="anonymous"></audio>
 
 <div class="modal" id="settingsModal" hidden>
   <div class="modal-box">
@@ -215,6 +216,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

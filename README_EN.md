@@ -43,6 +43,11 @@
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
 - **Zero API Rate Limits · Instant Load & Hot Refresh**: Reads same-origin static manifests ([`music.json`](music.json) and [`lyrics.json`](lyrics.json)) paired with `localStorage` caching for instant startup and silent background refreshes. Also supports pointing to any public or private GitHub repository via the top-right **⚙️ Cabinet Settings** modal (falling back to the GitHub Trees API).
+- **Realistic Vinyl Record Emulation (Web Audio DSP)**: Toggle with a single click (shortcut `V` or the **"胶"** button in the player bar) to experience authentic vintage phonograph acoustics via real-time Web Audio DSP:
+  - **Vintage Frequency Shaping**: High-pass low-end cleanup, +2.2dB warm low-shelf richness, and a 6.8kHz smooth roll-off eliminating digital sibilance;
+  - **Tube / Cartridge Saturation**: Soft-clipping transfer curve introducing warm even & odd analog harmonics;
+  - **Turntable Pitch Drift (Wow & Flutter)**: 33.3 RPM cyclical speed drift (0.555 Hz) and mechanical motor jitter for an unmistakably human, organic vinyl breathing;
+  - **Surface Noise & Crackles**: Procedurally synthesized 8-second stereo groove friction rumble with dust crackles and pops ("炒豆声"), illuminating the tonearm with a warm golden needle glow when active.
 - **Refined Playback Engineering**: Native `Media Session API` integration (hardware media keys, headphone controls, OS lock-screen artwork), true Fisher-Yates shuffle history (`Previous` returns to the actual track you just heard), 3-mode repeat (`Off / All / One`), and automatic skip-circuit-breaker on network errors.
 
 ---
@@ -69,6 +74,7 @@
 | `Space` | Play / Pause | `N` / `P` | Next / Previous track |
 | `←` / `→` | Seek backward / forward 5s | `M` | Mute / Unmute |
 | `↑` / `↓` | Volume +5% / -5% | `L` / `Esc` | Toggle / Close scrolling lyrics panel |
+| `V` | Toggle vinyl record emulation | | |
 
 ---
 
