@@ -149,7 +149,50 @@ ARTIST_GENRE = {
     "imperial ensemble": "国歌军乐 · 日本",
 }
 
-MANUAL_GENRE = {}
+MANUAL_GENRE = {
+    # 国歌军乐 · 中国 (5)
+    "中国人民解放军军乐团 - 义勇军进行曲 (中华人民共和国国歌).mp3": "国歌军乐 · 中国",
+    "中央乐团合唱团 - 歌唱祖国.mp3": "国歌军乐 · 中国",
+    "中央乐团合唱团 - 保卫黄河.mp3": "国歌军乐 · 中国",
+    "中国人民解放军总政歌舞团 - 游击队歌.mp3": "国歌军乐 · 中国",
+    "中央乐团合唱团 - 我们走在大路上.mp3": "国歌军乐 · 中国",
+    # 国歌军乐 · 美国 (5)
+    "United States Military Ensemble - The Star-Spangled Banner.mp3": "国歌军乐 · 美国",
+    "John Philip Sousa - The Stars and Stripes Forever.mp3": "国歌军乐 · 美国",
+    "The Sandpiper Chorus - Battle Hymn of the Republic.mp3": "国歌军乐 · 美国",
+    "The Sandpiper Chorus - The Marines' Hymn (Halls of Montezuma).mp3": "国歌军乐 · 美国",
+    "The Sandpiper Chorus - The Caissons Go Rolling Along.mp3": "国歌军乐 · 美国",
+    # 国歌军乐 · 俄罗斯 (5)
+    "The Red Army Choir - State Anthem of the Soviet Union.mp3": "国歌军乐 · 俄罗斯",
+    "The Red Army Choir - The Sacred War (Священная война).mp3": "国歌军乐 · 俄罗斯",
+    "The Red Army Choir - Farewell of Slavianka.mp3": "国歌军乐 · 俄罗斯",
+    "The Red Army Choir - Polyushko-polye.mp3": "国歌军乐 · 俄罗斯",
+    "The Red Army Choir - Along the Vales and Hills.mp3": "国歌军乐 · 俄罗斯",
+    # 国歌军乐 · 法国 (5)
+    "Le Choeur des Enfants de Montmartre - La Marseillaise.mp3": "国歌军乐 · 法国",
+    "Germaine Sablon - Le Chant des Partisans.mp3": "国歌军乐 · 法国",
+    "Le Choeur des Enfants de Montmartre - Marche Lorraine.mp3": "国歌军乐 · 法国",
+    "Le Choeur des Enfants de Montmartre - Le Regiment de Sambre et Meuse.mp3": "国歌军乐 · 法国",
+    "Le Choeur des Enfants de Montmartre - Le Chant des Girondins.mp3": "国歌军乐 · 法国",
+    # 国歌军乐 · 德国 (5)
+    "Michel Nowak Ensemble - Das Lied der Deutschen (Deutschlandlied).mp3": "国歌军乐 · 德国",
+    "Berliner Harmonie Orchester - Preussens Gloria.mp3": "国歌军乐 · 德国",
+    "Carl Teike - Alte Kameraden.mp3": "国歌军乐 · 德国",
+    "Trompeterkorps des Kavallerie-Regiments 6 - Der Hohenfriedberger Marsch.mp3": "国歌军乐 · 德国",
+    "Josef Franz Wagner - Unter dem Doppeladler.mp3": "国歌军乐 · 德国",
+    # 国歌军乐 · 日本 (5)
+    "日本典礼合唱团 - 君之代 (Kimigayo).mp3": "国歌军乐 · 日本",
+    "濑户口藤吉 - 军舰进行曲 (Gunkan Koshinkyoku).mp3": "国歌军乐 · 日本",
+    "濑户口藤吉 - 敷岛舰进行曲 (Shikishima March).mp3": "国歌军乐 · 日本",
+    "夏尔·勒鲁 - 拔刀队进行曲 (Battotai).mp3": "国歌军乐 · 日本",
+    "Imperial Ensemble - Japanese National March.mp3": "国歌军乐 · 日本",
+    # 古典沙龙 · 剧场礼乐 (同名/共享歌手曲目显式锁定)
+    "The Red Army Choir - Коробейники (SPOTISAVER).mp3": "古典沙龙 · 剧场礼乐",
+    "The Red Army Choir - Katyusha (Катюша).mp3": "古典沙龙 · 剧场礼乐",
+    "The Red Army Choir - Kalinka (Калинка).mp3": "古典沙龙 · 剧场礼乐",
+    "National Anthem- United States - Star Spangled Banner.mp3": "古典沙龙 · 剧场礼乐",
+    "United States of America National Anthem (Instrumental).mp3": "古典沙龙 · 剧场礼乐",
+}
 
 
 def infer_genre_from_tag(raw_genre):

@@ -218,19 +218,34 @@
     "imperial ensemble": "国歌军乐 · 日本",
   };
 
+  // 同名/共享歌手曲目的文件名级风格映射(确保本地旧缓存与 GitHub API 兜底时 100% 精确归类)
+  const FILENAME_GENRE_MAP = {
+    "The Red Army Choir - State Anthem of the Soviet Union.mp3": "国歌军乐 · 俄罗斯",
+    "The Red Army Choir - The Sacred War (Священная война).mp3": "国歌军乐 · 俄罗斯",
+    "The Red Army Choir - Farewell of Slavianka.mp3": "国歌军乐 · 俄罗斯",
+    "The Red Army Choir - Polyushko-polye.mp3": "国歌军乐 · 俄罗斯",
+    "The Red Army Choir - Along the Vales and Hills.mp3": "国歌军乐 · 俄罗斯",
+    "United States Military Ensemble - The Star-Spangled Banner.mp3": "国歌军乐 · 美国",
+  };
+
   const GENRE_RANK = new Map(GENRE_PRESETS.map((g, idx) => [g.id, idx]));
   const GENRE_META = new Map(GENRE_PRESETS.map((g) => [g.id, g]));
+  const DEFAULT_DOC_TITLE = document.title || "GitHub 音乐盒 · 维多利亚留声机";
 
   const $ = (id) => document.getElementById(id);
 
   const els = {
     audio: $("audio"),
+    topbar: document.querySelector(".topbar"),
+    content: document.querySelector(".content"),
+    player: $("player"),
     banner: $("banner"),
     bannerTitle: $("bannerTitle"),
     bannerSub: $("bannerSub"),
     bannerCta: $("bannerCta"),
     reloadBtn: $("reloadBtn"),
     settingsBtn: $("settingsBtn"),
+    genreShelfTabs: $("genreShelfTabs"),
     genreShelf: $("genreShelf"),
     genreStage: $("genreStage"),
     genreStageSeal: $("genreStageSeal"),
@@ -292,7 +307,7 @@
 
   let settings = Object.assign({}, DEFAULT_SETTINGS);
 
-  let tracks = [];         // { title, artist, album, genre, cover, url, path, dir }
+  let tracks = [];         // { title, artist, album, genre, cover, url, path, dir, _searchKey }
   let covers = new Map();  // dir -> cover url
   let order = [];          // 当前播放上下文(tracks 下标)
   let pos = -1;            // 当前曲目在 order 中的位置
@@ -300,6 +315,7 @@
   let currentIndex = -1;   // 当前曲目在 tracks[] 中的下标
   let activeGenre = "all"; // 当前选中的风格歌单("all" 表示全部馆藏)
   let shelfCategory = "all"; // 当前专区分组 ("all" | "salon" | "military")
+  let lastModalTrigger = null;
 
   let shuffle = localStorage.getItem("gh-shuffle") === "1";
   let repeat = localStorage.getItem("gh-repeat") || "none";
@@ -328,12 +344,17 @@
   let vinylFxEnabled = localStorage.getItem(VINYL_FX_KEY) === "1";
   let audioCtx = null;
   let vinylNodes = null;
+  let audioSuspendTimer = null;
   const BASE_VINYL_NOISE_GAIN = 0.048;
 
   const audio = els.audio;
   const DEFAULT_COVER = els.coverArt.getAttribute("src");
 
-  function inferGenre(artist, genre) {
+  function inferGenre(artist, genre, pathOrUrl) {
+    if (pathOrUrl) {
+      const fname = String(pathOrUrl).slice(String(pathOrUrl).lastIndexOf("/") + 1);
+      if (FILENAME_GENRE_MAP[fname]) return FILENAME_GENRE_MAP[fname];
+    }
     if (genre) return String(genre);
     if (!artist) return "";
     return ARTIST_GENRE_MAP[String(artist).trim().toLowerCase()] || "";
@@ -342,6 +363,21 @@
   function genreRank(g) {
     if (!g) return 999;
     return GENRE_RANK.has(g) ? GENRE_RANK.get(g) : 500;
+  }
+
+  function genreCategory(g) {
+    const meta = GENRE_META.get(g);
+    return meta ? meta.category : "salon";
+  }
+
+  function buildSearchKey(t) {
+    return [
+      t.title || "",
+      t.artist || "",
+      t.album || "",
+      t.genre || "其他典藏",
+      t.path || "",
+    ].join("\n").toLowerCase();
   }
 
   /* ---------------- settings ---------------- */
@@ -365,15 +401,30 @@
     els.setToken.value = settings.token;
   }
 
+  function setBackgroundInert(isInert) {
+    [els.topbar, els.content, els.player].forEach((el) => {
+      if (!el) return;
+      if (isInert) el.setAttribute("inert", "");
+      else el.removeAttribute("inert");
+    });
+  }
+
   function openSettings() {
+    lastModalTrigger = document.activeElement;
     fillSettingsForm();
     els.formError.textContent = "";
     els.settingsModal.hidden = false;
+    setBackgroundInert(true);
     els.setOwner.focus();
   }
 
   function closeSettings() {
     els.settingsModal.hidden = true;
+    setBackgroundInert(false);
+    if (lastModalTrigger && typeof lastModalTrigger.focus === "function") {
+      lastModalTrigger.focus();
+      lastModalTrigger = null;
+    }
   }
 
   els.settingsBtn.addEventListener("click", openSettings);
@@ -476,8 +527,19 @@
       const dir = p.slice(0, p.lastIndexOf("/"));
 
       if (AUDIO_EXTS.indexOf(ext) !== -1) {
-        const title = p.slice(p.lastIndexOf("/") + 1, dot).replace(/[_-]+/g, " ");
-        newTracks.push({ title, artist: "", album: "", genre: "", cover: "", path: p, dir, url: rawUrl(branch, p) });
+        const rawStem = p.slice(p.lastIndexOf("/") + 1, dot)
+          .replace(/(_|\s)+spotdown\.org$/i, "")
+          .replace(/\s*\(SPOTISAVER\)$/i, "");
+        let artist = "";
+        let title = rawStem;
+        const dashIdx = rawStem.indexOf(" - ");
+        if (dashIdx > 0) {
+          artist = rawStem.slice(0, dashIdx).trim();
+          title = rawStem.slice(dashIdx + 3).trim();
+        }
+        title = title.replace(/[_-]+/g, " ").trim();
+        const genre = inferGenre(artist, "", p);
+        newTracks.push({ title, artist, album: "", genre, cover: "", path: p, dir, url: rawUrl(branch, p) });
       } else if (IMAGE_EXTS.indexOf(ext) !== -1) {
         if (!coverMap.has(dir) || COVER_NAMES.indexOf(baseName) !== -1) {
           coverMap.set(dir, rawUrl(branch, p));
@@ -519,7 +581,7 @@
         title: String(item.title || url.slice(url.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")),
         artist: artist,
         album: item.album ? String(item.album) : "",
-        genre: inferGenre(artist, item.genre),
+        genre: inferGenre(artist, item.genre, url),
         cover: item.cover ? String(item.cover) : "",
         url: url,
         path: url,
@@ -639,9 +701,12 @@
 
   function applyLibrary(data) {
     const oldTracks = tracks;
-    tracks = (data.tracks || []).map((t) => Object.assign({}, t, {
-      genre: inferGenre(t.artist, t.genre),
-    }));
+    tracks = (data.tracks || []).map((t) => {
+      const genre = inferGenre(t.artist, t.genre, t.url || t.path);
+      const next = Object.assign({}, t, { genre });
+      next._searchKey = buildSearchKey(next);
+      return next;
+    });
     covers = toCoverMap(data.covers);
 
     const idxByUrl = new Map(tracks.map((t, i) => [t.url, i]));
@@ -673,18 +738,68 @@
 
   /* ---------------- style playlists shelf ---------------- */
 
+  function updateShelfTabCounts(counts) {
+    if (!els.genreShelfTabs) return;
+    let salonGenres = 0;
+    let militaryGenres = 0;
+    GENRE_PRESETS.forEach((p) => {
+      if ((counts.get(p.id) || 0) > 0) {
+        if (p.category === "military") militaryGenres++;
+        else salonGenres++;
+      }
+    });
+    let extraGenres = 0;
+    counts.forEach((cnt, id) => {
+      if (cnt > 0 && !GENRE_META.has(id)) extraGenres++;
+    });
+    const totalGenres = salonGenres + militaryGenres + extraGenres;
+    els.genreShelfTabs.hidden = totalGenres === 0;
+    els.genreShelfTabs.querySelectorAll(".shelf-tab").forEach((btn) => {
+      const cat = btn.dataset.category;
+      if (cat === "all") btn.textContent = "全部专区 (" + totalGenres + ")";
+      else if (cat === "salon") btn.textContent = "\uD83C\uDFB7 沙龙流派 (" + salonGenres + ")";
+      else if (cat === "military") btn.textContent = "\uD83C\uDFBA 国歌军乐 (" + militaryGenres + ")";
+    });
+  }
+
   function collectGenreItems() {
     const counts = new Map();
     let hasAnyGenre = false;
+    let salonTrackCount = 0;
+    let militaryTrackCount = 0;
     tracks.forEach((t) => {
       if (t.genre) hasAnyGenre = true;
       const g = t.genre || "其他典藏";
       counts.set(g, (counts.get(g) || 0) + 1);
+      if (genreCategory(g) === "military") militaryTrackCount++;
+      else salonTrackCount++;
     });
+    updateShelfTabCounts(counts);
     if (!hasAnyGenre) return [];
 
-    const items = [
-      {
+    let summaryItem;
+    if (shelfCategory === "salon") {
+      summaryItem = {
+        id: "all",
+        category: "salon",
+        name: "全部沙龙流派",
+        sub: "八大维多利亚沙龙唱片集",
+        seal: "#c98236",
+        desc: "涵盖爵士名伶、交响夜曲、器乐爵士、节奏蓝调、独立与华语摇滚、城市民谣及古典剧场礼乐。",
+        count: salonTrackCount,
+      };
+    } else if (shelfCategory === "military") {
+      summaryItem = {
+        id: "all",
+        category: "military",
+        name: "全部国歌军乐",
+        sub: "中 · 美 · 俄 · 法 · 德 · 日 六国军礼典藏",
+        seal: "#b91c1c",
+        desc: "汇集中国、美国、俄罗斯、法国、德国与日本六国庄严国歌与历史经典行进军乐。",
+        count: militaryTrackCount,
+      };
+    } else {
+      summaryItem = {
         id: "all",
         category: "all",
         name: "全部馆藏",
@@ -692,8 +807,10 @@
         seal: "#d4a64a",
         desc: "留声机全馆典藏唱片，涵盖爵士、灵魂蓝调、独立与华语摇滚、古典沙龙及六国国歌军乐特辑。",
         count: tracks.length,
-      },
-    ];
+      };
+    }
+
+    const items = [summaryItem];
 
     GENRE_PRESETS.forEach((p) => {
       const cnt = counts.get(p.id) || 0;
@@ -714,7 +831,7 @@
       }
     });
 
-    if (shelfCategory === "all") {
+    if (shelfCategory === "all" || shelfCategory === "salon") {
       counts.forEach((cnt, id) => {
         if (cnt > 0) {
           items.push({ id: id, category: "other", name: id, sub: "馆藏曲目精选", seal: "#9e7632", desc: "按曲风归档的唱片合集。", count: cnt });
@@ -835,6 +952,7 @@
       shuffle = !!forceShuffle;
       localStorage.setItem("gh-shuffle", shuffle ? "1" : "0");
       els.shuffleBtn.classList.toggle("on", shuffle);
+      els.shuffleBtn.setAttribute("aria-pressed", shuffle ? "true" : "false");
     }
     updateGenreShelfHighlight();
     applyFilter();
@@ -842,7 +960,10 @@
     errorStreak = 0;
     buildOrder(null);
     playAt(0);
-    const label = activeGenre === "all" ? "全部馆藏" : activeGenre;
+    let label = activeGenre;
+    if (activeGenre === "all") {
+      label = shelfCategory === "military" ? "全部国歌军乐" : shelfCategory === "salon" ? "全部沙龙流派" : "全部馆藏";
+    }
     toast((shuffle ? "随机起奏：" : "正在播放歌单：") + label);
   }
 
@@ -857,13 +978,12 @@
     filteredTracks = [];
     tracks.forEach((t, i) => {
       const g = t.genre || "其他典藏";
-      if (activeGenre !== "all" && g !== activeGenre) return;
-      if (!q ||
-        t.title.toLowerCase().indexOf(q) !== -1 ||
-        t.artist.toLowerCase().indexOf(q) !== -1 ||
-        t.album.toLowerCase().indexOf(q) !== -1 ||
-        g.toLowerCase().indexOf(q) !== -1 ||
-        t.path.toLowerCase().indexOf(q) !== -1) {
+      if (activeGenre !== "all") {
+        if (g !== activeGenre) return;
+      } else if (shelfCategory !== "all") {
+        if (genreCategory(g) !== shelfCategory) return;
+      }
+      if (!q || (t._searchKey ? t._searchKey.indexOf(q) !== -1 : buildSearchKey(t).indexOf(q) !== -1)) {
         filteredTracks.push(i);
       }
     });
@@ -916,6 +1036,13 @@
   });
 
   els.searchInput.addEventListener("input", applyFilter);
+  els.searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && els.searchInput.value) {
+      e.stopPropagation();
+      els.searchInput.value = "";
+      applyFilter();
+    }
+  });
 
   function renderCount() {
     if (!filteredTracks.length) {
@@ -953,6 +1080,7 @@
     const li = document.createElement("li");
     li.className = "playlist-item";
     li.dataset.index = tIndex;
+    li.tabIndex = 0;
     if (tIndex === currentIndex) li.classList.add("active");
     if (tIndex === currentIndex && !audio.paused) li.classList.add("playing");
 
@@ -962,6 +1090,7 @@
 
     const eq = document.createElement("span");
     eq.className = "eq";
+    eq.setAttribute("aria-hidden", "true");
     eq.innerHTML = "<span></span><span></span><span></span>";
 
     const name = document.createElement("span");
@@ -973,9 +1102,36 @@
     meta.textContent = formatItemMeta(t, mode);
 
     li.append(idx, eq, name, meta);
-    li.addEventListener("click", () => playTrackByIndex(tIndex));
     return li;
   }
+
+  // 播放列表事件委托(避免每次渲染绑定 130+ 个独立闭包监听器，并支持键盘无障碍操作)
+  els.playlist.addEventListener("click", (e) => {
+    const li = e.target.closest(".playlist-item");
+    if (!li) return;
+    const tIndex = Number(li.dataset.index);
+    if (!isNaN(tIndex)) playTrackByIndex(tIndex);
+  });
+
+  els.playlist.addEventListener("keydown", (e) => {
+    const li = e.target.closest(".playlist-item");
+    if (!li) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const tIndex = Number(li.dataset.index);
+      if (!isNaN(tIndex)) playTrackByIndex(tIndex);
+    } else if (e.key === " ") {
+      e.preventDefault();
+    }
+  });
+
+  els.playlist.addEventListener("keyup", (e) => {
+    if (e.key !== " ") return;
+    const li = e.target.closest(".playlist-item");
+    if (!li) return;
+    const tIndex = Number(li.dataset.index);
+    if (!isNaN(tIndex)) playTrackByIndex(tIndex);
+  });
 
   function renderPlaylist(scrollToActive) {
     renderCount();
@@ -1024,11 +1180,16 @@
   }
 
   function highlightActive(scroll) {
-    els.playlist.querySelectorAll(".playlist-item").forEach((li) => {
-      const on = Number(li.dataset.index) === currentIndex;
-      li.classList.toggle("active", on);
-      li.classList.toggle("playing", on && !audio.paused);
+    els.playlist.querySelectorAll(".playlist-item.active, .playlist-item.playing").forEach((li) => {
+      li.classList.remove("active", "playing");
     });
+    if (currentIndex !== -1) {
+      const curEl = els.playlist.querySelector('.playlist-item[data-index="' + currentIndex + '"]');
+      if (curEl) {
+        curEl.classList.add("active");
+        if (!audio.paused) curEl.classList.add("playing");
+      }
+    }
     if (scroll) scrollActiveIntoView();
   }
 
@@ -1114,10 +1275,21 @@
     document.body.classList.toggle("is-playing", playing);
     els.iconPlay.style.display = playing ? "none" : "";
     els.iconPause.style.display = playing ? "" : "none";
-    els.playlist.querySelectorAll(".playlist-item").forEach((el) => {
-      const isCur = Number(el.dataset.index) === currentIndex;
-      el.classList.toggle("playing", playing && isCur);
+    els.playlist.querySelectorAll(".playlist-item.playing").forEach((el) => {
+      if (!playing || Number(el.dataset.index) !== currentIndex) {
+        el.classList.remove("playing");
+      }
     });
+    if (playing && currentIndex !== -1) {
+      const curEl = els.playlist.querySelector('.playlist-item[data-index="' + currentIndex + '"]');
+      if (curEl) curEl.classList.add("playing");
+    }
+    if (playing && currentIndex !== -1 && tracks[currentIndex]) {
+      const t = tracks[currentIndex];
+      document.title = "\u266B " + t.title + (t.artist ? " · " + t.artist : "") + " | GitHub 音乐盒";
+    } else {
+      document.title = DEFAULT_DOC_TITLE;
+    }
     if ("mediaSession" in navigator) {
       navigator.mediaSession.playbackState = playing ? "playing" : "paused";
     }
@@ -1209,6 +1381,7 @@
     shuffle = !shuffle;
     localStorage.setItem("gh-shuffle", shuffle ? "1" : "0");
     els.shuffleBtn.classList.toggle("on", shuffle);
+    els.shuffleBtn.setAttribute("aria-pressed", shuffle ? "true" : "false");
     if (order.length) {
       const cur = currentIndex !== -1 ? currentIndex : null;
       if (shuffle) {
@@ -1284,6 +1457,7 @@
   audio.addEventListener("pause", () => {
     setPlayingUI(false);
     updateVinylAudioGraph(false);
+    scheduleAudioContextSuspend();
     if (currentIndex !== -1 && tracks[currentIndex]) {
       els.trackSub.textContent = defaultTrackSub(tracks[currentIndex]);
     }
@@ -1343,6 +1517,7 @@
     localStorage.setItem("gh-volume", v);
     if (v > 0) lastVolume = v;
     els.muteBtn.classList.toggle("on", v === 0);
+    els.muteBtn.setAttribute("aria-pressed", v === 0 ? "true" : "false");
     updateVinylAudioGraph(false);
   }
 
@@ -1577,9 +1752,20 @@
   }
 
   function ensureAudioContextResumed() {
+    clearTimeout(audioSuspendTimer);
     if (audioCtx && audioCtx.state === "suspended") {
       audioCtx.resume().catch(() => {});
     }
+  }
+
+  function scheduleAudioContextSuspend() {
+    clearTimeout(audioSuspendTimer);
+    if (!audioCtx) return;
+    audioSuspendTimer = setTimeout(() => {
+      if (audio.paused && audioCtx && audioCtx.state === "running") {
+        audioCtx.suspend().catch(() => {});
+      }
+    }, 300);
   }
 
   function updateVinylUI() {
@@ -1613,13 +1799,15 @@
   }
 
   function updateLyricsPanelUI() {
+    const visible = isLyricsPanelVisible();
     document.body.classList.toggle("lyrics-closed", !desktopLyricsOpen);
     document.body.classList.toggle("mobile-lyrics-open", mobileLyricsOpen);
-    els.lyricsToggleBtn.classList.toggle("on", isLyricsPanelVisible());
+    els.lyricsToggleBtn.classList.toggle("on", visible);
+    els.lyricsToggleBtn.setAttribute("aria-pressed", visible ? "true" : "false");
     els.lyricsPanel.classList.toggle("hide-trans", !showTrans);
     els.lyricsTransBtn.classList.toggle("on", showTrans);
     els.lyricsTransBtn.setAttribute("aria-pressed", showTrans ? "true" : "false");
-    if (isLyricsPanelVisible()) {
+    if (visible) {
       if (currentIndex !== -1 && tracks[currentIndex]) {
         els.trackSub.textContent = defaultTrackSub(tracks[currentIndex]);
       }
@@ -1662,7 +1850,9 @@
   }
 
   window.addEventListener("resize", () => {
-    els.lyricsToggleBtn.classList.toggle("on", isLyricsPanelVisible());
+    const visible = isLyricsPanelVisible();
+    els.lyricsToggleBtn.classList.toggle("on", visible);
+    els.lyricsToggleBtn.setAttribute("aria-pressed", visible ? "true" : "false");
   });
 
   function loadLiveLyricsCache() {
@@ -1877,14 +2067,6 @@
         tmSpan.className = "lyric-time";
         tmSpan.textContent = fmt(ln.time);
         li.appendChild(tmSpan);
-        li.addEventListener("click", () => {
-          if (isFinite(audio.duration) || audio.readyState >= 1) {
-            audio.currentTime = ln.time;
-          }
-          exitUserScrollMode(true);
-          syncLyricsToTime(ln.time, false);
-          if (audio.paused && track) safePlay();
-        });
       }
 
       frag.appendChild(li);
@@ -1892,6 +2074,21 @@
 
     els.lyricsList.appendChild(frag);
   }
+
+  // 歌词列表事件委托(点击任意带时间戳的唱词行跳转进度)
+  els.lyricsList.addEventListener("click", (e) => {
+    const li = e.target.closest(".lyric-line.timed");
+    if (!li || !currentLyricState || !currentLyricState.lines) return;
+    const idx = Number(li.dataset.idx);
+    const ln = currentLyricState.lines[idx];
+    if (!ln || ln.time === null) return;
+    if (isFinite(audio.duration) || audio.readyState >= 1) {
+      audio.currentTime = ln.time;
+    }
+    exitUserScrollMode(true);
+    syncLyricsToTime(ln.time, false);
+    if (audio.paused && currentIndex !== -1 && tracks[currentIndex]) safePlay();
+  });
 
   function findActiveLyricIndex(timeSec) {
     const st = currentLyricState;
@@ -2162,19 +2359,44 @@
   }
 
   function initShelfTabs() {
-    const tabWrap = $("genreShelfTabs");
+    const tabWrap = els.genreShelfTabs;
     if (!tabWrap) return;
-    tabWrap.querySelectorAll(".shelf-tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const cat = btn.dataset.category || "all";
-        if (cat === shelfCategory) return;
+    const tabs = Array.from(tabWrap.querySelectorAll(".shelf-tab"));
+
+    function activateShelfTab(cat, focusTab) {
+      if (cat !== shelfCategory) {
         shelfCategory = cat;
-        tabWrap.querySelectorAll(".shelf-tab").forEach((b) => {
-          const on = b.dataset.category === shelfCategory;
-          b.classList.toggle("on", on);
-          b.setAttribute("aria-selected", on ? "true" : "false");
-        });
+        if (activeGenre !== "all" && shelfCategory !== "all" && genreCategory(activeGenre) !== shelfCategory) {
+          activeGenre = "all";
+        }
         renderGenreShelf();
+        applyFilter();
+      }
+      tabs.forEach((b) => {
+        const on = b.dataset.category === shelfCategory;
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+        b.tabIndex = on ? 0 : -1;
+        if (on && focusTab) b.focus();
+      });
+    }
+
+    tabs.forEach((btn, idx) => {
+      const on = btn.dataset.category === shelfCategory;
+      btn.tabIndex = on ? 0 : -1;
+      btn.addEventListener("click", () => {
+        activateShelfTab(btn.dataset.category || "all", false);
+      });
+      btn.addEventListener("keydown", (e) => {
+        let nextIdx = -1;
+        if (e.key === "ArrowRight") nextIdx = (idx + 1) % tabs.length;
+        else if (e.key === "ArrowLeft") nextIdx = (idx - 1 + tabs.length) % tabs.length;
+        else if (e.key === "Home") nextIdx = 0;
+        else if (e.key === "End") nextIdx = tabs.length - 1;
+        if (nextIdx !== -1) {
+          e.preventDefault();
+          activateShelfTab(tabs[nextIdx].dataset.category || "all", true);
+        }
       });
     });
   }
@@ -2185,6 +2407,7 @@
     loadSettings();
     updateRepeatUI();
     els.shuffleBtn.classList.toggle("on", shuffle);
+    els.shuffleBtn.setAttribute("aria-pressed", shuffle ? "true" : "false");
     setView(view);
     initShelfTabs();
     const v = parseInt(localStorage.getItem("gh-volume"), 10);

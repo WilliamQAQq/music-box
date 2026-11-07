@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
 <header class="topbar">
   <div class="brand">
     <span class="logo" aria-hidden="true">
-      <svg viewBox="0 0 32 32" width="23" height="23">
+      <svg viewBox="0 0 32 32" width="23" height="23" aria-hidden="true">
         <!-- Flared Morning-Glory Gramophone Horn -->
         <path fill="currentColor" d="M8.5 5.2 C13.2 5.4 17.6 8.3 20.6 11.4 L23.5 14.3 C24.6 15.4 24.4 17.2 23 18.1 L21.4 19.1 L20.4 17.7 L21.9 16.7 C22.5 16.3 22.6 15.5 22.1 15 L19.2 12.1 C16.4 9.5 12.6 12.6 8.5 15.8 C6.8 17.1 5 16.1 5 13.8 L5 7.6 C5 5.6 6.8 5.1 8.5 5.2 Z"/>
         <ellipse cx="6.8" cy="10.8" rx="1.6" ry="4.6" fill="#f5dc96" opacity=".55"/>
@@ -30,11 +30,11 @@
     </div>
   </div>
   <div class="topbar-actions">
-    <button id="reloadBtn" class="icon-btn" title="重新扫描唱片库" aria-label="重新扫描唱片库">
-      <svg viewBox="0 0 24 24" width="19" height="19"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+    <button type="button" id="reloadBtn" class="icon-btn" title="重新扫描唱片库" aria-label="重新扫描唱片库">
+      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
     </button>
-    <button id="settingsBtn" class="icon-btn" title="留声机柜设置" aria-label="设置">
-      <svg viewBox="0 0 24 24" width="19" height="19"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+    <button type="button" id="settingsBtn" class="icon-btn" title="留声机柜设置" aria-label="设置">
+      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
     </button>
   </div>
 </header>
@@ -123,7 +123,7 @@
   <div class="player-track">
     <div class="vinyl-stage">
       <div class="vinyl-disc">
-        <img id="coverArt" class="cover" alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><radialGradient id='g' cx='50%25' cy='50%25' r='50%25'><stop offset='0%25' stop-color='%23a62c30'/><stop offset='75%25' stop-color='%2372191d'/><stop offset='100%25' stop-color='%234a0f12'/></radialGradient></defs><circle cx='32' cy='32' r='32' fill='url(%23g)'/><circle cx='32' cy='32' r='28' fill='none' stroke='%23e0b861' stroke-width='1.4'/><circle cx='32' cy='32' r='24' fill='none' stroke='%23e0b861' stroke-width='0.6' stroke-dasharray='2 2'/><text x='32' y='24' font-family='Georgia,serif' font-size='6.5' letter-spacing='1' text-anchor='middle' fill='%23f3d999'>GRAMOPHONE</text><text x='32' y='47' font-family='Georgia,serif' font-size='11' text-anchor='middle' fill='%23f3d999'>%E2%99%AB</text></svg>">
+        <img id="coverArt" class="cover" width="30" height="30" alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><radialGradient id='g' cx='50%25' cy='50%25' r='50%25'><stop offset='0%25' stop-color='%23a62c30'/><stop offset='75%25' stop-color='%2372191d'/><stop offset='100%25' stop-color='%234a0f12'/></radialGradient></defs><circle cx='32' cy='32' r='32' fill='url(%23g)'/><circle cx='32' cy='32' r='28' fill='none' stroke='%23e0b861' stroke-width='1.4'/><circle cx='32' cy='32' r='24' fill='none' stroke='%23e0b861' stroke-width='0.6' stroke-dasharray='2 2'/><text x='32' y='24' font-family='Georgia,serif' font-size='6.5' letter-spacing='1' text-anchor='middle' fill='%23f3d999'>GRAMOPHONE</text><text x='32' y='47' font-family='Georgia,serif' font-size='11' text-anchor='middle' fill='%23f3d999'>%E2%99%AB</text></svg>">
         <span class="vinyl-spindle" aria-hidden="true"></span>
       </div>
       <svg class="tonearm" viewBox="0 0 72 64" width="72" height="64" aria-hidden="true">
@@ -145,21 +145,21 @@
 
   <div class="player-center">
     <div class="controls">
-      <button id="shuffleBtn" class="ctrl-btn" title="随机播放" aria-label="随机播放">
-        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+      <button type="button" id="shuffleBtn" class="ctrl-btn" title="随机播放" aria-label="随机播放" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
       </button>
-      <button id="prevBtn" class="ctrl-btn" title="上一首" aria-label="上一首">
-        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      <button type="button" id="prevBtn" class="ctrl-btn" title="上一首" aria-label="上一首">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
       </button>
-      <button id="playBtn" class="play-btn" title="播放/暂停" aria-label="播放/暂停">
-        <svg id="iconPlay" viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
-        <svg id="iconPause" viewBox="0 0 24 24" width="28" height="28" style="display:none"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      <button type="button" id="playBtn" class="play-btn" title="播放/暂停" aria-label="播放/暂停">
+        <svg id="iconPlay" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+        <svg id="iconPause" viewBox="0 0 24 24" width="28" height="28" style="display:none" aria-hidden="true"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
       </button>
-      <button id="nextBtn" class="ctrl-btn" title="下一首" aria-label="下一首">
-        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      <button type="button" id="nextBtn" class="ctrl-btn" title="下一首" aria-label="下一首">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
       </button>
-      <button id="repeatBtn" class="ctrl-btn" title="循环模式" aria-label="循环模式">
-        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+      <button type="button" id="repeatBtn" class="ctrl-btn" title="循环模式" aria-label="循环模式">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
       </button>
     </div>
     <div class="seekbar">
@@ -170,10 +170,10 @@
   </div>
 
   <div class="player-right">
-    <button id="vinylFxBtn" class="ctrl-btn vinyl-fx-btn" title="模拟黑胶唱片音效 (快捷键 V)" aria-label="模拟黑胶唱片音效" aria-pressed="false">胶</button>
-    <button id="lyricsToggleBtn" class="ctrl-btn lyrics-toggle-btn" title="展开/收起滚动歌词 (L)" aria-label="展开或收起滚动歌词">词</button>
-    <button id="muteBtn" class="ctrl-btn" title="静音" aria-label="静音">
-      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05a4.5 4.5 0 0 0 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+    <button type="button" id="vinylFxBtn" class="ctrl-btn vinyl-fx-btn" title="模拟黑胶唱片音效 (快捷键 V)" aria-label="模拟黑胶唱片音效" aria-pressed="false">胶</button>
+    <button type="button" id="lyricsToggleBtn" class="ctrl-btn lyrics-toggle-btn" title="展开/收起滚动歌词 (L)" aria-label="展开或收起滚动歌词" aria-pressed="true">词</button>
+    <button type="button" id="muteBtn" class="ctrl-btn" title="静音" aria-label="静音" aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05a4.5 4.5 0 0 0 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
     </button>
     <input type="range" id="volume" class="range vol" min="0" max="100" value="80" aria-label="音量">
   </div>
@@ -181,11 +181,11 @@
 
 <audio id="audio" preload="metadata" crossorigin="anonymous"></audio>
 
-<div class="modal" id="settingsModal" hidden>
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" hidden>
   <div class="modal-box">
     <div class="modal-head">
-      <h2>唱片柜设置</h2>
-      <button id="closeModalBtn" class="icon-btn" aria-label="关闭">&times;</button>
+      <h2 id="settingsModalTitle">唱片柜设置</h2>
+      <button type="button" id="closeModalBtn" class="icon-btn" aria-label="关闭">&times;</button>
     </div>
     <form id="settingsForm">
       <label>
@@ -209,7 +209,7 @@
         <input type="password" id="setToken" placeholder="ghp_…" autocomplete="off">
       </label>
       <div class="modal-foot">
-        <span class="form-error" id="formError"></span>
+        <span class="form-error" id="formError" role="alert"></span>
         <div class="modal-actions">
           <button type="button" id="resetSettingsBtn" class="ghost-btn">恢复默认</button>
           <button type="submit" class="primary-btn">保存并加载</button>
@@ -220,8 +220,8 @@
   </div>
 </div>
 
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="app.js?v=12"></script>
+<script defer src="app.js?v=13"></script>
 </body>
 </html>
