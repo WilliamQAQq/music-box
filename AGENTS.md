@@ -21,7 +21,7 @@
 ├── app.js                全部前端逻辑(含歌单筛选与时间轴滚动歌词引擎)
 ├── music.json            音乐清单(前端主数据源:标题/歌手/专辑/风格/相对路径)
 ├── lyrics.json           全馆时间轴滚动歌词库(LRC 原文/双语译文/纯器乐标记)
-├── music/                音乐文件(mp3 等,目前 130 首)
+├── music/                音乐文件(mp3 等,目前 131 首)
 └── .github/
     ├── assets/           README 实机预览图
     ├── gen_music_json.py 清单生成脚本(扫描 music/ 并读取 ID3 标签与在线歌词)
@@ -47,7 +47,7 @@ push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/�
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=17` 递增(如 `?v=18`)**。
+改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=18` 递增(如 `?v=19`)**。
 否则访问者浏览器用缓存旧 JS,看不到更新(本项目踩过这个坑)。
 
 ### 手动重新生成清单(本地)

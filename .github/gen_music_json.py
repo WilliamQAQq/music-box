@@ -28,6 +28,7 @@ MANUAL_ARTIST = {
     "Mandela Catalogue_ Amazing Grace (Full Version).mp3": "Mandela Catalogue",
     "National Anthem- United States - Star Spangled Banner.mp3": "美国国歌",
     "United States of America National Anthem (Instrumental).mp3": "美国国歌",
+    "Вадим Казаченко - Прощай навеки, последняя любовь.mp3": "Вадим Казаченко",
 }
 
 # Curated style playlists mapped by artist name (exact match, case-insensitive).
@@ -101,6 +102,7 @@ ARTIST_GENRE = {
     "暗杠": "街巷叙事 · 民谣流行",
     "一杯陈豆浆": "街巷叙事 · 民谣流行",
     "任浩铭, 黄勇": "街巷叙事 · 民谣流行",
+    "вадим казаченко": "街巷叙事 · 民谣流行",
 
     # 8. 古典沙龙 · 剧场礼乐 (Classical, Tango & Ceremonial)
     "benny martin/the wong janice": "古典沙龙 · 剧场礼乐",
@@ -328,7 +330,25 @@ def fetch_online_lyrics(artist, title, album, target_dur):
     except Exception:
         pass
 
-    # 3. api.lrc.cx fallback
+    # 3. LRCLIB (Synced LRC database for international/Russian/English tracks)
+    try:
+        q = ("%s %s" % (artist, title)).strip()
+        u = "https://lrclib.net/api/search?q=" + urllib.parse.quote(q)
+        with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "MusicBox/1.0"}), timeout=8) as r:
+            items = json.loads(r.read().decode("utf-8", errors="replace")) or []
+        for item in items[:4]:
+            if item.get("instrumental"):
+                return {"type": "instrumental"}
+            sdur = float(item.get("duration") or 0)
+            if target_dur > 0 and sdur > 0 and abs(sdur - target_dur) > 15:
+                continue
+            lrc = clean_lrc_text(item.get("syncedLyrics") or "")
+            if len(TIME_TAG_RE.findall(lrc)) >= 3:
+                return {"type": "synced", "lrc": lrc}
+    except Exception:
+        pass
+
+    # 4. api.lrc.cx fallback
     try:
         params = {"title": title, "artist": artist}
         if album and album != "Unknown Album":
