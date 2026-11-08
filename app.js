@@ -2319,6 +2319,8 @@
       if (e.key.indexOf("Arrow") === 0) return;
     }
     if ((tag === "button" || tag === "a") && (e.key === " " || e.key === "Enter")) return;
+    // 播放列表条目自带 Enter/Space 选曲处理，避免与全局空格播放/暂停重复触发
+    if (target.closest && target.closest(".playlist-item") && (e.key === " " || e.key === "Enter")) return;
     if (
       target.closest &&
       target.closest("#lyricsScroll") &&
