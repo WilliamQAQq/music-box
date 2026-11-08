@@ -409,8 +409,11 @@
     });
   }
 
-  function openSettings() {
-    lastModalTrigger = document.activeElement;
+  function openSettings(triggerEl) {
+    const active = document.activeElement;
+    lastModalTrigger = (triggerEl && triggerEl.nodeType === 1)
+      ? triggerEl
+      : (active && active !== document.body ? active : els.settingsBtn);
     fillSettingsForm();
     els.formError.textContent = "";
     els.settingsModal.hidden = false;
@@ -421,16 +424,19 @@
   function closeSettings() {
     els.settingsModal.hidden = true;
     setBackgroundInert(false);
-    if (lastModalTrigger && typeof lastModalTrigger.focus === "function") {
-      lastModalTrigger.focus();
-      lastModalTrigger = null;
+    const target = (lastModalTrigger && lastModalTrigger !== document.body && !lastModalTrigger.hidden)
+      ? lastModalTrigger
+      : els.settingsBtn;
+    lastModalTrigger = null;
+    if (target && typeof target.focus === "function") {
+      target.focus();
     }
   }
 
-  els.settingsBtn.addEventListener("click", openSettings);
+  els.settingsBtn.addEventListener("click", () => openSettings(els.settingsBtn));
   els.bannerCta.addEventListener("click", () => {
     if (settings.owner && settings.repo) loadLibrary(true);
-    else openSettings();
+    else openSettings(els.bannerCta);
   });
   els.closeModalBtn.addEventListener("click", closeSettings);
   els.settingsModal.addEventListener("click", (e) => {
@@ -1031,7 +1037,7 @@
   }
 
   els.reloadBtn.addEventListener("click", () => {
-    if (!settings.owner || !settings.repo) { openSettings(); return; }
+    if (!settings.owner || !settings.repo) { openSettings(els.reloadBtn); return; }
     loadLibrary(true);
   });
 
@@ -1075,12 +1081,12 @@
     return t.artist || cleanAlbum || t.genre || t.dir || "/";
   }
 
-  function makeItem(tIndex, k, mode) {
+  function makeItem(tIndex, k, mode, tabTargetK) {
     const t = tracks[tIndex];
     const li = document.createElement("li");
     li.className = "playlist-item";
     li.dataset.index = tIndex;
-    li.tabIndex = 0;
+    li.tabIndex = k === tabTargetK ? 0 : -1;
     if (tIndex === currentIndex) li.classList.add("active");
     if (tIndex === currentIndex && !audio.paused) li.classList.add("playing");
 
@@ -1105,10 +1111,19 @@
     return li;
   }
 
-  // 播放列表事件委托(避免每次渲染绑定 130+ 个独立闭包监听器，并支持键盘无障碍操作)
+  function setPlaylistRovingTabIndex(activeLi) {
+    if (!activeLi) return;
+    els.playlist.querySelectorAll('.playlist-item[tabindex="0"]').forEach((el) => {
+      if (el !== activeLi) el.tabIndex = -1;
+    });
+    activeLi.tabIndex = 0;
+  }
+
+  // 播放列表事件委托(避免每次渲染绑定 130+ 个独立闭包监听器，并支持漫游 tabindex 与方向键导航)
   els.playlist.addEventListener("click", (e) => {
     const li = e.target.closest(".playlist-item");
     if (!li) return;
+    setPlaylistRovingTabIndex(li);
     const tIndex = Number(li.dataset.index);
     if (!isNaN(tIndex)) playTrackByIndex(tIndex);
   });
@@ -1118,10 +1133,26 @@
     if (!li) return;
     if (e.key === "Enter") {
       e.preventDefault();
+      setPlaylistRovingTabIndex(li);
       const tIndex = Number(li.dataset.index);
       if (!isNaN(tIndex)) playTrackByIndex(tIndex);
     } else if (e.key === " ") {
       e.preventDefault();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
+      const items = Array.from(els.playlist.querySelectorAll(".playlist-item"));
+      const curIdx = items.indexOf(li);
+      if (curIdx === -1 || !items.length) return;
+      e.preventDefault();
+      let nextIdx = curIdx;
+      if (e.key === "ArrowDown") nextIdx = Math.min(items.length - 1, curIdx + 1);
+      else if (e.key === "ArrowUp") nextIdx = Math.max(0, curIdx - 1);
+      else if (e.key === "Home") nextIdx = 0;
+      else if (e.key === "End") nextIdx = items.length - 1;
+      const targetLi = items[nextIdx];
+      if (targetLi) {
+        setPlaylistRovingTabIndex(targetLi);
+        targetLi.focus();
+      }
     }
   });
 
@@ -1129,6 +1160,7 @@
     if (e.key !== " ") return;
     const li = e.target.closest(".playlist-item");
     if (!li) return;
+    setPlaylistRovingTabIndex(li);
     const tIndex = Number(li.dataset.index);
     if (!isNaN(tIndex)) playTrackByIndex(tIndex);
   });
@@ -1136,6 +1168,8 @@
   function renderPlaylist(scrollToActive) {
     renderCount();
     const frag = document.createDocumentFragment();
+    const activeK = currentIndex !== -1 ? filteredTracks.indexOf(currentIndex) : -1;
+    const tabTargetK = activeK !== -1 ? activeK : 0;
     if (view === "genre" && activeGenre === "all") {
       // 计算每个风格分组的曲目数用于标题展示
       const groupCounts = new Map();
@@ -1153,7 +1187,7 @@
           hdr.textContent = g + " (" + groupCounts.get(g) + " 首)";
           frag.appendChild(hdr);
         }
-        frag.appendChild(makeItem(tIndex, k, "genre"));
+        frag.appendChild(makeItem(tIndex, k, "genre", tabTargetK));
       });
     } else if (view === "artist") {
       let lastArtist = null;
@@ -1166,12 +1200,12 @@
           hdr.textContent = artist;
           frag.appendChild(hdr);
         }
-        frag.appendChild(makeItem(tIndex, k, "artist"));
+        frag.appendChild(makeItem(tIndex, k, "artist", tabTargetK));
       });
     } else {
       const itemMode = view === "genre" ? "genre" : "flat";
       filteredTracks.forEach((tIndex, k) => {
-        frag.appendChild(makeItem(tIndex, k, itemMode));
+        frag.appendChild(makeItem(tIndex, k, itemMode, tabTargetK));
       });
     }
     els.playlist.innerHTML = "";
@@ -1188,6 +1222,7 @@
       if (curEl) {
         curEl.classList.add("active");
         if (!audio.paused) curEl.classList.add("playing");
+        setPlaylistRovingTabIndex(curEl);
       }
     }
     if (scroll) scrollActiveIntoView();
@@ -2319,8 +2354,14 @@
       if (e.key.indexOf("Arrow") === 0) return;
     }
     if ((tag === "button" || tag === "a") && (e.key === " " || e.key === "Enter")) return;
-    // 播放列表条目自带 Enter/Space 选曲处理，避免与全局空格播放/暂停重复触发
-    if (target.closest && target.closest(".playlist-item") && (e.key === " " || e.key === "Enter")) return;
+    // 播放列表条目自带 Enter/Space 选曲与上下方向键/Home/End 漫游焦点导航，避免与全局快捷键冲突
+    if (
+      target.closest &&
+      target.closest(".playlist-item") &&
+      (e.key === " " || e.key === "Enter" || e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "Home" || e.key === "End")
+    ) {
+      return;
+    }
     if (
       target.closest &&
       target.closest("#lyricsScroll") &&
