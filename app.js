@@ -8,6 +8,7 @@
   const LYRICS_TRANS_KEY = "gh-lyrics-trans";
   const LIVE_LYRICS_CACHE_KEY = "gh-lyrics-live-v1";
   const VINYL_FX_KEY = "gh-vinyl-fx";
+  const SYNTH_FX_KEY = "gh-synth-fx";
 
   const AUDIO_EXTS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "webm"];
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
@@ -268,6 +269,7 @@
     lyricsFollowBtn: $("lyricsFollowBtn"),
     lyricsToggleBtn: $("lyricsToggleBtn"),
     vinylFxBtn: $("vinylFxBtn"),
+    synthFxBtn: $("synthFxBtn"),
     playerTrack: document.querySelector(".player-track"),
     coverArt: $("coverArt"),
     trackTitle: $("trackTitle"),
@@ -340,10 +342,14 @@
   let programmaticScrollGuardUntil = 0;
   const USER_SCROLL_RESUME_MS = 5500;
 
-  // 模拟黑胶留声机音效引擎状态
+  // 模拟黑胶留声机与电子合成器音效引擎状态
   let vinylFxEnabled = localStorage.getItem(VINYL_FX_KEY) === "1";
+  let synthFxEnabled = localStorage.getItem(SYNTH_FX_KEY) === "1";
   let audioCtx = null;
+  let audioBaseGraph = null;
   let vinylNodes = null;
+  let synthNodes = null;
+  let synthTrackerTimer = null;
   let audioSuspendTimer = null;
   const BASE_VINYL_NOISE_GAIN = 0.048;
 
@@ -1478,20 +1484,21 @@
 
   audio.addEventListener("play", () => {
     setPlayingUI(true);
+    if (synthFxEnabled) initSynthAudioEngine();
     if (vinylFxEnabled) initVinylAudioEngine();
     ensureAudioContextResumed();
-    updateVinylAudioGraph(false);
+    updateAudioFxGraph(false);
   });
 
   audio.addEventListener("playing", () => {
     errorStreak = 0;
     ensureAudioContextResumed();
-    updateVinylAudioGraph(false);
+    updateAudioFxGraph(false);
   });
 
   audio.addEventListener("pause", () => {
     setPlayingUI(false);
-    updateVinylAudioGraph(false);
+    updateAudioFxGraph(false);
     scheduleAudioContextSuspend();
     if (currentIndex !== -1 && tracks[currentIndex]) {
       els.trackSub.textContent = defaultTrackSub(tracks[currentIndex]);
@@ -1499,7 +1506,7 @@
   });
 
   audio.addEventListener("ended", () => {
-    updateVinylAudioGraph(false);
+    updateAudioFxGraph(false);
     if (repeat === "one") { restart(); return; }
     nextTrack(true);
   });
@@ -1553,7 +1560,7 @@
     if (v > 0) lastVolume = v;
     els.muteBtn.classList.toggle("on", v === 0);
     els.muteBtn.setAttribute("aria-pressed", v === 0 ? "true" : "false");
-    updateVinylAudioGraph(false);
+    updateAudioFxGraph(false);
   }
 
   els.volume.addEventListener("input", () => setVolume(els.volume.value));
@@ -1571,7 +1578,435 @@
     return m + ":" + (s < 10 ? "0" : "") + s;
   }
 
-  /* ---------------- vinyl record emulation engine (Web Audio DSP) ---------------- */
+  /* ---------------- vinyl & synthesizer audio engines (Web Audio DSP) ---------------- */
+
+  function ensureAudioBaseGraph() {
+    if (audioBaseGraph) return true;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return false;
+      if (!audioCtx) audioCtx = new AudioContextClass();
+
+      const source = audioCtx.createMediaElementSource(audio);
+
+      // 第一级总线(原声 vs 合成器重合成)
+      const stage1DryGain = audioCtx.createGain();
+      stage1DryGain.gain.value = 1;
+      const stage1Bus = audioCtx.createGain();
+      stage1Bus.gain.value = 1;
+      source.connect(stage1DryGain);
+      stage1DryGain.connect(stage1Bus);
+
+      // 第二级总线(第一级输出 vs 黑胶留声机)
+      const stage2DryGain = audioCtx.createGain();
+      stage2DryGain.gain.value = 1;
+      stage1Bus.connect(stage2DryGain);
+      stage2DryGain.connect(audioCtx.destination);
+
+      audioBaseGraph = {
+        source,
+        stage1DryGain,
+        stage1Bus,
+        stage2DryGain,
+      };
+      return true;
+    } catch (e) {
+      console.warn("Web Audio base graph unavailable:", e);
+      return false;
+    }
+  }
+
+  // 合成器多频段波表重塑曲线(将自然声学正弦/泛音重塑为脉冲波、锯齿波与阶梯量化波)
+  function makeSynthBassPulseCurve() {
+    const n = 4096;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / (n - 1) - 1;
+      const pulse = Math.tanh(x * 3.8);
+      const fold = Math.sin(x * Math.PI * 1.9);
+      const asym = (x >= 0 ? 1 : -0.72) * (1 - Math.exp(-Math.abs(x) * 4.5));
+      curve[i] = Math.max(-1, Math.min(1, 0.52 * pulse + 0.30 * fold + 0.18 * asym));
+    }
+    return curve;
+  }
+
+  function makeSynthPolySawCurve() {
+    const n = 4096;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / (n - 1) - 1;
+      const fold1 = Math.sin(x * Math.PI * 2.15);
+      const fold2 = Math.sin(x * Math.PI * 4.3);
+      const warm = Math.tanh(x * 3.1);
+      curve[i] = Math.max(-1, Math.min(1, 0.48 * fold1 + 0.36 * warm + 0.16 * fold2));
+    }
+    return curve;
+  }
+
+  function makeSynthLeadQuantCurve() {
+    const n = 4096;
+    const curve = new Float32Array(n);
+    const steps = 14;
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / (n - 1) - 1;
+      const folded = 0.58 * Math.sin(x * Math.PI * 2.45) + 0.42 * Math.tanh(x * 3.6);
+      const stepped = Math.round(folded * steps) / steps;
+      curve[i] = Math.max(-1, Math.min(1, 0.62 * folded + 0.38 * stepped));
+    }
+    return curve;
+  }
+
+  function makeSynthHarmonicBellCurve() {
+    const n = 4096;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / (n - 1) - 1;
+      curve[i] = Math.max(-1, Math.min(1, 0.6 * Math.sin(x * Math.PI * 2.6) + 0.4 * Math.tanh(x * 2.8)));
+    }
+    return curve;
+  }
+
+  function initSynthAudioEngine() {
+    if (synthNodes) return true;
+    if (!ensureAudioBaseGraph()) return false;
+    try {
+      const source = audioBaseGraph.source;
+
+      // 实时基频与包络检测分析器(驱动压控滤波器包络与锁定旋律的合成器振荡器)
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.45;
+      const timeData = new Float32Array(analyser.fftSize);
+      source.connect(analyser);
+
+      // 1. 输入包络均衡压缩器(使弱音与强音都能稳定触发合成器波表折叠)
+      const preComp = audioCtx.createDynamicsCompressor();
+      preComp.threshold.value = -30;
+      preComp.knee.value = 12;
+      preComp.ratio.value = 8;
+      preComp.attack.value = 0.002;
+      preComp.release.value = 0.09;
+
+      const preDrive = audioCtx.createGain();
+      preDrive.gain.value = 2.15;
+
+      source.connect(preComp);
+      preComp.connect(preDrive);
+
+      // 2. 四频段复音合成器波表重塑矩阵(分离低音/和弦/主旋律/高频泛音，避免互调浑浊)
+      const bandSum = audioCtx.createGain();
+      bandSum.gain.value = 1.0;
+
+      const bands = [
+        { bpFreq: 125, bpQ: 0.95, curve: makeSynthBassPulseCurve(), over: "4x", lpFreq: 460, lpQ: 2.4, gain: 0.58 },
+        { bpFreq: 460, bpQ: 1.05, curve: makeSynthPolySawCurve(), over: "4x", lpFreq: 1650, lpQ: 1.8, gain: 0.62 },
+        { bpFreq: 1480, bpQ: 1.15, curve: makeSynthLeadQuantCurve(), over: "4x", lpFreq: 3400, lpQ: 2.1, gain: 0.56 },
+        { bpFreq: 3500, bpQ: 1.3, curve: makeSynthHarmonicBellCurve(), over: "2x", lpFreq: 5200, lpQ: 1.5, gain: 0.34 },
+      ];
+
+      bands.forEach((cfg) => {
+        const bp = audioCtx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = cfg.bpFreq;
+        bp.Q.value = cfg.bpQ;
+
+        const shaper = audioCtx.createWaveShaper();
+        shaper.curve = cfg.curve;
+        shaper.oversample = cfg.over;
+
+        const lp = audioCtx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.value = cfg.lpFreq;
+        lp.Q.value = cfg.lpQ;
+
+        const g = audioCtx.createGain();
+        g.gain.value = cfg.gain;
+
+        preDrive.connect(bp);
+        bp.connect(shaper);
+        shaper.connect(lp);
+        lp.connect(g);
+        g.connect(bandSum);
+      });
+
+      // 3. 实时基频追踪双振荡器 + 低八度 Sub 振荡器(原生锯齿波与方波合成器声部)
+      const leadOsc1 = audioCtx.createOscillator();
+      leadOsc1.type = "sawtooth";
+      leadOsc1.frequency.value = 220;
+      const leadOsc1Gain = audioCtx.createGain();
+      leadOsc1Gain.gain.value = 0.42;
+
+      const leadOsc2 = audioCtx.createOscillator();
+      leadOsc2.type = "square";
+      leadOsc2.frequency.value = 220;
+      const leadOsc2Gain = audioCtx.createGain();
+      leadOsc2Gain.gain.value = 0.36;
+
+      const subOsc = audioCtx.createOscillator();
+      subOsc.type = "sawtooth";
+      subOsc.frequency.value = 110;
+      const subOscGain = audioCtx.createGain();
+      subOscGain.gain.value = 0.45;
+
+      const oscVcf = audioCtx.createBiquadFilter();
+      oscVcf.type = "lowpass";
+      oscVcf.frequency.value = 1400;
+      oscVcf.Q.value = 3.0;
+
+      const oscEnvGain = audioCtx.createGain();
+      oscEnvGain.gain.value = 0;
+
+      leadOsc1.connect(leadOsc1Gain);
+      leadOsc2.connect(leadOsc2Gain);
+      subOsc.connect(subOscGain);
+      leadOsc1Gain.connect(oscVcf);
+      leadOsc2Gain.connect(oscVcf);
+      subOscGain.connect(oscVcf);
+      oscVcf.connect(oscEnvGain);
+      oscEnvGain.connect(bandSum);
+
+      leadOsc1.start();
+      leadOsc2.start();
+      subOsc.start();
+
+      // 4. 经典模拟合成器谐振低通滤波器(VCF) + 双 LFO 扫频调制
+      const vcfFilter = audioCtx.createBiquadFilter();
+      vcfFilter.type = "lowpass";
+      vcfFilter.frequency.value = 1850;
+      vcfFilter.Q.value = 3.0;
+
+      const vcfLfo1 = audioCtx.createOscillator();
+      vcfLfo1.type = "sine";
+      vcfLfo1.frequency.value = 0.21;
+      const vcfLfo1Gain = audioCtx.createGain();
+      vcfLfo1Gain.gain.value = 380;
+      vcfLfo1.connect(vcfLfo1Gain);
+      vcfLfo1Gain.connect(vcfFilter.frequency);
+      vcfLfo1.start();
+
+      const vcfLfo2 = audioCtx.createOscillator();
+      vcfLfo2.type = "triangle";
+      vcfLfo2.frequency.value = 3.2;
+      const vcfLfo2Gain = audioCtx.createGain();
+      vcfLfo2Gain.gain.value = 120;
+      vcfLfo2.connect(vcfLfo2Gain);
+      vcfLfo2Gain.connect(vcfFilter.frequency);
+      vcfLfo2.start();
+
+      const bodyShelf = audioCtx.createBiquadFilter();
+      bodyShelf.type = "lowshelf";
+      bodyShelf.frequency.value = 190;
+      bodyShelf.gain.value = 2.5;
+
+      const formantPeak = audioCtx.createBiquadFilter();
+      formantPeak.type = "peaking";
+      formantPeak.frequency.value = 1150;
+      formantPeak.Q.value = 1.4;
+      formantPeak.gain.value = 2.0;
+
+      bandSum.connect(vcfFilter);
+      vcfFilter.connect(bodyShelf);
+      bodyShelf.connect(formantPeak);
+
+      // 5. Juno-60 立体声正交合唱(Dimension Chorus) + 合成器空间回声
+      const synthStereoMix = audioCtx.createGain();
+      synthStereoMix.gain.value = 1.0;
+
+      const chorusDry = audioCtx.createGain();
+      chorusDry.gain.value = 0.56;
+      formantPeak.connect(chorusDry);
+      chorusDry.connect(synthStereoMix);
+
+      const delayL = audioCtx.createDelay(0.05);
+      delayL.delayTime.value = 0.0115;
+      const delayR = audioCtx.createDelay(0.05);
+      delayR.delayTime.value = 0.0145;
+
+      const chorusLfo = audioCtx.createOscillator();
+      chorusLfo.type = "sine";
+      chorusLfo.frequency.value = 0.68;
+      const chorusDepthL = audioCtx.createGain();
+      chorusDepthL.gain.value = 0.0021;
+      const chorusDepthR = audioCtx.createGain();
+      chorusDepthR.gain.value = -0.0021;
+      chorusLfo.connect(chorusDepthL);
+      chorusLfo.connect(chorusDepthR);
+      chorusDepthL.connect(delayL.delayTime);
+      chorusDepthR.connect(delayR.delayTime);
+      chorusLfo.start();
+
+      const vibratoLfo = audioCtx.createOscillator();
+      vibratoLfo.type = "triangle";
+      vibratoLfo.frequency.value = 2.4;
+      const vibratoDepthL = audioCtx.createGain();
+      vibratoDepthL.gain.value = 0.00035;
+      const vibratoDepthR = audioCtx.createGain();
+      vibratoDepthR.gain.value = -0.00035;
+      vibratoLfo.connect(vibratoDepthL);
+      vibratoLfo.connect(vibratoDepthR);
+      vibratoDepthL.connect(delayL.delayTime);
+      vibratoDepthR.connect(delayR.delayTime);
+      vibratoLfo.start();
+
+      const merger = audioCtx.createChannelMerger(2);
+      const chorusWet = audioCtx.createGain();
+      chorusWet.gain.value = 0.58;
+
+      formantPeak.connect(delayL);
+      formantPeak.connect(delayR);
+      delayL.connect(merger, 0, 0);
+      delayR.connect(merger, 0, 1);
+      merger.connect(chorusWet);
+      chorusWet.connect(synthStereoMix);
+
+      // 空间合成器短延迟(Cosmic Synth Slapback Echo)
+      const echoDelay = audioCtx.createDelay(0.5);
+      echoDelay.delayTime.value = 0.115;
+      const echoLp = audioCtx.createBiquadFilter();
+      echoLp.type = "lowpass";
+      echoLp.frequency.value = 2300;
+      const echoFeedback = audioCtx.createGain();
+      echoFeedback.gain.value = 0.20;
+      const echoWet = audioCtx.createGain();
+      echoWet.gain.value = 0.18;
+
+      formantPeak.connect(echoDelay);
+      echoDelay.connect(echoLp);
+      echoLp.connect(echoFeedback);
+      echoFeedback.connect(echoDelay);
+      echoLp.connect(echoWet);
+      echoWet.connect(synthStereoMix);
+
+      // 6. 输出动态限制与电平匹配
+      const outComp = audioCtx.createDynamicsCompressor();
+      outComp.threshold.value = -14;
+      outComp.knee.value = 10;
+      outComp.ratio.value = 4;
+      outComp.attack.value = 0.004;
+      outComp.release.value = 0.12;
+
+      const makeupGain = audioCtx.createGain();
+      makeupGain.gain.value = 1.05;
+
+      const wetGain = audioCtx.createGain();
+      wetGain.gain.value = synthFxEnabled ? 1 : 0;
+
+      synthStereoMix.connect(outComp);
+      outComp.connect(makeupGain);
+      makeupGain.connect(wetGain);
+      wetGain.connect(audioBaseGraph.stage1Bus);
+
+      synthNodes = {
+        analyser,
+        timeData,
+        vcfFilter,
+        leadOsc1,
+        leadOsc2,
+        subOsc,
+        oscVcf,
+        oscEnvGain,
+        wetGain,
+      };
+
+      updateAudioFxGraph(true);
+      return true;
+    } catch (e) {
+      console.warn("Synthesizer audio emulation unavailable:", e);
+      return false;
+    }
+  }
+
+  // 快速归一化自相关基频与包络检测(驱动合成器振荡器音高滑音与谐振滤波器包络)
+  function detectPitchAndRms(buf, sampleRate) {
+    const n = buf.length;
+    let sumSq = 0;
+    for (let i = 0; i < n; i++) {
+      sumSq += buf[i] * buf[i];
+    }
+    const rms = Math.sqrt(sumSq / n);
+    if (rms < 0.012) {
+      return { rms, freq: 0, clarity: 0 };
+    }
+
+    const windowSize = Math.min(256, n >> 1);
+    const minLag = Math.max(8, Math.floor(sampleRate / 880));
+    const maxLag = Math.min(n - windowSize - 1, Math.floor(sampleRate / 75));
+
+    let bestLag = -1;
+    let bestCorr = 0;
+
+    for (let lag = minLag; lag <= maxLag; lag += 2) {
+      let ac = 0;
+      let e0 = 0;
+      let e1 = 0;
+      for (let i = 0; i < windowSize; i += 2) {
+        const a = buf[i];
+        const b = buf[i + lag];
+        ac += a * b;
+        e0 += a * a;
+        e1 += b * b;
+      }
+      const denom = Math.sqrt(e0 * e1);
+      if (denom > 1e-6) {
+        const corr = ac / denom;
+        if (corr > bestCorr) {
+          bestCorr = corr;
+          bestLag = lag;
+        }
+      }
+    }
+
+    if (bestLag <= 0 || bestCorr < 0.52) {
+      return { rms, freq: 0, clarity: bestCorr };
+    }
+
+    return {
+      rms,
+      freq: sampleRate / bestLag,
+      clarity: bestCorr,
+    };
+  }
+
+  function updateSynthTrackerFrame() {
+    if (!synthFxEnabled || !synthNodes || !audioCtx || audio.paused) return;
+    synthNodes.analyser.getFloatTimeDomainData(synthNodes.timeData);
+    const { rms, freq, clarity } = detectPitchAndRms(synthNodes.timeData, audioCtx.sampleRate);
+    const now = audioCtx.currentTime;
+
+    // 压控滤波器(VCF)包络随音乐动态自动开合
+    const envNorm = Math.pow(Math.min(1, rms * 3.8), 0.75);
+    const targetCutoff = Math.min(4200, 1100 + envNorm * 2900);
+    synthNodes.vcfFilter.frequency.setTargetAtTime(targetCutoff, now, 0.028);
+
+    // 锁定旋律基频的锯齿波/方波/低八度振荡器声部
+    if (freq >= 70 && freq <= 920 && clarity >= 0.52) {
+      synthNodes.leadOsc1.frequency.setTargetAtTime(freq * 1.003, now, 0.022);
+      synthNodes.leadOsc2.frequency.setTargetAtTime(freq * 0.997, now, 0.022);
+      synthNodes.subOsc.frequency.setTargetAtTime(Math.max(55, freq * 0.5), now, 0.026);
+      synthNodes.oscVcf.frequency.setTargetAtTime(Math.min(4800, freq * 3.6 + rms * 1600), now, 0.025);
+      const targetOscGain = Math.min(0.16, rms * (clarity - 0.45) * 0.45);
+      synthNodes.oscEnvGain.gain.setTargetAtTime(targetOscGain, now, 0.022);
+    } else {
+      synthNodes.oscEnvGain.gain.setTargetAtTime(0, now, 0.025);
+    }
+  }
+
+  function startSynthTracker() {
+    if (synthTrackerTimer) return;
+    if (!synthFxEnabled || !synthNodes || audio.paused) return;
+    updateSynthTrackerFrame();
+    synthTrackerTimer = setInterval(updateSynthTrackerFrame, 36);
+  }
+
+  function stopSynthTracker() {
+    if (synthTrackerTimer) {
+      clearInterval(synthTrackerTimer);
+      synthTrackerTimer = null;
+    }
+    if (synthNodes && audioCtx) {
+      synthNodes.oscEnvGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02);
+    }
+  }
 
   function createVinylNoiseBuffer(ctx) {
     const sampleRate = ctx.sampleRate;
@@ -1653,18 +2088,9 @@
 
   function initVinylAudioEngine() {
     if (vinylNodes) return true;
+    if (!ensureAudioBaseGraph()) return false;
     try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) return false;
-      if (!audioCtx) audioCtx = new AudioContextClass();
-
-      const source = audioCtx.createMediaElementSource(audio);
-
-      // 原声直通(dry)
-      const dryGain = audioCtx.createGain();
-      dryGain.gain.value = vinylFxEnabled ? 0 : 1;
-      source.connect(dryGain);
-      dryGain.connect(audioCtx.destination);
+      const inputBus = audioBaseGraph.stage1Bus;
 
       // 黑胶音效链(wet)
       const wetGain = audioCtx.createGain();
@@ -1722,7 +2148,7 @@
       flutterOsc.start();
 
       // 连接黑胶音乐处理链
-      source.connect(hp);
+      inputBus.connect(hp);
       hp.connect(warmShelf);
       warmShelf.connect(midRes);
       midRes.connect(lp);
@@ -1755,12 +2181,11 @@
       noiseSource.start();
 
       vinylNodes = {
-        dryGain,
         wetGain,
         noiseGain,
       };
 
-      updateVinylAudioGraph(true);
+      updateAudioFxGraph(true);
       return true;
     } catch (e) {
       console.warn("Vinyl audio emulation unavailable:", e);
@@ -1773,17 +2198,30 @@
     return BASE_VINYL_NOISE_GAIN * Math.min(1, Math.max(0, audio.volume));
   }
 
-  function updateVinylAudioGraph(immediate) {
-    if (!vinylNodes || !audioCtx) return;
+  function updateAudioFxGraph(immediate) {
+    if (!audioBaseGraph || !audioCtx) return;
     const time = audioCtx.currentTime;
     const rampTime = immediate ? 0.005 : 0.04;
-    const targetDry = vinylFxEnabled ? 0 : 1;
-    const targetWet = vinylFxEnabled ? 1 : 0;
-    const targetNoise = getTargetNoiseGain();
 
-    vinylNodes.dryGain.gain.setTargetAtTime(targetDry, time, rampTime);
-    vinylNodes.wetGain.gain.setTargetAtTime(targetWet, time, rampTime);
-    vinylNodes.noiseGain.gain.setTargetAtTime(targetNoise, time, rampTime);
+    // 第一级: 合成器重合成 vs 原声
+    const useSynth = !!(synthFxEnabled && synthNodes);
+    audioBaseGraph.stage1DryGain.gain.setTargetAtTime(useSynth ? 0 : 1, time, rampTime);
+    if (synthNodes) {
+      synthNodes.wetGain.gain.setTargetAtTime(useSynth ? 1 : 0, time, rampTime);
+    }
+    if (useSynth && !audio.paused) {
+      startSynthTracker();
+    } else {
+      stopSynthTracker();
+    }
+
+    // 第二级: 黑胶留声机 vs 第一级直通
+    const useVinyl = !!(vinylFxEnabled && vinylNodes);
+    audioBaseGraph.stage2DryGain.gain.setTargetAtTime(useVinyl ? 0 : 1, time, rampTime);
+    if (vinylNodes) {
+      vinylNodes.wetGain.gain.setTargetAtTime(useVinyl ? 1 : 0, time, rampTime);
+      vinylNodes.noiseGain.gain.setTargetAtTime(getTargetNoiseGain(), time, rampTime);
+    }
   }
 
   function ensureAudioContextResumed() {
@@ -1795,6 +2233,7 @@
 
   function scheduleAudioContextSuspend() {
     clearTimeout(audioSuspendTimer);
+    stopSynthTracker();
     if (!audioCtx) return;
     audioSuspendTimer = setTimeout(() => {
       if (audio.paused && audioCtx && audioCtx.state === "running") {
@@ -1811,6 +2250,14 @@
     document.body.classList.toggle("vinyl-fx-active", vinylFxEnabled);
   }
 
+  function updateSynthUI() {
+    if (els.synthFxBtn) {
+      els.synthFxBtn.classList.toggle("on", synthFxEnabled);
+      els.synthFxBtn.setAttribute("aria-pressed", synthFxEnabled ? "true" : "false");
+    }
+    document.body.classList.toggle("synth-fx-active", synthFxEnabled);
+  }
+
   function toggleVinylFx() {
     vinylFxEnabled = !vinylFxEnabled;
     localStorage.setItem(VINYL_FX_KEY, vinylFxEnabled ? "1" : "0");
@@ -1818,9 +2265,21 @@
       initVinylAudioEngine();
     }
     ensureAudioContextResumed();
-    updateVinylAudioGraph(false);
+    updateAudioFxGraph(false);
     updateVinylUI();
     toast(vinylFxEnabled ? "已开启黑胶唱片音效 · 温暖模拟与唱针底噪" : "已关闭黑胶音效 · 还原数码原声");
+  }
+
+  function toggleSynthFx() {
+    synthFxEnabled = !synthFxEnabled;
+    localStorage.setItem(SYNTH_FX_KEY, synthFxEnabled ? "1" : "0");
+    if (synthFxEnabled) {
+      initSynthAudioEngine();
+    }
+    ensureAudioContextResumed();
+    updateAudioFxGraph(false);
+    updateSynthUI();
+    toast(synthFxEnabled ? "已开启合成器模式 · 多频段波表重塑与谐振滤波" : "已关闭合成器模式 · 还原原始乐器音色");
   }
 
   /* ---------------- scrolling lyrics engine ---------------- */
@@ -2387,6 +2846,7 @@
       case "m": case "M": els.muteBtn.click(); break;
       case "l": case "L": toggleLyricsPanel(); break;
       case "v": case "V": toggleVinylFx(); break;
+      case "s": case "S": toggleSynthFx(); break;
     }
   });
 
@@ -2463,8 +2923,12 @@
     syncSlider(els.seek);
     updateLyricsPanelUI();
     updateVinylUI();
+    updateSynthUI();
     if (els.vinylFxBtn) {
       els.vinylFxBtn.addEventListener("click", toggleVinylFx);
+    }
+    if (els.synthFxBtn) {
+      els.synthFxBtn.addEventListener("click", toggleSynthFx);
     }
     setupMediaSession();
     loadLyricsCatalog();
