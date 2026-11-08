@@ -47,7 +47,7 @@ push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/�
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=16` 递增(如 `?v=17`)**。
+改完 `index.html / style.css / app.js` 后,**必须把 index.html 里的版本号 `?v=17` 递增(如 `?v=18`)**。
 否则访问者浏览器用缓存旧 JS,看不到更新(本项目踩过这个坑)。
 
 ### 手动重新生成清单(本地)
@@ -75,7 +75,7 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 - 搜索匹配标题/歌手/专辑/风格/路径。
 - 生成脚本用 `mutagen.File(..., easy=True)`,mp3/m4a/flac/ogg 都能读歌手与风格标签。
 - 模拟黑胶音效: Web Audio API (高低通/中频峰化滤波、软饱和饱和器、33.3 RPM 抖晃延迟调制与无缝粉红噪声/炒豆爆音发生器)。
-- 模拟合成器音效: Web Audio API (四频段复音波表折叠与阶梯量化重塑、实时自相关基频追踪双锯齿/方波/Sub振荡器、包络随动谐振低通滤波器 VCF、Juno 正交立体声合唱与空间回声，可与黑胶音效独立或叠加开启)。
+- 模拟合成器音效: Web Audio API (六级高谐振全通 PWM 相位梳状矩阵、双共振峰雕刻、24dB/oct 双级联 Moog 阶梯低通滤波器 VCF、三声部 Juno 正交复音合唱与带限空间回声，纯线性浮点架构零非线性互调杂音，可与黑胶音效独立或叠加开启)。
 - localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`、`gh-lyrics-open`、`gh-lyrics-trans`、`gh-vinyl-fx`、`gh-synth-fx`。
 
 ## 交接对象

@@ -48,10 +48,10 @@
   - **Tube / Cartridge Saturation**: Soft-clipping transfer curve introducing warm even & odd analog harmonics;
   - **Turntable Pitch Drift (Wow & Flutter)**: 33.3 RPM cyclical speed drift (0.555 Hz) and mechanical motor jitter for an unmistakably human, organic vinyl breathing;
   - **Surface Noise & Crackles**: Procedurally synthesized 8-second stereo groove friction rumble with dust crackles and pops ("炒豆声"), illuminating the tonearm with a warm golden needle glow when active.
-- **Real-Time Synthesizer Resynthesis (Web Audio Poly-Synth DSP)**: Toggle via the **"合"** button or shortcut `S` (works independently or stacked with Vinyl mode):
-  - **4-Band Polyphonic Wavefolding & DAC Quantization**: Splits incoming audio into sub-bass, chord pad, lead melody, and high-harmonic bands, reshaping waveforms into analog pulse, sawtooth, and 14-step vintage DAC staircases without intermodulation mud;
-  - **Pitch-Tracked Triple Oscillator Bank**: Real-time normalized autocorrelation tracks the melody fundamental and RMS envelope to drive detuned sawtooth/square oscillators plus a sub-octave oscillator in unison;
-  - **Envelope-Following Resonant VCF & Juno Stereo Chorus**: A resonant low-pass ladder filter sweeps dynamically with every musical phrase alongside dual-LFO quadrature stereo chorus and cosmic slapback echo.
+- **Analog Poly-Synthesizer Emulation (Web Audio Poly-Synth DSP)**: Toggle via the **"合"** button or shortcut `S` (works independently or stacked with Vinyl mode):
+  - **6-Stage High-Q Allpass PWM Comb Matrix**: A 6-stage pure linear allpass phase-dispersion cascade mixed 50%/50% with the dry signal sculpts deep Pulse-Width Modulation (PWM) and string-synth harmonic comb notches with zero nonlinear intermodulation noise;
+  - **Dual Formant Sculpting & 24dB/oct Cascaded Moog Ladder VCF**: Shapes 500Hz and 1.28kHz electronic synth formants into a dual-cascaded 24dB/oct resonant low-pass filter swept smoothly by a sine LFO;
+  - **3-Voice Juno-60 Unison Ensemble Chorus & Velvet Echo**: Pre-filtered at 3.8kHz into left, right, and center pitch-detuned BBD unison voices plus a band-limited (220Hz–1.9kHz) space echo for a lush, noise-free retro synth transformation.
 - **Refined Playback Engineering**: Native `Media Session API` integration (hardware media keys, headphone controls, OS lock-screen artwork), true Fisher-Yates shuffle history (`Previous` returns to the actual track you just heard), 3-mode repeat (`Off / All / One`), and automatic skip-circuit-breaker on network errors.
 
 ---
