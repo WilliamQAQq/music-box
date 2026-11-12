@@ -30,6 +30,11 @@
 /* 让 hidden 属性始终生效(否则 .banner 的 display:flex 会覆盖它，横幅永远隐藏不了) */
 [hidden] { display: none !important; }
 
+[inert], [inert] * {
+  cursor: default;
+  user-select: none;
+}
+
 ::selection {
   background: rgba(212, 166, 74, 0.34);
   color: var(--text-bright);
@@ -46,6 +51,7 @@ body {
   min-height: 100vh;
   font-family: var(--serif);
   color: var(--text);
+  overflow-wrap: anywhere;
   background-color: var(--wood-abyss);
   background-image:
     radial-gradient(ellipse 900px 460px at 50% -6%, rgba(218, 162, 68, 0.17), transparent 68%),
@@ -454,16 +460,23 @@ button:focus-visible,
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
-.search {
+.search-wrap {
+  position: relative;
   flex: 1;
   min-width: 190px;
   max-width: 420px;
-  padding: 9px 14px;
+  display: flex;
+  align-items: center;
+}
+
+.search {
+  width: 100%;
+  padding: 9px 34px 9px 14px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background:
@@ -474,6 +487,10 @@ button:focus-visible,
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(212, 166, 74, 0.14);
   transition: border-color .18s, box-shadow .18s;
 }
+.search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .search::placeholder { color: rgba(182, 155, 117, 0.62); font-style: italic; }
 .search:focus-visible {
   outline: 2px solid var(--brass-hi);
@@ -482,12 +499,38 @@ button:focus-visible,
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(212, 166, 74, 0.18);
 }
 
+.search-clear-btn {
+  position: absolute;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  transition: color .15s, background .15s;
+}
+.search-clear-btn:hover {
+  color: var(--brass-hi);
+  background: rgba(212, 166, 74, 0.14);
+}
+
+.locate-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
 .count {
   color: var(--brass);
   font-size: 12.5px;
   letter-spacing: .5px;
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .view-toggle {
@@ -567,8 +610,9 @@ button:focus-visible,
 .playlist-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 10px;
+  padding: 8px 10px 8px 14px;
+  min-height: 44px;
   border-radius: 6px;
   background: rgba(30, 19, 13, 0.66);
   border: 1px solid rgba(158, 118, 50, 0.16);
@@ -576,6 +620,11 @@ button:focus-visible,
   content-visibility: auto;
   contain-intrinsic-size: auto 44px;
   transition: background .15s, border-color .15s, box-shadow .15s;
+}
+@supports not (content-visibility: auto) {
+  .playlist-item {
+    contain: layout style paint;
+  }
 }
 .playlist-item:hover {
   background: linear-gradient(90deg, rgba(58, 35, 22, 0.88), rgba(40, 25, 16, 0.84));
@@ -613,6 +662,7 @@ button:focus-visible,
 
 .playlist-item .name {
   flex: 1;
+  min-width: 0;
   font-size: 14.5px;
   letter-spacing: .2px;
   white-space: nowrap;
@@ -635,6 +685,36 @@ button:focus-visible,
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
 }
 .playlist-item.active .meta { color: #dec69c; }
+
+.playlist-enqueue-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 166, 74, 0.25);
+  background: rgba(18, 10, 6, 0.55);
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  opacity: 0.35;
+  transition: opacity .15s, color .15s, border-color .15s, background .15s, transform .08s;
+}
+.playlist-item:hover .playlist-enqueue-btn,
+.playlist-item:focus-within .playlist-enqueue-btn,
+.playlist-enqueue-btn:focus-visible {
+  opacity: 1;
+}
+.playlist-enqueue-btn:hover {
+  color: var(--brass-hi);
+  border-color: var(--brass);
+  background: rgba(96, 26, 32, 0.72);
+}
+.playlist-enqueue-btn:active {
+  transform: scale(0.92);
+}
 
 /* animated brass reed equalizer bars (compositor-accelerated via scaleY) */
 .eq span {
@@ -1503,7 +1583,8 @@ body.synth-fx-active .playlist-item.playing .eq span {
   background: linear-gradient(180deg, #88fff3, #d8aa4e);
 }
 
-.lyrics-toggle-btn {
+.lyrics-toggle-btn,
+.queue-toggle-btn {
   font-size: 12.5px;
   font-weight: 700;
   border: 1px solid rgba(212, 166, 74, 0.34);
@@ -1512,20 +1593,245 @@ body.synth-fx-active .playlist-item.playing .eq span {
   border-radius: 6px;
 }
 
-.lyrics-toggle-btn.on {
+.lyrics-toggle-btn.on,
+.queue-toggle-btn.on {
   background: linear-gradient(180deg, #6e1e24 0%, #481216 100%);
   border-color: var(--brass-hi);
   color: var(--brass-hi);
+}
+
+.queue-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  border: 1px solid #3c260a;
+  color: #1f1106;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+}
+
+/* ---------- queue drawer (Victorian Playback Ledger) ---------- */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 4, 2, 0.45);
+  z-index: 36;
+}
+
+.queue-drawer {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right, 0px));
+  bottom: calc(var(--player-h) + 12px + env(safe-area-inset-bottom, 0px));
+  width: min(390px, calc(100vw - 24px));
+  height: min(520px, calc(100dvh - var(--player-h) - 92px));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  contain: layout style paint;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 166, 74, 0.52);
+  background:
+    radial-gradient(ellipse 320px 180px at 50% 0%, rgba(122, 30, 36, 0.38), transparent 72%),
+    linear-gradient(180deg, #27180f 0%, #160d09 100%);
+  box-shadow:
+    inset 0 0 0 3px var(--wood-abyss),
+    inset 0 0 0 4px rgba(212, 166, 74, 0.22),
+    0 18px 46px rgba(0, 0, 0, 0.78);
+  overflow: hidden;
+}
+
+.queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px 11px;
+  border-bottom: 1px solid rgba(212, 166, 74, 0.28);
+  background: linear-gradient(180deg, rgba(58, 34, 21, 0.78), rgba(29, 17, 11, 0.8));
+  flex-shrink: 0;
+}
+
+.queue-head-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.queue-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--brass-hi);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-wrap: balance;
+}
+
+.queue-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.queue-actions .ghost-btn {
+  padding: 4px 9px;
+  font-size: 11.5px;
+  border-radius: 5px;
+}
+
+.queue-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.queue-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 10px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--brass-dim) transparent;
+}
+
+.queue-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: background .14s, border-color .14s, opacity .14s;
+}
+
+.queue-item:hover {
+  background: rgba(58, 35, 22, 0.65);
+  border-color: rgba(212, 166, 74, 0.26);
+}
+
+.queue-item.past {
+  opacity: 0.62;
+}
+
+.queue-item.active {
+  background: linear-gradient(90deg, rgba(96, 26, 32, 0.72), rgba(44, 23, 16, 0.85));
+  border-color: rgba(212, 166, 74, 0.62);
+}
+
+.queue-item-play {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  text-align: left;
+  border-radius: 4px;
+}
+
+.queue-num {
+  width: 24px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.queue-item.active .queue-num {
+  color: var(--brass-hi);
+  font-weight: 700;
+}
+
+.queue-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.queue-item-title {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-item.active .queue-item-title {
+  color: var(--brass-hi);
+  font-weight: 700;
+}
+
+.queue-item-sub {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.queue-act-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 166, 74, 0.22);
+  background: rgba(18, 10, 6, 0.58);
+  color: var(--muted);
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  transition: color .14s, border-color .14s, background .14s;
+}
+
+.queue-act-btn:hover {
+  color: var(--brass-hi);
+  border-color: var(--brass);
+  background: rgba(96, 26, 32, 0.7);
+}
+
+.queue-empty {
+  padding: 48px 18px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  text-wrap: pretty;
 }
 
 @media (max-width: 980px) {
   .lyrics-panel {
     display: none;
     position: fixed;
-    left: 12px;
-    right: 12px;
-    top: 70px;
-    bottom: calc(var(--player-h) + 10px);
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    top: calc(70px + env(safe-area-inset-top, 0px));
+    bottom: calc(var(--player-h) + 10px + env(safe-area-inset-bottom, 0px));
     z-index: 28;
     background:
       radial-gradient(ellipse 320px 200px at 50% 0%, rgba(122, 30, 36, 0.42), transparent 72%),
@@ -1537,11 +1843,21 @@ body.synth-fx-active .playlist-item.playing .eq span {
   .player-track {
     cursor: pointer;
   }
+  .queue-drawer {
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    width: auto;
+    top: calc(70px + env(safe-area-inset-top, 0px));
+    bottom: calc(var(--player-h) + 10px + env(safe-area-inset-bottom, 0px));
+    height: auto;
+  }
 }
 
 /* ---------- responsive ---------- */
 @media (max-width: 720px) {
-  .topbar { padding: 11px 15px; }
+  .topbar {
+    padding: calc(11px + env(safe-area-inset-top, 0px)) max(15px, env(safe-area-inset-right, 0px)) 11px max(15px, env(safe-area-inset-left, 0px));
+  }
   .brand-sub { letter-spacing: 1.4px; font-size: 8.5px; }
   .parlor-ornament { margin-bottom: 10px; }
   .ornament-glyph { font-size: 9.5px; letter-spacing: 1.4px; }
@@ -1555,40 +1871,80 @@ body.synth-fx-active .playlist-item.playing .eq span {
     scroll-snap-type: x proximity;
   }
   .genre-card { scroll-snap-align: start; }
-  .playlist-header { top: 63px; }
-  .lyrics-panel {
-    left: 8px;
-    right: 8px;
-    top: 62px;
+  .playlist-header { top: calc(63px + env(safe-area-inset-top, 0px)); }
+  .lyrics-panel,
+  .queue-drawer {
+    left: max(8px, env(safe-area-inset-left, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    top: calc(62px + env(safe-area-inset-top, 0px));
     bottom: calc(182px + env(safe-area-inset-bottom, 0px));
   }
   .player {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     height: auto;
-    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 10px max(12px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
     gap: 8px;
   }
   .player-center { grid-column: 1 / -1; grid-row: 1; order: -1; }
-  .player-track { grid-column: 1; }
-  .player-right { grid-column: 2; }
+  .player-track { grid-column: 1; gap: 8px; }
+  .player-right { grid-column: 2; gap: 5px; }
+  .vinyl-stage {
+    width: 60px;
+    height: 54px;
+  }
+  .vinyl-disc {
+    top: 2px;
+    width: 50px;
+    height: 50px;
+    padding: 12px;
+  }
+  .tonearm {
+    width: 60px;
+    height: 54px;
+    transform-origin: 50px 8px;
+  }
   .content { padding-bottom: 224px; }
-  .playlist-item .meta { max-width: 44%; }
+  .playlist-item .meta { max-width: 36%; }
+  .playlist-enqueue-btn { opacity: 0.85; }
   .vol { display: none; }
   .toast { bottom: calc(186px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (pointer: coarse) {
   .genre-play-btn,
-  .sm-icon-btn {
-    min-inline-size: 32px;
-    min-block-size: 32px;
+  .sm-icon-btn,
+  .playlist-enqueue-btn,
+  .queue-act-btn {
+    min-inline-size: 36px;
+    min-block-size: 36px;
+    position: relative;
   }
-  .ctrl-btn {
+  .search-clear-btn {
     min-inline-size: 36px;
     min-block-size: 36px;
   }
+  .ctrl-btn,
+  .vinyl-fx-btn,
+  .synth-fx-btn,
+  .lyrics-toggle-btn,
+  .queue-toggle-btn {
+    min-inline-size: 36px;
+    min-block-size: 36px;
+    position: relative;
+  }
+  .ctrl-btn::before,
+  .genre-play-btn::before,
+  .playlist-enqueue-btn::before,
+  .queue-act-btn::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
   .lyrics-pill-btn {
-    min-block-size: 30px;
-    padding-inline: 11px;
+    min-block-size: 34px;
+    padding-inline: 12px;
+  }
+  .player-right {
+    gap: 8px;
   }
 }

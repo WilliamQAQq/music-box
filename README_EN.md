@@ -42,17 +42,18 @@
   - **129 tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 89 foreign-language vocal tracks include bilingual Chinese translations**, toggleable via the `译` button), while **37 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
-- **Zero API Rate Limits · Instant Load & Hot Refresh**: Reads same-origin static manifests ([`music.json`](music.json) and [`lyrics.json`](lyrics.json)) paired with `localStorage` caching for instant startup and silent background refreshes. Also supports pointing to any public or private GitHub repository via the top-right **⚙️ Cabinet Settings** modal (falling back to the GitHub Trees API).
-- **Realistic Vinyl Record Emulation (Web Audio DSP)**: Toggle with a single click (shortcut `V` or the **"胶"** button in the player bar) to experience authentic vintage phonograph acoustics via real-time Web Audio DSP:
+- **Zero API Rate Limits · Instant Boot & Smart Next-Track Preload**: Reads same-origin static manifests ([`music.json`](music.json) and [`lyrics.json`](lyrics.json)) paired with `localStorage` caching backed by lightweight 64-bit FNV-1a library signatures (zero redundant storage writes on unchanged visits). Automatically preloads the upcoming track once playback stabilizes, while respecting `Save-Data` and slow `2G` connections. Also supports connecting any public or private GitHub repository via **⚙️ Cabinet Settings**.
+- **Interactive Play Queue & Multi-Token Search**: Enqueue any track as **Play Next (`+`)** right from the list or manage the live order (jump, promote to next, remove, reshuffle, clear upcoming) in the slide-over **Queue Drawer (`Q`)**. Toolbar search supports space-separated multi-keyword `AND` filtering with debounced input, one-click clear (`×`), and a quick **Locate Current Track (`定位`)** button.
+- **Realistic Vinyl Record Emulation (Web Audio DSP)**: Toggle via shortcut `V` or the **"胶"** button (dynamically fades out and disconnects bypassed DSP branches & surface noise generators when turned off for zero idle CPU overhead):
   - **Vintage Frequency Shaping**: High-pass low-end cleanup, +2.2dB warm low-shelf richness, and a 6.8kHz smooth roll-off eliminating digital sibilance;
-  - **Tube / Cartridge Saturation**: Soft-clipping transfer curve introducing warm even & odd analog harmonics;
+  - **Tube / Cartridge Saturation**: Asymmetric even-harmonic warmth blended with soft `tanh` clipping and exact zero-point DC normalization;
   - **Turntable Pitch Drift (Wow & Flutter)**: 33.3 RPM cyclical speed drift (0.555 Hz) and mechanical motor jitter for an unmistakably human, organic vinyl breathing;
-  - **Surface Noise & Crackles**: Procedurally synthesized 8-second stereo groove friction rumble with dust crackles and pops ("炒豆声"), illuminating the tonearm with a warm golden needle glow when active.
-- **Analog Poly-Synthesizer Emulation (Web Audio Poly-Synth DSP)**: Toggle via the **"合"** button or shortcut `S` (works independently or stacked with Vinyl mode):
-  - **6-Stage High-Q Allpass PWM Comb Matrix**: A 6-stage pure linear allpass phase-dispersion cascade mixed 50%/50% with the dry signal sculpts deep Pulse-Width Modulation (PWM) and string-synth harmonic comb notches with zero nonlinear intermodulation noise;
-  - **Dual Formant Sculpting & 24dB/oct Cascaded Moog Ladder VCF**: Shapes 500Hz and 1.28kHz electronic synth formants into a dual-cascaded 24dB/oct resonant low-pass filter swept smoothly by a sine LFO;
-  - **3-Voice Juno-60 Unison Ensemble Chorus & Velvet Echo**: Pre-filtered at 3.8kHz into left, right, and center pitch-detuned BBD unison voices plus a band-limited (220Hz–1.9kHz) space echo for a lush, noise-free retro synth transformation.
-- **Refined Playback Engineering**: Native `Media Session API` integration (hardware media keys, headphone controls, OS lock-screen artwork), true Fisher-Yates shuffle history (`Previous` returns to the actual track you just heard), 3-mode repeat (`Off / All / One`), and automatic skip-circuit-breaker on network errors.
+  - **Surface Noise & Crackles**: Procedurally synthesized 6-second stereo groove friction rumble with dust crackles and cosine loop-seam crossfading (click-free continuous loop), illuminating the tonearm with a warm golden glow.
+- **Analog Poly-Synthesizer Emulation (Web Audio Poly-Synth DSP)**: Toggle via the **"合"** button or shortcut `S` (dynamically stops & disconnects LFOs/branches on bypass; stackable with Vinyl mode):
+  - **Dual Asynchronous LFO 6-Stage Allpass PWM Matrix**: Dual odd/even asynchronous LFOs modulate a 6-stage pure linear allpass phase-dispersion cascade mixed 50%/50% with the dry signal for lush, phase-animated PWM shimmer with zero nonlinear intermodulation noise;
+  - **Dual Formant Sculpting, Air Shelf & 24dB/oct Cascaded Moog Ladder VCF**: Shapes 500Hz and 1.28kHz electronic formants plus a gentle 7.4kHz air shelf into a dual-cascaded 24dB/oct resonant low-pass filter swept smoothly by a sine LFO;
+  - **3-Voice Juno-60 Unison Ensemble Chorus & Velvet Echo**: Pre-filtered at 3.8kHz into left, right, and center pitch-detuned BBD unison voices plus a band-limited (220Hz–1.9kHz) space echo for a wide, noise-free retro synth transformation.
+- **Refined Playback & Mobile Engineering**: Native `Media Session API` integration, true Fisher-Yates shuffle history, 3-mode repeat (`Off / All / One`), safe-area notch padding, generous coarse-pointer touch targets, and automatic skip-circuit-breaker on network errors.
 
 ---
 
@@ -91,8 +92,9 @@
 | :---: | :--- | :---: | :--- |
 | `Space` | Play / Pause | `N` / `P` | Next / Previous track |
 | `←` / `→` | Seek backward / forward 5s | `M` | Mute / Unmute |
-| `↑` / `↓` | Volume +5% / -5% | `L` / `Esc` | Toggle / Close scrolling lyrics panel |
+| `↑` / `↓` | Volume +5% / -5% | `L` | Toggle scrolling lyrics panel |
 | `V` | Toggle vinyl record emulation | `S` | Toggle synthesizer resynthesis |
+| `Q` | Toggle play queue drawer | `Esc` | Close active overlay / modal |
 
 ---
 
@@ -124,9 +126,13 @@ Once pushed, the GitHub Actions workflow [`.github/workflows/update-music.yml`](
 music-box/
 ├── README.md                       # Chinese repository showcase homepage
 ├── README_EN.md                    # English repository showcase homepage
-├── index.html                      # Player markup (Victorian 2-column salon & Libretto folio)
-├── style.css                       # Victorian vinyl gramophone theme & responsive styles
-├── app.js                          # Playback, genre filtering, search & LRC scrolling lyrics engine
+├── index.html                      # Player markup (Victorian 2-column salon, Libretto & Queue drawer)
+├── style.css                       # Victorian theme, safe-area padding & coarse-pointer responsiveness
+├── app.js                          # Playback coordinator, queue management, search & next-track preloader
+├── js/
+│   ├── catalog-data.js             # Genre/filename mappings, FNV-1a signature, tokenizer & helpers
+│   ├── audio-fx.js                 # Web Audio DSP (Vinyl & Poly-Synth engines with dynamic bypass)
+│   └── lyrics.js                   # LRC parser, bilingual switcher & bi-directional scroll engine
 ├── music.json                      # Track manifest (title / artist / album / genre / relative path)
 ├── lyrics.json                     # Synced LRC lyrics catalog (lyrics / translations / instrumental flags)
 ├── music/                          # Audio files directory (currently 166 tracks)

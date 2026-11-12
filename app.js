@@ -1,353 +1,34 @@
 (function () {
   "use strict";
 
-  const STORE_KEY = "gh-music-box-settings-v2";
-  const CACHE_KEY = "gh-music-box-cache-v2";
-  const VIEW_KEY = "gh-view-v2";
-  const LYRICS_OPEN_KEY = "gh-lyrics-open";
-  const LYRICS_TRANS_KEY = "gh-lyrics-trans";
-  const LIVE_LYRICS_CACHE_KEY = "gh-lyrics-live-v1";
-  const VINYL_FX_KEY = "gh-vinyl-fx";
-  const SYNTH_FX_KEY = "gh-synth-fx";
+  const ns = window.__MusicBox || {};
+  const cat = ns.catalog;
+  const {
+    KEYS,
+    AUDIO_EXTS,
+    IMAGE_EXTS,
+    COVER_NAMES,
+    MAX_ERROR_STREAK,
+    GENRE_PRESETS,
+    GENRE_META,
+    inferGenre,
+    genreRank,
+    genreCategory,
+    buildSearchKey,
+    tokenizeQuery,
+    matchesSearchTokens,
+    fmtTime,
+    hashLibrarySignature,
+    storageGet,
+    storageSet,
+    setPressedButtonState,
+    debounce,
+  } = cat;
 
-  const AUDIO_EXTS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "webm"];
-  const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
-  const COVER_NAMES = ["cover", "folder", "album", "albumart", "artwork", "front", "poster"];
-
-  // 连续多少首播放失败后停止自动跳歌(防止断网时无限跳歌)
-  const MAX_ERROR_STREAK = 3;
-
-  // 十五大维多利亚风格唱片集与国歌军乐特辑定义(顺序即展示顺序)
-  const GENRE_PRESETS = [
-    {
-      id: "黄金年代 · 爵士名伶",
-      category: "salon",
-      sub: "Billie Holiday · Ella · Chet Baker · Julie London",
-      seal: "#c98236",
-      desc: "1930–60 年代烟嗓名伶与摇摆黄金岁月，留声机最经典的温柔夜色。",
-    },
-    {
-      id: "交响爵士 · 浪漫夜曲",
-      category: "salon",
-      sub: "Laufey & 冰岛交响乐团 · Anthony Lazaro",
-      seal: "#b85668",
-      desc: "古典管弦乐团与现代爵士女声的浪漫交织，宛如烛光音乐厅现场。",
-    },
-    {
-      id: "蓝调之音 · 器乐爵士",
-      category: "salon",
-      sub: "Miles Davis · Coltrane · Ryo Fukui · Glenn Miller",
-      seal: "#4d8a88",
-      desc: "小号、萨克斯与钢琴三重奏的深夜即兴，兼具冷爵士与大乐队摇摆。",
-    },
-    {
-      id: "灵魂低吟 · 节奏蓝调",
-      category: "salon",
-      sub: "Bill Withers · Etta James · Sam Cooke · 陶喆",
-      seal: "#bc6039",
-      desc: "深情滚烫的灵魂乐与节奏布鲁斯经典，直抵人心的律动与嘶吼。",
-    },
-    {
-      id: "先锋浪潮 · 独立摇滚",
-      category: "salon",
-      sub: "万能青年旅店 · 草东 · 刺猬 · 惘闻 · 回春丹",
-      seal: "#5d8b67",
-      desc: "当代华语独立乐队、后摇器乐与合成器浪潮，锋利诗意的新声。",
-    },
-    {
-      id: "赤焰岁月 · 华语摇滚",
-      category: "salon",
-      sub: "崔健 · 唐朝 · 窦唯 · 黑豹 · 二手玫瑰 · 罗大佑",
-      seal: "#a8333a",
-      desc: "华语摇滚开山火种与时代呐喊，粗粝炽热的经典现场记忆。",
-    },
-    {
-      id: "街巷叙事 · 民谣流行",
-      category: "salon",
-      sub: "Вадим Казаченко · 暗杠 · 一杯陈豆浆 · 任浩铭",
-      seal: "#b89a58",
-      desc: "温润质朴的城市民谣与复古流行抒情金曲，适合静夜独酌的街巷故事。",
-    },
-    {
-      id: "古典沙龙 · 剧场礼乐",
-      category: "salon",
-      sub: "Erik Satie · 肖邦/德彪西/贝多芬 · 卡鲁索/帕瓦罗蒂 · 红军合唱团",
-      seal: "#88507c",
-      desc: "大提琴钢琴室内乐、旧日俄式及阿根廷探戈、恢弘合唱与庄重礼乐，重现沙龙风华。",
-    },
-    {
-      id: "国歌军乐 · 中国",
-      category: "military",
-      flag: "🇨🇳",
-      sub: "义勇军进行曲 · 歌唱祖国 · 保卫黄河 · 游击队歌",
-      seal: "#de2910",
-      desc: "巍巍华夏，赤旗飘扬。庄严雄壮的国家颂歌、波澜壮阔的黄河大合唱与嘹亮铿锵的军旅进行曲。",
-    },
-    {
-      id: "国歌军乐 · 美国",
-      category: "military",
-      flag: "🇺🇸",
-      sub: "星条旗之歌 · 星条旗永不落 · 共和国战歌 · 战车向前进",
-      seal: "#1e3a8a",
-      desc: "雄壮军乐铜管与合唱经典，苏萨经典进行曲与行进战歌，重现历史仪仗风采。",
-    },
-    {
-      id: "国歌军乐 · 俄罗斯",
-      category: "military",
-      flag: "🇷🇺",
-      sub: "牢不可破的联盟 · 神圣的战争 · 告别斯拉夫少女 · 草原啊草原",
-      seal: "#991b1b",
-      desc: "红旗歌舞团恢弘深沉的男声合唱，二战伟大战火记忆与铜管军礼典范。",
-    },
-    {
-      id: "国歌军乐 · 法国",
-      category: "military",
-      flag: "🇫🇷",
-      sub: "马赛曲 · 游击队之歌 · 洛林进行曲 · 桑布尔与默兹",
-      seal: "#1d4ed8",
-      desc: "法兰西大革命与反法西斯抵抗运动传世军歌，激昂号角与革命卫队合唱。",
-    },
-    {
-      id: "国歌军乐 · 德国",
-      category: "military",
-      flag: "🇩🇪",
-      sub: "德意志之歌 · 普鲁士荣誉 · 旧友进行曲 · 霍亨弗里德贝格",
-      seal: "#4b5563",
-      desc: "古典欧洲军乐体系代表作，海顿国歌旋律与严谨宏大的经典步骑兵仪仗军乐。",
-    },
-    {
-      id: "国歌军乐 · 日本",
-      category: "military",
-      flag: "🇯🇵",
-      sub: "君之代 · 军舰进行曲 · 敷岛舰进行曲 · 拔刀队",
-      seal: "#b45309",
-      desc: "明治与昭和初期黑胶唱片经典行进军乐与雅乐国歌，历史留声机原声重现。",
-    },
-    {
-      id: "国歌军乐 · 英国",
-      category: "military",
-      flag: "🇬🇧",
-      sub: "天佑吾王 · 统治吧不列颠尼亚 · 博吉上校 · 希望与荣耀之地",
-      seal: "#1e3a8a",
-      desc: "日不落帝国的国歌、海军战歌与近卫军进行曲，铜管号角与爱德华时代唱片的庄严回响。",
-    },
-  ];
-
-  // 旧缓存兜底歌手->风格映射(与 .github/gen_music_json.py 保持一致)
-  const ARTIST_GENRE_MAP = {
-    "billie holiday": "黄金年代 · 爵士名伶",
-    "chet baker": "黄金年代 · 爵士名伶",
-    "dean martin": "黄金年代 · 爵士名伶",
-    "dinah washington": "黄金年代 · 爵士名伶",
-    "ella fitzgerald": "黄金年代 · 爵士名伶",
-    "ella fitzgerald, paul weston and his orchestra": "黄金年代 · 爵士名伶",
-    "etta jones": "黄金年代 · 爵士名伶",
-    "john coltrane, johnny hartman": "黄金年代 · 爵士名伶",
-    "julie london": "黄金年代 · 爵士名伶",
-    "louis armstrong": "黄金年代 · 爵士名伶",
-    "peggy lee": "黄金年代 · 爵士名伶",
-    "laufey, iceland symphony orchestra": "交响爵士 · 浪漫夜曲",
-    "laufey": "交响爵士 · 浪漫夜曲",
-    "anthony lazaro": "交响爵士 · 浪漫夜曲",
-    "duke ellington, john coltrane": "蓝调之音 · 器乐爵士",
-    "glenn miller": "蓝调之音 · 器乐爵士",
-    "lester young": "蓝调之音 · 器乐爵士",
-    "lester young, oscar peterson trio": "蓝调之音 · 器乐爵士",
-    "miles davis, john coltrane, bill evans": "蓝调之音 · 器乐爵士",
-    "oliver nelson": "蓝调之音 · 器乐爵士",
-    "ryo fukui": "蓝调之音 · 器乐爵士",
-    "sidney bechet, muggsy spanier": "蓝调之音 · 器乐爵士",
-    "berlioz, ted jasper": "蓝调之音 · 器乐爵士",
-    "bill withers": "灵魂低吟 · 节奏蓝调",
-    "etta james": "灵魂低吟 · 节奏蓝调",
-    "james brown": "灵魂低吟 · 节奏蓝调",
-    "sam cooke": "灵魂低吟 · 节奏蓝调",
-    "william bell": "灵魂低吟 · 节奏蓝调",
-    "david tao": "灵魂低吟 · 节奏蓝调",
-    "万能青年旅店": "先锋浪潮 · 独立摇滚",
-    "no party for cao dong": "先锋浪潮 · 独立摇滚",
-    "刺猬hedgehog": "先锋浪潮 · 独立摇滚",
-    "回春丹": "先锋浪潮 · 独立摇滚",
-    "海龟先生": "先锋浪潮 · 独立摇滚",
-    "蛙池": "先锋浪潮 · 独立摇滚",
-    "當代電影大師": "先锋浪潮 · 独立摇滚",
-    "wang wen": "先锋浪潮 · 独立摇滚",
-    "发光曲线": "先锋浪潮 · 独立摇滚",
-    "白紙扇（hardcore raver in tears）": "先锋浪潮 · 独立摇滚",
-    "快乐老家": "先锋浪潮 · 独立摇滚",
-    "vh (vast & hazy)": "先锋浪潮 · 独立摇滚",
-    "ado": "赤焰岁月 · 华语摇滚",
-    "black panther": "赤焰岁月 · 华语摇滚",
-    "dou wei": "赤焰岁月 · 华语摇滚",
-    "second hand rose": "赤焰岁月 · 华语摇滚",
-    "tang dynasty": "赤焰岁月 · 华语摇滚",
-    "wang feng": "赤焰岁月 · 华语摇滚",
-    "xtx (xie tianxiao)": "赤焰岁月 · 华语摇滚",
-    "xu wei": "赤焰岁月 · 华语摇滚",
-    "反光镜乐队": "赤焰岁月 · 华语摇滚",
-    "崔健": "赤焰岁月 · 华语摇滚",
-    "羅大佑": "赤焰岁月 · 华语摇滚",
-    "陳明章, 王明輝": "赤焰岁月 · 华语摇滚",
-    "暗杠": "街巷叙事 · 民谣流行",
-    "一杯陈豆浆": "街巷叙事 · 民谣流行",
-    "任浩铭, 黄勇": "街巷叙事 · 民谣流行",
-    "вадим казаченко": "街巷叙事 · 民谣流行",
-    "benny martin/the wong janice": "古典沙龙 · 剧场礼乐",
-    "carlos gardel": "古典沙龙 · 剧场礼乐",
-    "erik satie/philippe entremont": "古典沙龙 · 剧场礼乐",
-    "francis shaw": "古典沙龙 · 剧场礼乐",
-    "mandela catalogue": "古典沙龙 · 剧场礼乐",
-    "pyotr leshchenko": "古典沙龙 · 剧场礼乐",
-    "the red army choir": "古典沙龙 · 剧场礼乐",
-    "юрий щербаков": "古典沙龙 · 剧场礼乐",
-    "美国国歌": "古典沙龙 · 剧场礼乐",
-    "feodor chaliapin": "古典沙龙 · 剧场礼乐",
-    "enrico caruso": "古典沙龙 · 剧场礼乐",
-    "enrico caruso, alma gluck": "古典沙龙 · 剧场礼乐",
-    "luciano pavarotti": "古典沙龙 · 剧场礼乐",
-    "arthur rubinstein": "古典沙龙 · 剧场礼乐",
-    "claude debussy": "古典沙龙 · 剧场礼乐",
-    "ludwig van beethoven": "古典沙龙 · 剧场礼乐",
-    "antonio vivaldi": "古典沙龙 · 剧场礼乐",
-    "中国人民解放军军乐团": "国歌军乐 · 中国",
-    "中央乐团合唱团": "国歌军乐 · 中国",
-    "中国人民解放军总政歌舞团": "国歌军乐 · 中国",
-    "百代唱片 (pathé records)": "国歌军乐 · 中国",
-    "中国人民解放军": "国歌军乐 · 中国",
-    "八路军战士合唱团": "国歌军乐 · 中国",
-    "粤语合唱团": "国歌军乐 · 中国",
-    "the united states military ensemble": "国歌军乐 · 美国",
-    "john philip sousa": "国歌军乐 · 美国",
-    "the sandpiper chorus": "国歌军乐 · 美国",
-    "united states marine band": "国歌军乐 · 美国",
-    "united states naval academy band": "国歌军乐 · 美国",
-    "русский хор «волга»": "国歌军乐 · 俄罗斯",
-    "хор и оркестр": "国歌军乐 · 俄罗斯",
-    "arturo toscanini, nbc symphony orchestra": "国歌军乐 · 俄罗斯",
-    "хор": "国歌军乐 · 俄罗斯",
-    "военный оркестр": "国歌军乐 · 俄罗斯",
-    "le choeur des enfants de montmartre": "国歌军乐 · 法国",
-    "germaine sablon": "国歌军乐 · 法国",
-    "georges thill, musique de la garde républicaine": "国歌军乐 · 法国",
-    "musique de la garde républicaine": "国歌军乐 · 法国",
-    "pierre d'assy": "国歌军乐 · 法国",
-    "odeon orchestra (leopold stokowski)": "国歌军乐 · 法国",
-    "michel nowak ensemble": "国歌军乐 · 德国",
-    "berliner harmonie orchester": "国歌军乐 · 德国",
-    "carl teike": "国歌军乐 · 德国",
-    "trompeterkorps des kavallerie-regiments 6": "国歌军乐 · 德国",
-    "josef franz wagner": "国歌军乐 · 德国",
-    "herms niel (german march)": "国歌军乐 · 德国",
-    "historische aufnahme": "国歌军乐 · 德国",
-    "blasorchester": "国歌军乐 · 德国",
-    "historische aufnahme 1901": "国歌军乐 · 德国",
-    "日本典礼合唱团": "国歌军乐 · 日本",
-    "濑户口藤吉": "国歌军乐 · 日本",
-    "夏尔·勒鲁": "国歌军乐 · 日本",
-    "imperial ensemble": "国歌军乐 · 日本",
-    "陸軍戸山学校軍楽隊": "国歌军乐 · 日本",
-    "陸軍戸山学校軍乐隊": "国歌军乐 · 日本",
-    "columbia orchestra": "国歌军乐 · 日本",
-    "帝国海軍軍楽隊": "国歌军乐 · 日本",
-    "帝国海軍軍楽隊 (1909)": "国歌军乐 · 日本",
-    "band of the grenadier guards": "国歌军乐 · 英国",
-    "military band": "国歌军乐 · 英国",
-    "f. j. ricketts (kenneth j. alford)": "国歌军乐 · 英国",
-    "dame clara butt": "国歌军乐 · 英国",
-  };
-
-  // 同名/共享歌手曲目的文件名级风格映射(确保本地旧缓存与 GitHub API 兜底时 100% 精确归类)
-  const FILENAME_GENRE_MAP = {
-    // 国歌军乐 · 中国 (10)
-    "中国人民解放军军乐团 - 义勇军进行曲 (中华人民共和国国歌).mp3": "国歌军乐 · 中国",
-    "中央乐团合唱团 - 歌唱祖国.mp3": "国歌军乐 · 中国",
-    "中央乐团合唱团 - 保卫黄河.mp3": "国歌军乐 · 中国",
-    "中国人民解放军总政歌舞团 - 游击队歌.mp3": "国歌军乐 · 中国",
-    "中央乐团合唱团 - 我们走在大路上.mp3": "国歌军乐 · 中国",
-    "百代唱片 (Pathé Records) - 义勇军进行曲 (1935年原版唱片).mp3": "国歌军乐 · 中国",
-    "中国人民解放军 - 东方红 (1963年录音).mp3": "国歌军乐 · 中国",
-    "八路军战士合唱团 - 八路军进行曲 (1939年原始录音).mp3": "国歌军乐 · 中国",
-    "中国人民解放军军乐团 - 义勇军进行曲 (1978-1982年版).mp3": "国歌军乐 · 中国",
-    "粤语合唱团 - 义勇军进行曲 (粤语版).mp3": "国歌军乐 · 中国",
-
-    // 国歌军乐 · 美国 (10)
-    "United States Military Ensemble - The Star-Spangled Banner.mp3": "国歌军乐 · 美国",
-    "John Philip Sousa - The Stars and Stripes Forever.mp3": "国歌军乐 · 美国",
-    "The Sandpiper Chorus - Battle Hymn of the Republic.mp3": "国歌军乐 · 美国",
-    "The Sandpiper Chorus - The Marines' Hymn (Halls of Montezuma).mp3": "国歌军乐 · 美国",
-    "The Sandpiper Chorus - The Caissons Go Rolling Along.mp3": "国歌军乐 · 美国",
-    "United States Marine Band - Semper Fidelis (永远忠诚).mp3": "国歌军乐 · 美国",
-    "United States Marine Band - The Washington Post (华盛顿邮报进行曲).mp3": "国歌军乐 · 美国",
-    "United States Marine Band - The Liberty Bell (自由钟进行曲).mp3": "国歌军乐 · 美国",
-    "United States Marine Band - El Capitan (上尉进行曲).mp3": "国歌军乐 · 美国",
-    "United States Naval Academy Band - Anchors Aweigh (起锚歌 - 海军军歌).mp3": "国歌军乐 · 美国",
-
-    // 国歌军乐 · 俄罗斯 (10)
-    "The Red Army Choir - State Anthem of the Soviet Union.mp3": "国歌军乐 · 俄罗斯",
-    "The Red Army Choir - The Sacred War (Священная война).mp3": "国歌军乐 · 俄罗斯",
-    "The Red Army Choir - Farewell of Slavianka.mp3": "国歌军乐 · 俄罗斯",
-    "The Red Army Choir - Polyushko-polye.mp3": "国歌军乐 · 俄罗斯",
-    "The Red Army Choir - Along the Vales and Hills.mp3": "国歌军乐 · 俄罗斯",
-    "Русский хор «Волга» - Варшавянка (华沙工人歌).mp3": "国歌军乐 · 俄罗斯",
-    "Хор и оркестр - Марш энтузиастов (热情者进行曲).mp3": "国歌军乐 · 俄罗斯",
-    "Arturo Toscanini, NBC Symphony Orchestra - Интернационал (国际歌 - 1944).mp3": "国歌军乐 · 俄罗斯",
-    "Хор - Рабочая Марсельеза (工人马赛曲).mp3": "国歌军乐 · 俄罗斯",
-    "Военный оркестр - Старинный марш «Герой» (英雄古老进行曲).mp3": "国歌军乐 · 俄罗斯",
-
-    // 国歌军乐 · 法国 (10)
-    "Le Choeur des Enfants de Montmartre - La Marseillaise.mp3": "国歌军乐 · 法国",
-    "Germaine Sablon - Le Chant des Partisans.mp3": "国歌军乐 · 法国",
-    "Le Choeur des Enfants de Montmartre - Marche Lorraine.mp3": "国歌军乐 · 法国",
-    "Le Choeur des Enfants de Montmartre - Le Regiment de Sambre et Meuse.mp3": "国歌军乐 · 法国",
-    "Le Choeur des Enfants de Montmartre - Le Chant des Girondins.mp3": "国歌军乐 · 法国",
-    "Georges Thill, Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 蒂尔演唱版).mp3": "国歌军乐 · 法国",
-    "Georges Thill, Musique de la Garde Républicaine - Le Chant du départ (出征之歌).mp3": "国歌军乐 · 法国",
-    "Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 共和国卫队军乐版).mp3": "国歌军乐 · 法国",
-    "Pierre d'Assy - Le Régiment de Sambre-et-Meuse (1905年唱片).mp3": "国歌军乐 · 法国",
-    "Odeon Orchestra (Leopold Stokowski) - Sambre et Meuse (桑布尔与默兹 - 管弦乐版).mp3": "国歌军乐 · 法国",
-
-    // 国歌军乐 · 德国 (10)
-    "Michel Nowak Ensemble - Das Lied der Deutschen (Deutschlandlied).mp3": "国歌军乐 · 德国",
-    "Berliner Harmonie Orchester - Preussens Gloria.mp3": "国歌军乐 · 德国",
-    "Carl Teike - Alte Kameraden.mp3": "国歌军乐 · 德国",
-    "Trompeterkorps des Kavallerie-Regiments 6 - Der Hohenfriedberger Marsch.mp3": "国歌军乐 · 德国",
-    "Josef Franz Wagner - Unter dem Doppeladler.mp3": "国歌军乐 · 德国",
-    "Herms Niel (German March) - Erika (艾丽卡 - 德军行军歌).mp3": "国歌军乐 · 德国",
-    "Historische Aufnahme - Die Wacht am Rhein (莱茵河卫兵).mp3": "国歌军乐 · 德国",
-    "Blasorchester - Der Königgrätzer Marsch (柯尼希格雷茨进行曲).mp3": "国歌军乐 · 德国",
-    "Historische Aufnahme 1901 - Heil dir im Siegerkranz (胜利者桂冠万岁).mp3": "国歌军乐 · 德国",
-    "United States Marine Band - Yorckscher Marsch (约克进行曲).mp3": "国歌军乐 · 德国",
-
-    // 国歌军乐 · 日本 (10)
-    "日本典礼合唱团 - 君之代 (Kimigayo).mp3": "国歌军乐 · 日本",
-    "濑户口藤吉 - 军舰进行曲 (Gunkan Koshinkyoku).mp3": "国歌军乐 · 日本",
-    "濑户口藤吉 - 敷岛舰进行曲 (Shikishima March).mp3": "国歌军乐 · 日本",
-    "夏尔·勒鲁 - 拔刀队进行曲 (Battotai).mp3": "国歌军乐 · 日本",
-    "Imperial Ensemble - Japanese National March.mp3": "国歌军乐 · 日本",
-    "陸軍戸山学校軍楽隊 - 分列行進曲 (阅兵分列进行曲).mp3": "国歌军乐 · 日本",
-    "陸軍戸山学校軍楽隊 - 雪の進軍 (雪中行军).mp3": "国歌军乐 · 日本",
-    "Columbia Orchestra - 露営の歌 (露营之歌).mp3": "国歌军乐 · 日本",
-    "帝国海軍軍楽隊 - 海軍記念日を称ふる歌 (海军纪念日颂歌).mp3": "国歌军乐 · 日本",
-    "帝国海軍軍楽隊 (1909) - 君が代 ／ 君が代行進曲 (1909年).mp3": "国歌军乐 · 日本",
-
-    // 国歌军乐 · 英国 (5)
-    "Band of the Grenadier Guards - God Save the King (天佑吾王 - 英国国歌).mp3": "国歌军乐 · 英国",
-    "United States Army Strings - Rule, Britannia! (统治吧，不列颠尼亚).mp3": "国歌军乐 · 英国",
-    "Military Band - The British Grenadiers (英国近卫掷弹兵进行曲).mp3": "国歌军乐 · 英国",
-    "F. J. Ricketts (Kenneth J. Alford) - Colonel Bogey March (博吉上校进行曲).mp3": "国歌军乐 · 英国",
-    "Dame Clara Butt - Land of Hope and Glory (希望与荣耀之地).mp3": "国歌军乐 · 英国",
-
-    // 古典沙龙 · 剧场礼乐 (同名/共享歌手曲目显式锁定)
-    "The Red Army Choir - Коробейники (SPOTISAVER).mp3": "古典沙龙 · 剧场礼乐",
-    "The Red Army Choir - Katyusha (Катюша).mp3": "古典沙龙 · 剧场礼乐",
-    "The Red Army Choir - Kalinka (Калинка).mp3": "古典沙龙 · 剧场礼乐",
-    "National Anthem- United States - Star Spangled Banner.mp3": "古典沙龙 · 剧场礼乐",
-    "United States of America National Anthem (Instrumental).mp3": "古典沙龙 · 剧场礼乐",
-  };
-
-  const GENRE_RANK = new Map(GENRE_PRESETS.map((g, idx) => [g.id, idx]));
-  const GENRE_META = new Map(GENRE_PRESETS.map((g) => [g.id, g]));
   const DEFAULT_DOC_TITLE = document.title || "GitHub 音乐盒 · 维多利亚留声机";
+  const PRELOAD_DELAY_MS = 1400;
+  const PRELOAD_TIMEOUT_MS = 12000;
+  const MAX_PRELOAD_CACHE = 12;
 
   const $ = (id) => document.getElementById(id);
 
@@ -372,6 +53,8 @@
     shuffleGenreBtn: $("shuffleGenreBtn"),
     clearGenreBtn: $("clearGenreBtn"),
     searchInput: $("searchInput"),
+    searchClearBtn: $("searchClearBtn"),
+    locateTrackBtn: $("locateTrackBtn"),
     trackCount: $("trackCount"),
     playlist: $("playlist"),
     emptyState: $("emptyState"),
@@ -386,6 +69,16 @@
     lyricsToggleBtn: $("lyricsToggleBtn"),
     vinylFxBtn: $("vinylFxBtn"),
     synthFxBtn: $("synthFxBtn"),
+    queueToggleBtn: $("queueToggleBtn"),
+    queueCountBadge: $("queueCountBadge"),
+    queueBackdrop: $("queueBackdrop"),
+    queueDrawer: $("queueDrawer"),
+    queueDrawerTitle: $("queueDrawerTitle"),
+    queueReshuffleBtn: $("queueReshuffleBtn"),
+    queueClearUpcomingBtn: $("queueClearUpcomingBtn"),
+    queueCloseBtn: $("queueCloseBtn"),
+    queueList: $("queueList"),
+    queueEmpty: $("queueEmpty"),
     playerTrack: document.querySelector(".player-track"),
     coverArt: $("coverArt"),
     trackTitle: $("trackTitle"),
@@ -427,94 +120,62 @@
 
   let tracks = [];         // { title, artist, album, genre, cover, url, path, dir, _searchKey }
   let covers = new Map();  // dir -> cover url
-  let order = [];          // 当前播放上下文(tracks 下标)
+  let order = [];          // 当前播放队列上下文(tracks 下标)
   let pos = -1;            // 当前曲目在 order 中的位置
   let filteredTracks = []; // 歌单筛选+搜索后按当前视图排序的 tracks 下标
   let currentIndex = -1;   // 当前曲目在 tracks[] 中的下标
+  let activePlaylistEl = null; // 当前高亮的 .playlist-item DOM 引用(O(1) 更新)
   let activeGenre = "all"; // 当前选中的风格歌单("all" 表示全部馆藏)
   let shelfCategory = "all"; // 当前专区分组 ("all" | "salon" | "military")
+  let shelfTabsApi = null;
   let lastModalTrigger = null;
+  let lastQueueTrigger = null;
 
-  let shuffle = localStorage.getItem("gh-shuffle") === "1";
-  let repeat = localStorage.getItem("gh-repeat") || "none";
-  let view = localStorage.getItem(VIEW_KEY) || "genre";
-  let desktopLyricsOpen = localStorage.getItem(LYRICS_OPEN_KEY) !== "0";
-  let mobileLyricsOpen = false;
-  let showTrans = localStorage.getItem(LYRICS_TRANS_KEY) !== "0";
+  let shuffle = storageGet(KEYS.SHUFFLE, "0") === "1";
+  let repeat = storageGet(KEYS.REPEAT, "none") || "none";
+  let view = storageGet(KEYS.VIEW, "genre") || "genre";
   let isSeeking = false;
   let errorStreak = 0;
   let lastVolume = 80;
+  let loadSeq = 0;
 
-  // 滚动歌词状态
-  let lyricsCatalog = {};          // url -> { type, lrc, tlyric }
-  let lyricsCatalogLoaded = false;
-  let lyricsCatalogPromise = null;
-  let lyricsReqSeq = 0;
-  let liveLyricsCache = {};        // 外部仓库在线兜底缓存
-  let currentLyricState = null;    // { type: "none"|"instrumental"|"synced"|"plain", lines: [], hasTrans: false }
-  let activeLyricIndex = -1;
-  let userScrolling = false;
-  let isPointerTouchingLyrics = false;
-  let userScrollResumeTimer = null;
-  let lyricsScrollSeq = 0;
-  let programmaticScrollDepth = 0;
-  let programmaticScrollGuardUntil = 0;
-  const USER_SCROLL_RESUME_MS = 5500;
-
-  // 模拟黑胶留声机与电子合成器音效引擎状态
-  let vinylFxEnabled = localStorage.getItem(VINYL_FX_KEY) === "1";
-  let synthFxEnabled = localStorage.getItem(SYNTH_FX_KEY) === "1";
-  let audioCtx = null;
-  let audioBaseGraph = null;
-  let vinylNodes = null;
-  let synthNodes = null;
-  let audioSuspendTimer = null;
-  const BASE_VINYL_NOISE_GAIN = 0.048;
+  // 下一首音频智能预加载状态
+  let preloadTimer = null;
+  let preloadAbortTimer = null;
+  let preloadAudioEl = null;
+  let activePreloadUrl = "";
+  const preloadedUrls = new Set();
 
   const audio = els.audio;
   const DEFAULT_COVER = els.coverArt.getAttribute("src");
 
-  function inferGenre(artist, genre, pathOrUrl) {
-    if (pathOrUrl) {
-      const fname = String(pathOrUrl).slice(String(pathOrUrl).lastIndexOf("/") + 1);
-      if (FILENAME_GENRE_MAP[fname]) return FILENAME_GENRE_MAP[fname];
-    }
-    if (genre) return String(genre);
-    if (!artist) return "";
-    return ARTIST_GENRE_MAP[String(artist).trim().toLowerCase()] || "";
-  }
+  const audioFx = ns.createAudioFxController({
+    audio,
+    vinylBtn: els.vinylFxBtn,
+    synthBtn: els.synthFxBtn,
+    toast,
+  });
 
-  function genreRank(g) {
-    if (!g) return 999;
-    return GENRE_RANK.has(g) ? GENRE_RANK.get(g) : 500;
-  }
-
-  function genreCategory(g) {
-    const meta = GENRE_META.get(g);
-    return meta ? meta.category : "salon";
-  }
-
-  function buildSearchKey(t) {
-    return [
-      t.title || "",
-      t.artist || "",
-      t.album || "",
-      t.genre || "其他典藏",
-      t.path || "",
-    ].join("\n").toLowerCase();
-  }
+  const lyricsCtrl = ns.createLyricsController({
+    audio,
+    els,
+    getCurrentTrack: () => (currentIndex !== -1 ? tracks[currentIndex] || null : null),
+    defaultTrackSub,
+    safePlay,
+    onBeforeMobileOpen: () => closeQueueDrawer(false),
+  });
 
   /* ---------------- settings ---------------- */
 
   function loadSettings() {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
+      const raw = storageGet(KEYS.STORE, "");
       if (raw) Object.assign(settings, JSON.parse(raw));
     } catch (e) { /* ignore */ }
   }
 
   function saveSettings() {
-    localStorage.setItem(STORE_KEY, JSON.stringify(settings));
+    storageSet(KEYS.STORE, JSON.stringify(settings));
   }
 
   function fillSettingsForm() {
@@ -526,7 +187,7 @@
   }
 
   function setBackgroundInert(isInert) {
-    [els.topbar, els.content, els.player].forEach((el) => {
+    [els.topbar, els.content, els.player, els.queueDrawer].forEach((el) => {
       if (!el) return;
       if (isInert) el.setAttribute("inert", "");
       else el.removeAttribute("inert");
@@ -534,6 +195,7 @@
   }
 
   function openSettings(triggerEl) {
+    closeQueueDrawer(false);
     const active = document.activeElement;
     lastModalTrigger = (triggerEl && triggerEl.nodeType === 1)
       ? triggerEl
@@ -693,7 +355,7 @@
     return null;
   }
 
-  /* ---------------- loading ---------------- */
+  /* ---------------- loading & cache ---------------- */
 
   async function loadFromMusicJson() {
     const res = await fetch("music.json", { cache: "no-store" });
@@ -744,13 +406,23 @@
     return c instanceof Map ? c : new Map(c || []);
   }
 
-  function libraryKey(t, c) {
-    return JSON.stringify([t || [], [...toCoverMap(c)]]);
+  function loadCache() {
+    try {
+      const raw = storageGet(KEYS.CACHE, "");
+      if (!raw) return null;
+      const c = JSON.parse(raw);
+      if (c && c.covers) c.covers = new Map(c.covers);
+      return c;
+    } catch (e) { return null; }
   }
 
-  let loadSeq = 0;
+  function saveCache(c) {
+    try {
+      storageSet(KEYS.CACHE, JSON.stringify(c));
+    } catch (e) { /* ignore quota */ }
+  }
 
-  // 有缓存时先秒开缓存；默认仓库同时在后台拉取最新 music.json，有变化就更新
+  // 有缓存时先秒开缓存；默认仓库同时在后台拉取最新 music.json，用轻量指纹比对变化
   async function loadLibrary(force) {
     if (!settings.owner || !settings.repo) {
       showBanner(true);
@@ -767,7 +439,9 @@
       (cache.path === undefined ? DEFAULT_SETTINGS.path : cache.path) === settings.path &&
       Array.isArray(cache.tracks) && cache.tracks.length);
 
+    let cacheSig = "";
     if (useCache) {
+      cacheSig = cache.sig || hashLibrarySignature(cache.tracks, cache.covers);
       applyLibrary(cache);
       showBanner(false);
       if (!useLocal) return;
@@ -790,15 +464,19 @@
       if (seq !== loadSeq) return;
 
       const newCovers = toCoverMap(data.covers);
-      const changed = !useCache || libraryKey(data.tracks, newCovers) !== libraryKey(cache.tracks, cache.covers);
-      saveCache({
-        owner: settings.owner,
-        repo: settings.repo,
-        branch: settings.branch,
-        path: settings.path,
-        tracks: data.tracks,
-        covers: [...newCovers],
-      });
+      const nextSig = hashLibrarySignature(data.tracks, newCovers);
+      const changed = !useCache || nextSig !== cacheSig;
+      if (changed || (cache && !cache.sig)) {
+        saveCache({
+          owner: settings.owner,
+          repo: settings.repo,
+          branch: settings.branch,
+          path: settings.path,
+          sig: nextSig,
+          tracks: data.tracks,
+          covers: [...newCovers],
+        });
+      }
       if (changed) {
         applyLibrary({ tracks: data.tracks, covers: newCovers });
         toast((useCache ? "歌单已更新，共 " : "已加载 ") + data.tracks.length + " 首音乐");
@@ -811,22 +489,6 @@
       showBanner(true);
       toast("加载失败：" + err.message, true);
     }
-  }
-
-  function loadCache() {
-    try {
-      const raw = localStorage.getItem(CACHE_KEY);
-      if (!raw) return null;
-      const c = JSON.parse(raw);
-      if (c.covers) c.covers = new Map(c.covers);
-      return c;
-    } catch (e) { return null; }
-  }
-
-  function saveCache(c) {
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(c));
-    } catch (e) { /* ignore */ }
   }
 
   function applyLibrary(data) {
@@ -854,15 +516,19 @@
 
     if (!tracks.length) {
       filteredTracks = [];
+      activePlaylistEl = null;
       els.genreShelf.hidden = true;
       els.genreStage.hidden = true;
       els.emptyState.hidden = false;
       els.playlist.innerHTML = "";
       renderCount();
+      updateLocateBtn();
+      updateQueueUI();
       return;
     }
     renderGenreShelf();
     applyFilter();
+    updateQueueUI();
     setLoading(false);
   }
 
@@ -885,10 +551,10 @@
     const totalGenres = salonGenres + militaryGenres + extraGenres;
     els.genreShelfTabs.hidden = totalGenres === 0;
     els.genreShelfTabs.querySelectorAll(".shelf-tab").forEach((btn) => {
-      const cat = btn.dataset.category;
-      if (cat === "all") btn.textContent = "全部专区 (" + totalGenres + ")";
-      else if (cat === "salon") btn.textContent = "\uD83C\uDFB7 沙龙流派 (" + salonGenres + ")";
-      else if (cat === "military") btn.textContent = "\uD83C\uDFBA 国歌军乐 (" + militaryGenres + ")";
+      const catId = btn.dataset.category;
+      if (catId === "all") btn.textContent = "全部专区 (" + totalGenres + ")";
+      else if (catId === "salon") btn.textContent = "\uD83C\uDFB7 沙龙流派 (" + salonGenres + ")";
+      else if (catId === "military") btn.textContent = "\uD83C\uDFBA 国歌军乐 (" + militaryGenres + ")";
     });
   }
 
@@ -1074,15 +740,19 @@
     applyFilter();
   }
 
+  function clearSearchValue() {
+    els.searchInput.value = "";
+    if (els.searchClearBtn) els.searchClearBtn.hidden = true;
+  }
+
   // forceShuffle: null=保持当前随机设置，false=顺序播放，true=随机播放
   function startGenrePlaylist(id, forceShuffle) {
     activeGenre = id || "all";
-    if (els.searchInput.value) els.searchInput.value = "";
+    clearSearchValue();
     if (forceShuffle !== null) {
       shuffle = !!forceShuffle;
-      localStorage.setItem("gh-shuffle", shuffle ? "1" : "0");
-      els.shuffleBtn.classList.toggle("on", shuffle);
-      els.shuffleBtn.setAttribute("aria-pressed", shuffle ? "true" : "false");
+      storageSet(KEYS.SHUFFLE, shuffle ? "1" : "0");
+      setPressedButtonState(els.shuffleBtn, shuffle);
     }
     updateGenreShelfHighlight();
     applyFilter();
@@ -1104,19 +774,23 @@
   /* ---------------- filtering & playlist rendering ---------------- */
 
   function applyFilter() {
-    const q = els.searchInput.value.trim().toLowerCase();
+    const rawQ = els.searchInput.value;
+    if (els.searchClearBtn) els.searchClearBtn.hidden = !rawQ;
+    const tokens = tokenizeQuery(rawQ);
     filteredTracks = [];
-    tracks.forEach((t, i) => {
+
+    for (let i = 0; i < tracks.length; i++) {
+      const t = tracks[i];
       const g = t.genre || "其他典藏";
       if (activeGenre !== "all") {
-        if (g !== activeGenre) return;
+        if (g !== activeGenre) continue;
       } else if (shelfCategory !== "all") {
-        if (genreCategory(g) !== shelfCategory) return;
+        if (genreCategory(g) !== shelfCategory) continue;
       }
-      if (!q || (t._searchKey ? t._searchKey.indexOf(q) !== -1 : buildSearchKey(t).indexOf(q) !== -1)) {
+      if (!tokens.length || matchesSearchTokens(t._searchKey || buildSearchKey(t), tokens)) {
         filteredTracks.push(i);
       }
-    });
+    }
 
     if (view === "genre") {
       filteredTracks.sort((a, b) => {
@@ -1132,7 +806,10 @@
 
     els.emptyState.hidden = !tracks.length || filteredTracks.length > 0;
     renderPlaylist(false);
+    updateLocateBtn();
   }
+
+  const debouncedFilter = debounce(applyFilter, 75);
 
   function setLoading(on) {
     if (on) {
@@ -1165,42 +842,58 @@
     loadLibrary(true);
   });
 
-  els.searchInput.addEventListener("input", applyFilter);
+  els.searchInput.addEventListener("input", () => {
+    if (els.searchClearBtn) els.searchClearBtn.hidden = !els.searchInput.value;
+    debouncedFilter();
+  });
+
   els.searchInput.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && els.searchInput.value) {
+    if (e.key === "Enter") {
+      debouncedFilter.flush();
+    } else if (e.key === "Escape" && els.searchInput.value) {
       e.stopPropagation();
-      els.searchInput.value = "";
+      debouncedFilter.cancel();
+      clearSearchValue();
       applyFilter();
     }
   });
 
+  if (els.searchClearBtn) {
+    els.searchClearBtn.addEventListener("click", () => {
+      debouncedFilter.cancel();
+      clearSearchValue();
+      applyFilter();
+      els.searchInput.focus();
+    });
+  }
+
   function renderCount() {
-    if (!filteredTracks.length) {
+    const len = filteredTracks.length;
+    if (!len) {
       els.trackCount.textContent = "0 首";
       return;
     }
-    if (activeGenre !== "all") {
-      const artists = new Set(filteredTracks.map((i) => tracks[i].artist || "未分类"));
-      els.trackCount.textContent = filteredTracks.length + " 首 · " + artists.size + " 位歌手";
+    if (activeGenre !== "all" || view === "artist") {
+      const artists = new Set();
+      for (let i = 0; i < len; i++) {
+        artists.add(tracks[filteredTracks[i]].artist || "未分类");
+      }
+      els.trackCount.textContent = len + " 首 · " + artists.size + " 位歌手";
     } else if (view === "genre") {
-      const genres = new Set(filteredTracks.map((i) => tracks[i].genre || "其他典藏"));
-      els.trackCount.textContent = filteredTracks.length + " 首 · " + genres.size + " 大风格";
-    } else if (view === "artist") {
-      const artists = new Set(filteredTracks.map((i) => tracks[i].artist || "未分类"));
-      els.trackCount.textContent = filteredTracks.length + " 首 · " + artists.size + " 位歌手";
+      const genres = new Set();
+      for (let i = 0; i < len; i++) {
+        genres.add(tracks[filteredTracks[i]].genre || "其他典藏");
+      }
+      els.trackCount.textContent = len + " 首 · " + genres.size + " 大风格";
     } else {
-      els.trackCount.textContent = filteredTracks.length + " 首";
+      els.trackCount.textContent = len + " 首";
     }
   }
 
   function formatItemMeta(t, mode) {
     const cleanAlbum = t.album && t.album.toLowerCase() !== "unknown album" ? t.album : "";
-    if (mode === "genre") {
-      return t.artist || cleanAlbum || t.dir || "/";
-    }
-    if (mode === "artist") {
-      return cleanAlbum || t.genre || t.dir || "/";
-    }
+    if (mode === "genre") return t.artist || cleanAlbum || t.dir || "/";
+    if (mode === "artist") return cleanAlbum || t.genre || t.dir || "/";
     if (t.artist && t.genre) return t.artist + " · " + t.genre;
     return t.artist || cleanAlbum || t.genre || t.dir || "/";
   }
@@ -1210,9 +903,13 @@
     const li = document.createElement("li");
     li.className = "playlist-item";
     li.dataset.index = tIndex;
-    li.tabIndex = k === tabTargetK ? 0 : -1;
-    if (tIndex === currentIndex) li.classList.add("active");
-    if (tIndex === currentIndex && !audio.paused) li.classList.add("playing");
+    const isRovingTarget = k === tabTargetK;
+    li.tabIndex = isRovingTarget ? 0 : -1;
+    if (tIndex === currentIndex) {
+      li.classList.add("active");
+      if (!audio.paused) li.classList.add("playing");
+      activePlaylistEl = li;
+    }
 
     const idx = document.createElement("span");
     idx.className = "idx";
@@ -1231,30 +928,65 @@
     meta.className = "meta";
     meta.textContent = formatItemMeta(t, mode);
 
-    li.append(idx, eq, name, meta);
+    const enqueueBtn = document.createElement("button");
+    enqueueBtn.type = "button";
+    enqueueBtn.className = "playlist-enqueue-btn";
+    enqueueBtn.title = "添加到下一首播放";
+    enqueueBtn.setAttribute("aria-label", "下一首播放 " + t.title);
+    enqueueBtn.textContent = "+";
+    enqueueBtn.tabIndex = isRovingTarget ? 0 : -1;
+
+    li.append(idx, eq, name, meta, enqueueBtn);
     return li;
   }
 
   function setPlaylistRovingTabIndex(activeLi) {
     if (!activeLi) return;
-    els.playlist.querySelectorAll('.playlist-item[tabindex="0"]').forEach((el) => {
-      if (el !== activeLi) el.tabIndex = -1;
+    els.playlist.querySelectorAll('.playlist-item[tabindex="0"], .playlist-enqueue-btn[tabindex="0"]').forEach((el) => {
+      if (el !== activeLi && el.parentElement !== activeLi) el.tabIndex = -1;
     });
     activeLi.tabIndex = 0;
+    const btn = activeLi.querySelector(".playlist-enqueue-btn");
+    if (btn) btn.tabIndex = 0;
   }
 
-  // 播放列表事件委托(避免每次渲染绑定 130+ 个独立闭包监听器，并支持漫游 tabindex 与方向键导航)
   els.playlist.addEventListener("click", (e) => {
+    const enqueueBtn = e.target.closest(".playlist-enqueue-btn");
     const li = e.target.closest(".playlist-item");
     if (!li) return;
     setPlaylistRovingTabIndex(li);
     const tIndex = Number(li.dataset.index);
-    if (!isNaN(tIndex)) playTrackByIndex(tIndex);
+    if (isNaN(tIndex)) return;
+    if (enqueueBtn) {
+      e.stopPropagation();
+      enqueueNext(tIndex);
+      return;
+    }
+    playTrackByIndex(tIndex);
   });
 
   els.playlist.addEventListener("keydown", (e) => {
+    const enqueueBtn = e.target.closest(".playlist-enqueue-btn");
     const li = e.target.closest(".playlist-item");
     if (!li) return;
+
+    if (enqueueBtn) {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        li.focus();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowRight") {
+      const btn = li.querySelector(".playlist-enqueue-btn");
+      if (btn) {
+        e.preventDefault();
+        btn.focus();
+      }
+      return;
+    }
+
     if (e.key === "Enter") {
       e.preventDefault();
       setPlaylistRovingTabIndex(li);
@@ -1282,6 +1014,7 @@
 
   els.playlist.addEventListener("keyup", (e) => {
     if (e.key !== " ") return;
+    if (e.target.closest(".playlist-enqueue-btn")) return;
     const li = e.target.closest(".playlist-item");
     if (!li) return;
     setPlaylistRovingTabIndex(li);
@@ -1291,11 +1024,12 @@
 
   function renderPlaylist(scrollToActive) {
     renderCount();
+    activePlaylistEl = null;
     const frag = document.createDocumentFragment();
     const activeK = currentIndex !== -1 ? filteredTracks.indexOf(currentIndex) : -1;
     const tabTargetK = activeK !== -1 ? activeK : 0;
+
     if (view === "genre" && activeGenre === "all") {
-      // 计算每个风格分组的曲目数用于标题展示
       const groupCounts = new Map();
       filteredTracks.forEach((tIndex) => {
         const g = tracks[tIndex].genre || "其他典藏";
@@ -1338,34 +1072,68 @@
   }
 
   function highlightActive(scroll) {
-    els.playlist.querySelectorAll(".playlist-item.active, .playlist-item.playing").forEach((li) => {
-      li.classList.remove("active", "playing");
-    });
+    if (activePlaylistEl && activePlaylistEl.isConnected) {
+      activePlaylistEl.classList.remove("active", "playing");
+    }
+    activePlaylistEl = null;
     if (currentIndex !== -1) {
       const curEl = els.playlist.querySelector('.playlist-item[data-index="' + currentIndex + '"]');
       if (curEl) {
         curEl.classList.add("active");
         if (!audio.paused) curEl.classList.add("playing");
+        activePlaylistEl = curEl;
         setPlaylistRovingTabIndex(curEl);
       }
     }
     if (scroll) scrollActiveIntoView();
+    updateLocateBtn();
+  }
+
+  function getScrollBehavior() {
+    const preferReduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    return preferReduced ? "auto" : "smooth";
   }
 
   function scrollActiveIntoView() {
     if (currentIndex === -1) return;
-    const el = els.playlist.querySelector(".playlist-item.active");
-    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const el = (activePlaylistEl && activePlaylistEl.isConnected)
+      ? activePlaylistEl
+      : els.playlist.querySelector(".playlist-item.active");
+    if (el) el.scrollIntoView({ block: "center", behavior: getScrollBehavior() });
+  }
+
+  function updateLocateBtn() {
+    if (!els.locateTrackBtn) return;
+    els.locateTrackBtn.hidden = currentIndex === -1 || !tracks[currentIndex];
+  }
+
+  function locateCurrentTrack() {
+    if (currentIndex === -1 || !tracks[currentIndex]) return;
+    if (filteredTracks.indexOf(currentIndex) === -1) {
+      debouncedFilter.cancel();
+      clearSearchValue();
+      activeGenre = "all";
+      shelfCategory = "all";
+      if (shelfTabsApi) shelfTabsApi.sync(false);
+      renderGenreShelf();
+      applyFilter();
+    }
+    highlightActive(true);
+    if (activePlaylistEl && typeof activePlaylistEl.focus === "function") {
+      activePlaylistEl.focus({ preventScroll: true });
+    }
+  }
+
+  if (els.locateTrackBtn) {
+    els.locateTrackBtn.addEventListener("click", locateCurrentTrack);
   }
 
   function setView(next) {
     if (next !== "genre" && next !== "artist" && next !== "flat") next = "genre";
     view = next;
-    localStorage.setItem(VIEW_KEY, view);
+    storageSet(KEYS.VIEW, view);
     els.viewToggle.querySelectorAll("button").forEach((b) => {
-      const on = b.dataset.view === view;
-      b.classList.toggle("on", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
+      setPressedButtonState(b, b.dataset.view === view);
     });
     applyFilter();
   }
@@ -1375,7 +1143,7 @@
     if (btn) setView(btn.dataset.view);
   });
 
-  /* ---------------- player logic ---------------- */
+  /* ---------------- queue drawer & playback logic ---------------- */
 
   function shuffleInPlace(a) {
     for (let i = a.length - 1; i > 0; i--) {
@@ -1385,7 +1153,6 @@
     return a;
   }
 
-  // 按当前随机开关排列播放顺序；非随机时保持界面所见的列表顺序
   function arrangeOrder(list, first) {
     const out = list.slice();
     if (shuffle) {
@@ -1399,6 +1166,7 @@
   function buildOrder(first) {
     order = arrangeOrder(filteredTracks, first);
     pos = first == null ? -1 : order.indexOf(first);
+    updateQueueUI();
   }
 
   function ensureOrder() {
@@ -1408,10 +1176,285 @@
     return order.length > 0;
   }
 
+  function enqueueNext(tIndex) {
+    const t = tracks[tIndex];
+    if (!t) return;
+    if (tIndex === currentIndex && pos !== -1) {
+      toast("正在播放：" + t.title);
+      return;
+    }
+    if (!order.length && filteredTracks.length) {
+      buildOrder(null);
+    }
+    if (pos === -1) {
+      const existing = order.indexOf(tIndex);
+      if (existing !== -1) order.splice(existing, 1);
+      order.unshift(tIndex);
+    } else {
+      for (let i = order.length - 1; i >= 0; i--) {
+        if (i !== pos && order[i] === tIndex) {
+          order.splice(i, 1);
+          if (i < pos) pos--;
+        }
+      }
+      order.splice(pos + 1, 0, tIndex);
+    }
+    updateQueueUI();
+    if (!audio.paused) scheduleNextPreload();
+    toast("已加入下一首播放：" + t.title);
+  }
+
+  function moveQueueItemNext(qIdx) {
+    if (qIdx < 0 || qIdx >= order.length || qIdx === pos) return;
+    const insertTarget = pos >= 0 ? pos + 1 : 0;
+    if (qIdx === insertTarget) return;
+    const item = order.splice(qIdx, 1)[0];
+    let nextPos = pos;
+    if (pos >= 0 && qIdx < pos) nextPos = pos - 1;
+    const actualInsert = nextPos >= 0 ? Math.min(order.length, nextPos + 1) : 0;
+    order.splice(actualInsert, 0, item);
+    pos = nextPos;
+    updateQueueUI();
+    if (!audio.paused) scheduleNextPreload();
+  }
+
+  function removeQueueItem(qIdx) {
+    if (qIdx < 0 || qIdx >= order.length) return;
+    if (qIdx === pos) {
+      toast("正在播放中的曲目不可移除");
+      return;
+    }
+    order.splice(qIdx, 1);
+    if (pos > qIdx) pos--;
+    updateQueueUI();
+    if (!audio.paused) scheduleNextPreload();
+  }
+
+  function reshuffleQueue() {
+    if (order.length < 2) return;
+    if (pos >= 0 && currentIndex !== -1 && order[pos] === currentIndex) {
+      if (pos < order.length - 2) {
+        const head = order.slice(0, pos + 1);
+        const tail = shuffleInPlace(order.slice(pos + 1));
+        order = head.concat(tail);
+      } else {
+        const rest = shuffleInPlace(order.filter((_, idx) => idx !== pos));
+        order = [currentIndex].concat(rest);
+        pos = 0;
+      }
+    } else {
+      shuffleInPlace(order);
+      pos = currentIndex !== -1 ? order.indexOf(currentIndex) : -1;
+    }
+    updateQueueUI();
+    if (!audio.paused) scheduleNextPreload();
+    if (els.queueReshuffleBtn && els.queueReshuffleBtn.disabled && document.activeElement === els.queueReshuffleBtn && els.queueCloseBtn) {
+      els.queueCloseBtn.focus();
+    }
+    toast("已随机重排播放队列");
+  }
+
+  function clearUpcomingQueue() {
+    if (!order.length) return;
+    if (pos >= 0 && currentIndex !== -1 && order[pos] === currentIndex) {
+      order = [currentIndex];
+      pos = 0;
+    } else {
+      order = [];
+      pos = -1;
+    }
+    cancelPreload();
+    updateQueueUI();
+    if (els.queueClearUpcomingBtn && els.queueClearUpcomingBtn.disabled && document.activeElement === els.queueClearUpcomingBtn && els.queueCloseBtn) {
+      els.queueCloseBtn.focus();
+    }
+    toast("已清空后续待播队列");
+  }
+
+  function updateQueueUI() {
+    const total = order.length;
+    const upcoming = pos >= 0 ? Math.max(0, total - pos - 1) : total;
+    if (els.queueCountBadge) {
+      els.queueCountBadge.textContent = upcoming > 99 ? "99+" : String(upcoming);
+      els.queueCountBadge.hidden = upcoming === 0;
+    }
+    if (els.queueDrawerTitle) {
+      els.queueDrawerTitle.textContent = "播放队列 (" + total + " 首)";
+    }
+    if (els.queueReshuffleBtn) {
+      els.queueReshuffleBtn.disabled = total < 2;
+    }
+    if (els.queueClearUpcomingBtn) {
+      els.queueClearUpcomingBtn.disabled = pos >= 0 ? total <= pos + 1 : total === 0;
+    }
+    if (els.queueDrawer && !els.queueDrawer.hidden) {
+      renderQueueDrawer();
+    }
+  }
+
+  function renderQueueDrawer() {
+    if (!els.queueList || !els.queueEmpty) return;
+    if (!order.length) {
+      els.queueList.innerHTML = "";
+      els.queueEmpty.hidden = false;
+      return;
+    }
+    els.queueEmpty.hidden = true;
+    const frag = document.createDocumentFragment();
+    const nextIdx = pos >= 0 ? pos + 1 : 0;
+
+    for (let i = 0; i < order.length; i++) {
+      const tIndex = order[i];
+      const t = tracks[tIndex];
+      if (!t) continue;
+
+      const isCurrent = i === pos;
+      const isPlayed = pos >= 0 && i < pos;
+      const li = document.createElement("li");
+      li.className = "queue-item" + (isCurrent ? " active" : "") + (isPlayed ? " past" : "");
+      li.dataset.qidx = i;
+
+      const playBtn = document.createElement("button");
+      playBtn.type = "button";
+      playBtn.className = "queue-item-play";
+      playBtn.title = "立即播放：" + t.title;
+
+      const numSpan = document.createElement("span");
+      numSpan.className = "queue-num";
+      numSpan.textContent = isCurrent ? "\u25B6" : String(i + 1);
+
+      const info = document.createElement("span");
+      info.className = "queue-item-info";
+
+      const title = document.createElement("span");
+      title.className = "queue-item-title";
+      title.textContent = t.title;
+
+      const sub = document.createElement("span");
+      sub.className = "queue-item-sub";
+      sub.textContent = t.artist || t.genre || t.dir || "/";
+
+      info.append(title, sub);
+      playBtn.append(numSpan, info);
+      li.appendChild(playBtn);
+
+      if (!isCurrent) {
+        const actions = document.createElement("span");
+        actions.className = "queue-item-actions";
+
+        if (i !== nextIdx) {
+          const topBtn = document.createElement("button");
+          topBtn.type = "button";
+          topBtn.className = "queue-act-btn queue-act-next";
+          topBtn.title = "移至下一首播放";
+          topBtn.setAttribute("aria-label", "将 " + t.title + " 移至下一首播放");
+          topBtn.textContent = "\u2191";
+          actions.appendChild(topBtn);
+        }
+
+        const rmBtn = document.createElement("button");
+        rmBtn.type = "button";
+        rmBtn.className = "queue-act-btn queue-act-remove";
+        rmBtn.title = "从队列移除";
+        rmBtn.setAttribute("aria-label", "从队列移除 " + t.title);
+        rmBtn.textContent = "\u00D7";
+        actions.appendChild(rmBtn);
+        li.appendChild(actions);
+      }
+
+      frag.appendChild(li);
+    }
+
+    els.queueList.innerHTML = "";
+    els.queueList.appendChild(frag);
+  }
+
+  function openQueueDrawer(triggerEl) {
+    if (!els.queueDrawer) return;
+    if (lyricsCtrl) lyricsCtrl.closeMobile(false);
+    const active = document.activeElement;
+    lastQueueTrigger = (triggerEl && triggerEl.nodeType === 1)
+      ? triggerEl
+      : (active && active !== document.body ? active : els.queueToggleBtn);
+
+    if (els.queueBackdrop) els.queueBackdrop.hidden = false;
+    els.queueDrawer.hidden = false;
+    document.body.classList.add("queue-open");
+    setPressedButtonState(els.queueToggleBtn, true);
+    renderQueueDrawer();
+
+    requestAnimationFrame(() => {
+      const curItem = els.queueList.querySelector(".queue-item.active");
+      if (curItem) curItem.scrollIntoView({ block: "nearest", behavior: "auto" });
+      if (els.queueCloseBtn && typeof els.queueCloseBtn.focus === "function") {
+        els.queueCloseBtn.focus();
+      }
+    });
+  }
+
+  function closeQueueDrawer(restoreFocus) {
+    if (!els.queueDrawer || els.queueDrawer.hidden) return;
+    els.queueDrawer.hidden = true;
+    if (els.queueBackdrop) els.queueBackdrop.hidden = true;
+    document.body.classList.remove("queue-open");
+    setPressedButtonState(els.queueToggleBtn, false);
+    if (restoreFocus) {
+      const target = (lastQueueTrigger && lastQueueTrigger !== document.body && !lastQueueTrigger.hidden)
+        ? lastQueueTrigger
+        : els.queueToggleBtn;
+      if (target && typeof target.focus === "function") target.focus();
+    }
+    lastQueueTrigger = null;
+  }
+
+  function toggleQueueDrawer(triggerEl) {
+    if (!els.queueDrawer) return;
+    if (els.queueDrawer.hidden) openQueueDrawer(triggerEl);
+    else closeQueueDrawer(true);
+  }
+
+  if (els.queueToggleBtn) {
+    els.queueToggleBtn.addEventListener("click", () => toggleQueueDrawer(els.queueToggleBtn));
+  }
+  if (els.queueCloseBtn) {
+    els.queueCloseBtn.addEventListener("click", () => closeQueueDrawer(true));
+  }
+  if (els.queueBackdrop) {
+    els.queueBackdrop.addEventListener("click", () => closeQueueDrawer(true));
+  }
+  if (els.queueReshuffleBtn) {
+    els.queueReshuffleBtn.addEventListener("click", reshuffleQueue);
+  }
+  if (els.queueClearUpcomingBtn) {
+    els.queueClearUpcomingBtn.addEventListener("click", clearUpcomingQueue);
+  }
+  if (els.queueList) {
+    els.queueList.addEventListener("click", (e) => {
+      const li = e.target.closest(".queue-item");
+      if (!li) return;
+      const qIdx = Number(li.dataset.qidx);
+      if (isNaN(qIdx)) return;
+
+      if (e.target.closest(".queue-act-next")) {
+        moveQueueItemNext(qIdx);
+        return;
+      }
+      if (e.target.closest(".queue-act-remove")) {
+        removeQueueItem(qIdx);
+        return;
+      }
+      if (e.target.closest(".queue-item-play")) {
+        errorStreak = 0;
+        playAt(qIdx);
+      }
+    });
+  }
+
   function playAt(p) {
     pos = p;
     currentIndex = order[p];
     startPlayback();
+    updateQueueUI();
   }
 
   function playTrackByIndex(tIndex) {
@@ -1436,15 +1479,17 @@
     document.body.classList.toggle("is-playing", playing);
     els.iconPlay.style.display = playing ? "none" : "";
     els.iconPause.style.display = playing ? "" : "none";
-    els.playlist.querySelectorAll(".playlist-item.playing").forEach((el) => {
-      if (!playing || Number(el.dataset.index) !== currentIndex) {
-        el.classList.remove("playing");
-      }
-    });
-    if (playing && currentIndex !== -1) {
+
+    if (activePlaylistEl && activePlaylistEl.isConnected) {
+      activePlaylistEl.classList.toggle("playing", playing && Number(activePlaylistEl.dataset.index) === currentIndex);
+    } else if (currentIndex !== -1) {
       const curEl = els.playlist.querySelector('.playlist-item[data-index="' + currentIndex + '"]');
-      if (curEl) curEl.classList.add("playing");
+      if (curEl) {
+        activePlaylistEl = curEl;
+        curEl.classList.toggle("playing", playing);
+      }
     }
+
     if (playing && currentIndex !== -1 && tracks[currentIndex]) {
       const t = tracks[currentIndex];
       document.title = "\u266B " + t.title + (t.artist ? " · " + t.artist : "") + " | GitHub 音乐盒";
@@ -1475,9 +1520,93 @@
     return subParts.length ? subParts.join(" · ") : (t.album || t.dir || "/");
   }
 
+  /* ---------------- smart next-track audio preloader ---------------- */
+
+  function cancelPreload() {
+    clearTimeout(preloadTimer);
+    preloadTimer = null;
+    clearTimeout(preloadAbortTimer);
+    preloadAbortTimer = null;
+    activePreloadUrl = "";
+    if (preloadAudioEl) {
+      preloadAudioEl.oncanplaythrough = null;
+      preloadAudioEl.onloadeddata = null;
+      preloadAudioEl.onerror = null;
+      preloadAudioEl.removeAttribute("src");
+      try { preloadAudioEl.load(); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function getNextPreloadTrack() {
+    if (repeat === "one" || !order.length) return null;
+    const nextPos = pos + 1 < order.length ? pos + 1 : (repeat === "all" && order.length > 1 ? 0 : -1);
+    if (nextPos === -1) return null;
+    const t = tracks[order[nextPos]];
+    if (!t || !t.url) return null;
+    const curTrack = currentIndex !== -1 ? tracks[currentIndex] : null;
+    if (curTrack && t.url === curTrack.url) return null;
+    if (preloadedUrls.has(t.url)) return null;
+    return t;
+  }
+
+  function canNetworkPreload() {
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (!conn) return true;
+    if (conn.saveData) return false;
+    return conn.effectiveType !== "slow-2g" && conn.effectiveType !== "2g";
+  }
+
+  function rememberPreloadedUrl(url) {
+    if (preloadedUrls.size >= MAX_PRELOAD_CACHE) {
+      const oldest = preloadedUrls.values().next().value;
+      if (oldest !== undefined) preloadedUrls.delete(oldest);
+    }
+    preloadedUrls.add(url);
+  }
+
+  function scheduleNextPreload() {
+    clearTimeout(preloadTimer);
+    if (audio.paused || !canNetworkPreload()) return;
+    const nextTrack = getNextPreloadTrack();
+    if (!nextTrack) return;
+
+    preloadTimer = setTimeout(() => {
+      preloadTimer = null;
+      if (audio.paused) return;
+      const targetTrack = getNextPreloadTrack();
+      if (!targetTrack || targetTrack.url === activePreloadUrl) return;
+
+      cancelPreload();
+      if (!preloadAudioEl) {
+        preloadAudioEl = new Audio();
+        preloadAudioEl.crossOrigin = "anonymous";
+        preloadAudioEl.preload = "auto";
+        preloadAudioEl.muted = true;
+        preloadAudioEl.volume = 0;
+      }
+
+      const targetUrl = targetTrack.url;
+      activePreloadUrl = targetUrl;
+
+      const releasePreloader = (remember) => {
+        if (remember) rememberPreloadedUrl(targetUrl);
+        if (activePreloadUrl === targetUrl) cancelPreload();
+      };
+
+      preloadAudioEl.onloadeddata = () => rememberPreloadedUrl(targetUrl);
+      preloadAudioEl.oncanplaythrough = () => releasePreloader(true);
+      preloadAudioEl.onerror = () => releasePreloader(false);
+      preloadAbortTimer = setTimeout(() => releasePreloader(false), PRELOAD_TIMEOUT_MS);
+
+      preloadAudioEl.src = targetUrl;
+      try { preloadAudioEl.load(); } catch (e) { cancelPreload(); }
+    }, PRELOAD_DELAY_MS);
+  }
+
   function startPlayback() {
     const t = tracks[currentIndex];
     if (!t) return;
+    cancelPreload();
     isSeeking = false;
     audio.src = t.url;
     els.seek.max = 0;
@@ -1492,7 +1621,7 @@
     els.coverArt.src = cover || DEFAULT_COVER;
     highlightActive(true);
     updateMediaSession(t, cover);
-    loadTrackLyrics(t);
+    lyricsCtrl.loadForTrack(t);
   }
 
   function nextTrack(auto) {
@@ -1518,10 +1647,7 @@
 
   function restart() {
     audio.currentTime = 0;
-    activeLyricIndex = -1;
-    exitUserScrollMode(true);
-    syncLyricsToTime(0, true);
-    updateCollapsedLyricSubtitle();
+    lyricsCtrl.resetPosition();
     safePlay();
   }
 
@@ -1541,9 +1667,8 @@
 
   function toggleShuffle() {
     shuffle = !shuffle;
-    localStorage.setItem("gh-shuffle", shuffle ? "1" : "0");
-    els.shuffleBtn.classList.toggle("on", shuffle);
-    els.shuffleBtn.setAttribute("aria-pressed", shuffle ? "true" : "false");
+    storageSet(KEYS.SHUFFLE, shuffle ? "1" : "0");
+    setPressedButtonState(els.shuffleBtn, shuffle);
     if (order.length) {
       const cur = currentIndex !== -1 ? currentIndex : null;
       if (shuffle) {
@@ -1555,6 +1680,8 @@
       }
       pos = cur == null ? -1 : order.indexOf(cur);
     }
+    updateQueueUI();
+    if (!audio.paused) scheduleNextPreload();
     toast(shuffle ? "已开启随机播放" : "已关闭随机播放");
   }
 
@@ -1563,8 +1690,9 @@
     const labels = { none: "循环关闭", all: "列表循环", one: "单曲循环" };
     const i = modes.indexOf(repeat);
     repeat = modes[(i + 1) % modes.length];
-    localStorage.setItem("gh-repeat", repeat);
+    storageSet(KEYS.REPEAT, repeat);
     updateRepeatUI();
+    if (!audio.paused) scheduleNextPreload();
     toast("循环模式：" + labels[repeat]);
   }
 
@@ -1581,7 +1709,7 @@
     if (isFinite(audio.duration)) {
       els.seek.max = audio.duration;
       syncSlider(els.seek);
-      els.durTime.textContent = fmt(audio.duration);
+      els.durTime.textContent = fmtTime(audio.duration);
     }
   }
 
@@ -1592,41 +1720,39 @@
     if (!isSeeking && isFinite(audio.duration)) {
       els.seek.value = audio.currentTime;
       syncSlider(els.seek);
-      els.curTime.textContent = fmt(audio.currentTime);
+      els.curTime.textContent = fmtTime(audio.currentTime);
     }
     if (!isSeeking) {
-      syncLyricsToTime(audio.currentTime, false);
+      lyricsCtrl.syncToTime(audio.currentTime, false);
     }
   });
 
   audio.addEventListener("seeked", () => {
-    syncLyricsToTime(audio.currentTime, false);
+    lyricsCtrl.syncToTime(audio.currentTime, false);
   });
 
   audio.addEventListener("play", () => {
     setPlayingUI(true);
-    if (synthFxEnabled) initSynthAudioEngine();
-    if (vinylFxEnabled) initVinylAudioEngine();
-    ensureAudioContextResumed();
-    updateAudioFxGraph(false);
+    audioFx.onPlay();
   });
 
   audio.addEventListener("playing", () => {
     errorStreak = 0;
-    ensureAudioContextResumed();
-    updateAudioFxGraph(false);
-    updateCollapsedLyricSubtitle();
+    audioFx.onPlaying();
+    lyricsCtrl.updateCollapsedSubtitle();
+    scheduleNextPreload();
   });
 
   audio.addEventListener("pause", () => {
     setPlayingUI(false);
-    updateAudioFxGraph(false);
-    scheduleAudioContextSuspend();
-    updateCollapsedLyricSubtitle();
+    audioFx.onPauseOrEnd();
+    lyricsCtrl.updateCollapsedSubtitle();
+    clearTimeout(preloadTimer);
+    preloadTimer = null;
   });
 
   audio.addEventListener("ended", () => {
-    updateAudioFxGraph(false);
+    audioFx.onPauseOrEnd();
     if (repeat === "one") { restart(); return; }
     nextTrack(true);
   });
@@ -1634,6 +1760,7 @@
   audio.addEventListener("error", () => {
     if (currentIndex === -1 || !audio.error) return;
     setPlayingUI(false);
+    cancelPreload();
     const t = tracks[currentIndex];
     errorStreak++;
     if (order.length <= 1 || (pos >= order.length - 1 && repeat !== "all")) {
@@ -1660,15 +1787,15 @@
     isSeeking = true;
     syncSlider(els.seek);
     const v = parseFloat(els.seek.value);
-    els.curTime.textContent = fmt(v);
-    syncLyricsToTime(v, true);
+    els.curTime.textContent = fmtTime(v);
+    lyricsCtrl.syncToTime(v, true);
   });
   els.seek.addEventListener("change", () => {
     const v = parseFloat(els.seek.value);
     if (isFinite(audio.duration)) audio.currentTime = v;
     syncSlider(els.seek);
     isSeeking = false;
-    syncLyricsToTime(v, false);
+    lyricsCtrl.syncToTime(v, false);
   });
 
   function setVolume(v) {
@@ -1676,11 +1803,10 @@
     els.volume.value = v;
     syncSlider(els.volume);
     audio.volume = v / 100;
-    localStorage.setItem("gh-volume", v);
+    storageSet(KEYS.VOLUME, v);
     if (v > 0) lastVolume = v;
-    els.muteBtn.classList.toggle("on", v === 0);
-    els.muteBtn.setAttribute("aria-pressed", v === 0 ? "true" : "false");
-    updateAudioFxGraph(false);
+    setPressedButtonState(els.muteBtn, v === 0);
+    audioFx.updateGraph(false);
   }
 
   els.volume.addEventListener("input", () => setVolume(els.volume.value));
@@ -1689,1064 +1815,6 @@
     if (Number(els.volume.value) > 0) setVolume(0);
     else setVolume(lastVolume || 80);
   });
-
-  function fmt(sec) {
-    if (!isFinite(sec) || sec < 0) sec = 0;
-    sec = Math.floor(sec);
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return m + ":" + (s < 10 ? "0" : "") + s;
-  }
-
-  /* ---------------- vinyl & synthesizer audio engines (Web Audio DSP) ---------------- */
-
-  function ensureAudioBaseGraph() {
-    if (audioBaseGraph) return true;
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) return false;
-      if (!audioCtx) audioCtx = new AudioContextClass();
-
-      const source = audioCtx.createMediaElementSource(audio);
-
-      // 第一级总线(原声 vs 合成器重合成)
-      const stage1DryGain = audioCtx.createGain();
-      stage1DryGain.gain.value = 1;
-      const stage1Bus = audioCtx.createGain();
-      stage1Bus.gain.value = 1;
-      source.connect(stage1DryGain);
-      stage1DryGain.connect(stage1Bus);
-
-      // 第二级总线(第一级输出 vs 黑胶留声机)
-      const stage2DryGain = audioCtx.createGain();
-      stage2DryGain.gain.value = 1;
-      stage1Bus.connect(stage2DryGain);
-      stage2DryGain.connect(audioCtx.destination);
-
-      audioBaseGraph = {
-        source,
-        stage1DryGain,
-        stage1Bus,
-        stage2DryGain,
-      };
-      return true;
-    } catch (e) {
-      console.warn("Web Audio base graph unavailable:", e);
-      return false;
-    }
-  }
-
-  function initSynthAudioEngine() {
-    if (synthNodes) return true;
-    if (!ensureAudioBaseGraph()) return false;
-    try {
-      const source = audioBaseGraph.source;
-
-      // 1. 输入余量校准与模拟合成器 Bass 根基塑造(预留浮点动态余量，杜绝谐振峰值削波杂音)
-      const inputTrim = audioCtx.createGain();
-      inputTrim.gain.value = 0.88;
-
-      const hpFilter = audioCtx.createBiquadFilter();
-      hpFilter.type = "highpass";
-      hpFilter.frequency.value = 60;
-      hpFilter.Q.value = 0.707;
-
-      const bassShelf = audioCtx.createBiquadFilter();
-      bassShelf.type = "lowshelf";
-      bassShelf.frequency.value = 135;
-      bassShelf.gain.value = 2.8;
-
-      const bassPunch = audioCtx.createBiquadFilter();
-      bassPunch.type = "peaking";
-      bassPunch.frequency.value = 95;
-      bassPunch.Q.value = 1.25;
-      bassPunch.gain.value = 1.8;
-
-      source.connect(inputTrim);
-      inputTrim.connect(hpFilter);
-      hpFilter.connect(bassShelf);
-      bassShelf.connect(bassPunch);
-
-      // 2. 六级高谐振全通移相梳状网络(6-Stage Allpass PWM Matrix)
-      // 以 50%/50% 纯线性全通移相网络构建深邃的脉冲宽度调制(PWM)与弦乐合成器梳状共振峰，0% 非线性互调杂音
-      const pwmBus = audioCtx.createGain();
-      pwmBus.gain.value = 1.0;
-
-      const pwmDry = audioCtx.createGain();
-      pwmDry.gain.value = 0.50;
-      bassPunch.connect(pwmDry);
-      pwmDry.connect(pwmBus);
-
-      const apFreqs = [240, 480, 920, 1580, 2450, 3400];
-      const apDepths = [80, 150, 270, 450, 680, 900];
-      const pwmLfo = audioCtx.createOscillator();
-      pwmLfo.type = "sine";
-      pwmLfo.frequency.value = 0.28;
-
-      let prevAp = bassPunch;
-      apFreqs.forEach((f, idx) => {
-        const ap = audioCtx.createBiquadFilter();
-        ap.type = "allpass";
-        ap.frequency.value = f;
-        ap.Q.value = 1.75;
-
-        const lfoGain = audioCtx.createGain();
-        lfoGain.gain.value = apDepths[idx];
-        pwmLfo.connect(lfoGain);
-        lfoGain.connect(ap.frequency);
-
-        prevAp.connect(ap);
-        prevAp = ap;
-      });
-      pwmLfo.start();
-
-      const pwmWet = audioCtx.createGain();
-      pwmWet.gain.value = 0.50;
-      prevAp.connect(pwmWet);
-      pwmWet.connect(pwmBus);
-
-      // 3. 合成器双共振峰雕刻(Synth Formant Sculptor) + 24dB/oct 双级联 Moog 阶梯低通滤波器(VCF)
-      const formantPad = audioCtx.createBiquadFilter();
-      formantPad.type = "peaking";
-      formantPad.frequency.value = 500;
-      formantPad.Q.value = 1.45;
-      formantPad.gain.value = 2.2;
-
-      const formantLead = audioCtx.createBiquadFilter();
-      formantLead.type = "peaking";
-      formantLead.frequency.value = 1280;
-      formantLead.Q.value = 1.75;
-      formantLead.gain.value = 2.6;
-
-      const deHarsh = audioCtx.createBiquadFilter();
-      deHarsh.type = "peaking";
-      deHarsh.frequency.value = 3000;
-      deHarsh.Q.value = 1.4;
-      deHarsh.gain.value = -2.8;
-
-      const vcfLp1 = audioCtx.createBiquadFilter();
-      vcfLp1.type = "lowpass";
-      vcfLp1.frequency.value = 3400;
-      vcfLp1.Q.value = 1.25;
-
-      const vcfLp2 = audioCtx.createBiquadFilter();
-      vcfLp2.type = "lowpass";
-      vcfLp2.frequency.value = 3400;
-      vcfLp2.Q.value = 1.25;
-
-      const vcfLfo = audioCtx.createOscillator();
-      vcfLfo.type = "sine";
-      vcfLfo.frequency.value = 0.21;
-      const vcfLfoGain = audioCtx.createGain();
-      vcfLfoGain.gain.value = 720;
-      vcfLfo.connect(vcfLfoGain);
-      vcfLfoGain.connect(vcfLp1.frequency);
-      vcfLfoGain.connect(vcfLp2.frequency);
-      vcfLfo.start();
-
-      pwmBus.connect(formantPad);
-      formantPad.connect(formantLead);
-      formantLead.connect(deHarsh);
-      deHarsh.connect(vcfLp1);
-      vcfLp1.connect(vcfLp2);
-
-      // 4. 三声部 Juno-60 / Solina 立体声正交复音合唱(BBD Unison Ensemble Chorus)
-      // 合唱支路先经 3.8kHz 抗混叠柔化滤波，消除高频瞬态调制毛刺
-      const synthStereoMix = audioCtx.createGain();
-      synthStereoMix.gain.value = 1.0;
-
-      const ensembleDry = audioCtx.createGain();
-      ensembleDry.gain.value = 0.36;
-      vcfLp2.connect(ensembleDry);
-      ensembleDry.connect(synthStereoMix);
-
-      const chorusPreLp = audioCtx.createBiquadFilter();
-      chorusPreLp.type = "lowpass";
-      chorusPreLp.frequency.value = 3800;
-      chorusPreLp.Q.value = 0.707;
-      vcfLp2.connect(chorusPreLp);
-
-      const delayL = audioCtx.createDelay(0.05);
-      delayL.delayTime.value = 0.0095;
-      const delayR = audioCtx.createDelay(0.05);
-      delayR.delayTime.value = 0.0130;
-      const delayC = audioCtx.createDelay(0.05);
-      delayC.delayTime.value = 0.0165;
-
-      const chorusLfo1 = audioCtx.createOscillator();
-      chorusLfo1.type = "sine";
-      chorusLfo1.frequency.value = 0.52;
-      const depthL = audioCtx.createGain();
-      depthL.gain.value = 0.0014;
-      const depthR = audioCtx.createGain();
-      depthR.gain.value = -0.0014;
-      chorusLfo1.connect(depthL);
-      chorusLfo1.connect(depthR);
-      depthL.connect(delayL.delayTime);
-      depthR.connect(delayR.delayTime);
-      chorusLfo1.start();
-
-      const chorusLfo2 = audioCtx.createOscillator();
-      chorusLfo2.type = "sine";
-      chorusLfo2.frequency.value = 0.86;
-      const depthC = audioCtx.createGain();
-      depthC.gain.value = 0.00095;
-      chorusLfo2.connect(depthC);
-      depthC.connect(delayC.delayTime);
-      chorusLfo2.start();
-
-      const gainL = audioCtx.createGain();
-      gainL.gain.value = 0.36;
-      const gainR = audioCtx.createGain();
-      gainR.gain.value = 0.36;
-      const gainC = audioCtx.createGain();
-      gainC.gain.value = 0.24;
-
-      chorusPreLp.connect(delayL);
-      chorusPreLp.connect(delayR);
-      chorusPreLp.connect(delayC);
-
-      if (typeof audioCtx.createStereoPanner === "function") {
-        const panL = audioCtx.createStereoPanner();
-        panL.pan.value = -0.82;
-        const panR = audioCtx.createStereoPanner();
-        panR.pan.value = 0.82;
-        delayL.connect(panL);
-        panL.connect(gainL);
-        delayR.connect(panR);
-        panR.connect(gainR);
-      } else {
-        delayL.connect(gainL);
-        delayR.connect(gainR);
-      }
-      delayC.connect(gainC);
-
-      gainL.connect(synthStereoMix);
-      gainR.connect(synthStereoMix);
-      gainC.connect(synthStereoMix);
-
-      // 5. 丝绒空间合成器回声(220Hz–1900Hz 带通限频延迟，无高频嘶声与低频浑浊)
-      const echoDelay = audioCtx.createDelay(0.5);
-      echoDelay.delayTime.value = 0.165;
-      const echoHp = audioCtx.createBiquadFilter();
-      echoHp.type = "highpass";
-      echoHp.frequency.value = 220;
-      const echoLp = audioCtx.createBiquadFilter();
-      echoLp.type = "lowpass";
-      echoLp.frequency.value = 1900;
-      const echoFeedback = audioCtx.createGain();
-      echoFeedback.gain.value = 0.15;
-      const echoWet = audioCtx.createGain();
-      echoWet.gain.value = 0.13;
-
-      vcfLp2.connect(echoDelay);
-      echoDelay.connect(echoHp);
-      echoHp.connect(echoLp);
-      echoLp.connect(echoFeedback);
-      echoFeedback.connect(echoDelay);
-      echoLp.connect(echoWet);
-      echoWet.connect(synthStereoMix);
-
-      // 6. 柔和动态保护与响度平衡
-      const outComp = audioCtx.createDynamicsCompressor();
-      outComp.threshold.value = -12;
-      outComp.knee.value = 14;
-      outComp.ratio.value = 2.5;
-      outComp.attack.value = 0.008;
-      outComp.release.value = 0.16;
-
-      const makeupGain = audioCtx.createGain();
-      makeupGain.gain.value = 0.94;
-
-      const wetGain = audioCtx.createGain();
-      wetGain.gain.value = synthFxEnabled ? 1 : 0;
-
-      synthStereoMix.connect(outComp);
-      outComp.connect(makeupGain);
-      makeupGain.connect(wetGain);
-      wetGain.connect(audioBaseGraph.stage1Bus);
-
-      synthNodes = {
-        wetGain,
-      };
-
-      updateAudioFxGraph(true);
-      return true;
-    } catch (e) {
-      console.warn("Synthesizer audio emulation unavailable:", e);
-      return false;
-    }
-  }
-
-  function createVinylNoiseBuffer(ctx) {
-    const sampleRate = ctx.sampleRate;
-    const length = sampleRate * 8; // 8 秒双声道无缝循环
-    const buffer = ctx.createBuffer(2, length, sampleRate);
-    const ch0 = buffer.getChannelData(0);
-    const ch1 = buffer.getChannelData(1);
-
-    // 1. 唱片纹路摩擦与针底噪声(粉红/布朗过滤噪声)
-    let b0_0 = 0, b1_0 = 0, b2_0 = 0;
-    let b0_1 = 0, b1_1 = 0, b2_1 = 0;
-    const rpmPeriod = sampleRate * (60 / 33.333); // 约 1.8 秒一转(33.3 RPM)
-
-    for (let i = 0; i < length; i++) {
-      const w0 = Math.random() * 2 - 1;
-      const w1 = Math.random() * 2 - 1;
-
-      b0_0 = 0.992 * b0_0 + w0 * 0.055;
-      b1_0 = 0.96 * b1_0 + w0 * 0.075;
-      b2_0 = 0.85 * b2_0 + w0 * 0.15;
-      const p0 = (b0_0 + b1_0 + b2_0) * 0.055;
-
-      b0_1 = 0.992 * b0_1 + w1 * 0.055;
-      b1_1 = 0.96 * b1_1 + w1 * 0.075;
-      b2_1 = 0.85 * b2_1 + w1 * 0.15;
-      const p1 = (b0_1 + b1_1 + b2_1) * 0.055;
-
-      const rotPhase = (i % rpmPeriod) / rpmPeriod;
-      const rotMod = 1 + 0.22 * Math.sin(rotPhase * Math.PI * 2);
-
-      ch0[i] = p0 * rotMod * 0.16;
-      ch1[i] = p1 * rotMod * 0.16;
-    }
-
-    // 2. 真实随机尘粒爆音与黑胶炒豆声(不同强度的瞬态脉冲)
-    const numClicks = Math.floor(length * (5.5 / sampleRate));
-    for (let c = 0; c < numClicks; c++) {
-      const clickPos = Math.floor(Math.random() * (length - 400));
-      const isPop = Math.random() < 0.16;
-      const strength = isPop ? (0.16 + Math.random() * 0.26) : (0.035 + Math.random() * 0.08);
-      const sign = Math.random() > 0.5 ? 1 : -1;
-      const pan = Math.random();
-      const decaySamples = isPop ? 45 : 18;
-
-      for (let j = 0; j < decaySamples; j++) {
-        const env = Math.exp(-j / (decaySamples * 0.26));
-        const val = sign * strength * env * (Math.random() * 0.5 + 0.5);
-        ch0[clickPos + j] += val * (1 - pan);
-        ch1[clickPos + j] += val * pan;
-      }
-    }
-
-    // 3. 周期性转盘微弱微划痕
-    const scratchPhase = Math.floor(sampleRate * 0.38);
-    for (let r = 0; r < Math.floor(length / rpmPeriod); r++) {
-      const pos = Math.floor(r * rpmPeriod + scratchPhase);
-      if (pos + 60 < length) {
-        for (let j = 0; j < 30; j++) {
-          const env = Math.exp(-j / 8);
-          const val = 0.09 * env * (Math.random() * 0.5 + 0.5);
-          ch0[pos + j] += val;
-          ch1[pos + j] += val * 0.65;
-        }
-      }
-    }
-
-    return buffer;
-  }
-
-  function makeVinylSaturationCurve() {
-    const n = 4096;
-    const curve = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const x = (i * 2) / (n - 1) - 1;
-      curve[i] = Math.tanh(x * 1.25) / Math.tanh(1.25);
-    }
-    return curve;
-  }
-
-  function initVinylAudioEngine() {
-    if (vinylNodes) return true;
-    if (!ensureAudioBaseGraph()) return false;
-    try {
-      const inputBus = audioBaseGraph.stage1Bus;
-
-      // 黑胶音效链(wet)
-      const wetGain = audioCtx.createGain();
-      wetGain.gain.value = vinylFxEnabled ? 1 : 0;
-
-      // 1. 高通滤波: 削减超低频隆隆声
-      const hp = audioCtx.createBiquadFilter();
-      hp.type = "highpass";
-      hp.frequency.value = 52;
-      hp.Q.value = 0.7;
-
-      // 2. 温暖低频垫底(lowshelf)
-      const warmShelf = audioCtx.createBiquadFilter();
-      warmShelf.type = "lowshelf";
-      warmShelf.frequency.value = 180;
-      warmShelf.gain.value = 2.2;
-
-      // 3. 唱针与号角中频共鸣峰(peaking)
-      const midRes = audioCtx.createBiquadFilter();
-      midRes.type = "peaking";
-      midRes.frequency.value = 2200;
-      midRes.gain.value = 1.6;
-      midRes.Q.value = 1.0;
-
-      // 4. 复古高频滚降(低通滤波，削弱数码刺耳感)
-      const lp = audioCtx.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.value = 6800;
-      lp.Q.value = 1.0;
-
-      // 5. 胆管/磁带唱针软饱和(Waveshaper)
-      const shaper = audioCtx.createWaveShaper();
-      shaper.curve = makeVinylSaturationCurve();
-      shaper.oversample = "2x";
-
-      // 6. 抖晃与唱盘微颤(Wow & Flutter)
-      const delay = audioCtx.createDelay();
-      delay.delayTime.value = 0.015;
-
-      const wowOsc = audioCtx.createOscillator();
-      wowOsc.frequency.value = 0.555; // 33.3 RPM 转速周期
-      const wowGain = audioCtx.createGain();
-      wowGain.gain.value = 0.00028;
-      wowOsc.connect(wowGain);
-      wowGain.connect(delay.delayTime);
-      wowOsc.start();
-
-      const flutterOsc = audioCtx.createOscillator();
-      flutterOsc.frequency.value = 4.8;
-      flutterOsc.type = "triangle";
-      const flutterGain = audioCtx.createGain();
-      flutterGain.gain.value = 0.00006;
-      flutterOsc.connect(flutterGain);
-      flutterGain.connect(delay.delayTime);
-      flutterOsc.start();
-
-      // 连接黑胶音乐处理链
-      inputBus.connect(hp);
-      hp.connect(warmShelf);
-      warmShelf.connect(midRes);
-      midRes.connect(lp);
-      lp.connect(shaper);
-      shaper.connect(delay);
-      delay.connect(wetGain);
-      wetGain.connect(audioCtx.destination);
-
-      // 7. 真实唱针底噪与炒豆声发生器
-      const noiseBuffer = createVinylNoiseBuffer(audioCtx);
-      const noiseSource = audioCtx.createBufferSource();
-      noiseSource.buffer = noiseBuffer;
-      noiseSource.loop = true;
-
-      const noiseHp = audioCtx.createBiquadFilter();
-      noiseHp.type = "highpass";
-      noiseHp.frequency.value = 140;
-
-      const noiseLp = audioCtx.createBiquadFilter();
-      noiseLp.type = "lowpass";
-      noiseLp.frequency.value = 2800;
-
-      const noiseGain = audioCtx.createGain();
-      noiseGain.gain.value = 0; // 初始静音，起播时淡入
-
-      noiseSource.connect(noiseHp);
-      noiseHp.connect(noiseLp);
-      noiseLp.connect(noiseGain);
-      noiseGain.connect(audioCtx.destination);
-      noiseSource.start();
-
-      vinylNodes = {
-        wetGain,
-        noiseGain,
-      };
-
-      updateAudioFxGraph(true);
-      return true;
-    } catch (e) {
-      console.warn("Vinyl audio emulation unavailable:", e);
-      return false;
-    }
-  }
-
-  function getTargetNoiseGain() {
-    if (!vinylFxEnabled || audio.paused || audio.volume <= 0) return 0;
-    return BASE_VINYL_NOISE_GAIN * Math.min(1, Math.max(0, audio.volume));
-  }
-
-  function updateAudioFxGraph(immediate) {
-    if (!audioBaseGraph || !audioCtx) return;
-    const time = audioCtx.currentTime;
-    const rampTime = immediate ? 0.005 : 0.04;
-
-    // 第一级: 合成器重合成 vs 原声
-    const useSynth = !!(synthFxEnabled && synthNodes);
-    audioBaseGraph.stage1DryGain.gain.setTargetAtTime(useSynth ? 0 : 1, time, rampTime);
-    if (synthNodes) {
-      synthNodes.wetGain.gain.setTargetAtTime(useSynth ? 1 : 0, time, rampTime);
-    }
-
-    // 第二级: 黑胶留声机 vs 第一级直通
-    const useVinyl = !!(vinylFxEnabled && vinylNodes);
-    audioBaseGraph.stage2DryGain.gain.setTargetAtTime(useVinyl ? 0 : 1, time, rampTime);
-    if (vinylNodes) {
-      vinylNodes.wetGain.gain.setTargetAtTime(useVinyl ? 1 : 0, time, rampTime);
-      vinylNodes.noiseGain.gain.setTargetAtTime(getTargetNoiseGain(), time, rampTime);
-    }
-  }
-
-  function ensureAudioContextResumed() {
-    clearTimeout(audioSuspendTimer);
-    if (audioCtx && audioCtx.state === "suspended") {
-      audioCtx.resume().catch(() => {});
-    }
-  }
-
-  function scheduleAudioContextSuspend() {
-    clearTimeout(audioSuspendTimer);
-    if (!audioCtx) return;
-    audioSuspendTimer = setTimeout(() => {
-      if (audio.paused && audioCtx && audioCtx.state === "running") {
-        audioCtx.suspend().catch(() => {});
-      }
-    }, 300);
-  }
-
-  function updateVinylUI() {
-    if (els.vinylFxBtn) {
-      els.vinylFxBtn.classList.toggle("on", vinylFxEnabled);
-      els.vinylFxBtn.setAttribute("aria-pressed", vinylFxEnabled ? "true" : "false");
-    }
-    document.body.classList.toggle("vinyl-fx-active", vinylFxEnabled);
-  }
-
-  function updateSynthUI() {
-    if (els.synthFxBtn) {
-      els.synthFxBtn.classList.toggle("on", synthFxEnabled);
-      els.synthFxBtn.setAttribute("aria-pressed", synthFxEnabled ? "true" : "false");
-    }
-    document.body.classList.toggle("synth-fx-active", synthFxEnabled);
-  }
-
-  function toggleVinylFx() {
-    vinylFxEnabled = !vinylFxEnabled;
-    localStorage.setItem(VINYL_FX_KEY, vinylFxEnabled ? "1" : "0");
-    if (!audio.paused) {
-      if (vinylFxEnabled) initVinylAudioEngine();
-      ensureAudioContextResumed();
-      updateAudioFxGraph(false);
-    }
-    updateVinylUI();
-    toast(vinylFxEnabled ? "已开启黑胶唱片音效 · 温暖模拟与唱针底噪" : "已关闭黑胶音效 · 还原数码原声");
-  }
-
-  function toggleSynthFx() {
-    synthFxEnabled = !synthFxEnabled;
-    localStorage.setItem(SYNTH_FX_KEY, synthFxEnabled ? "1" : "0");
-    if (!audio.paused) {
-      if (synthFxEnabled) initSynthAudioEngine();
-      ensureAudioContextResumed();
-      updateAudioFxGraph(false);
-    }
-    updateSynthUI();
-    toast(synthFxEnabled ? "已开启合成器模式 · 模拟 PWM 相位共振与复音合唱" : "已关闭合成器模式 · 还原原始乐器音色");
-  }
-
-  /* ---------------- scrolling lyrics engine ---------------- */
-
-  function isMobileLyricsViewport() {
-    return !!(window.matchMedia && window.matchMedia("(max-width: 980px)").matches);
-  }
-
-  function isLyricsPanelVisible() {
-    return isMobileLyricsViewport() ? mobileLyricsOpen : desktopLyricsOpen;
-  }
-
-  function updateLyricsPanelUI() {
-    const visible = isLyricsPanelVisible();
-    document.body.classList.toggle("lyrics-closed", !desktopLyricsOpen);
-    document.body.classList.toggle("mobile-lyrics-open", mobileLyricsOpen);
-    els.lyricsToggleBtn.classList.toggle("on", visible);
-    els.lyricsToggleBtn.setAttribute("aria-pressed", visible ? "true" : "false");
-    els.lyricsPanel.classList.toggle("hide-trans", !showTrans);
-    els.lyricsTransBtn.classList.toggle("on", showTrans);
-    els.lyricsTransBtn.setAttribute("aria-pressed", showTrans ? "true" : "false");
-    if (visible) {
-      requestAnimationFrame(() => centerActiveLyric(true));
-    }
-    updateCollapsedLyricSubtitle();
-  }
-
-  function toggleLyricsPanel() {
-    if (isMobileLyricsViewport()) {
-      mobileLyricsOpen = !mobileLyricsOpen;
-    } else {
-      desktopLyricsOpen = !desktopLyricsOpen;
-      localStorage.setItem(LYRICS_OPEN_KEY, desktopLyricsOpen ? "1" : "0");
-    }
-    updateLyricsPanelUI();
-  }
-
-  els.lyricsToggleBtn.addEventListener("click", toggleLyricsPanel);
-  els.lyricsCloseBtn.addEventListener("click", () => {
-    if (isMobileLyricsViewport()) {
-      mobileLyricsOpen = false;
-    } else {
-      desktopLyricsOpen = false;
-      localStorage.setItem(LYRICS_OPEN_KEY, "0");
-    }
-    updateLyricsPanelUI();
-  });
-
-  els.lyricsTransBtn.addEventListener("click", () => {
-    showTrans = !showTrans;
-    localStorage.setItem(LYRICS_TRANS_KEY, showTrans ? "1" : "0");
-    updateLyricsPanelUI();
-    centerActiveLyric(false);
-  });
-
-  if (els.playerTrack) {
-    els.playerTrack.addEventListener("click", () => {
-      if (isMobileLyricsViewport()) toggleLyricsPanel();
-    });
-  }
-
-  window.addEventListener("resize", () => {
-    const visible = isLyricsPanelVisible();
-    els.lyricsToggleBtn.classList.toggle("on", visible);
-    els.lyricsToggleBtn.setAttribute("aria-pressed", visible ? "true" : "false");
-  });
-
-  function loadLiveLyricsCache() {
-    try {
-      const raw = localStorage.getItem(LIVE_LYRICS_CACHE_KEY);
-      if (raw) liveLyricsCache = JSON.parse(raw) || {};
-    } catch (e) { liveLyricsCache = {}; }
-  }
-
-  function saveLiveLyricsCache() {
-    try {
-      localStorage.setItem(LIVE_LYRICS_CACHE_KEY, JSON.stringify(liveLyricsCache));
-    } catch (e) { /* ignore quota */ }
-  }
-
-  async function loadLyricsCatalog() {
-    loadLiveLyricsCache();
-    lyricsCatalogPromise = (async () => {
-      try {
-        const res = await fetch("lyrics.json", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data && typeof data === "object") {
-          lyricsCatalog = data;
-          if (currentIndex !== -1 && tracks[currentIndex]) {
-            loadTrackLyrics(tracks[currentIndex]);
-          }
-        }
-      } catch (e) { /* 若缺失则走在线兜底 */ } finally {
-        lyricsCatalogLoaded = true;
-      }
-    })();
-    return lyricsCatalogPromise;
-  }
-
-  function parseTimedLines(rawText) {
-    if (!rawText) return { offsetSec: 0, timed: [], plain: [] };
-    let offsetSec = 0;
-    const offMatch = rawText.match(/\[offset:\s*([+-]?\d+)\s*\]/i);
-    if (offMatch) offsetSec = (parseInt(offMatch[1], 10) || 0) / 1000;
-
-    const timed = [];
-    const plain = [];
-    const tagRe = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
-
-    rawText.split(/\r?\n/).forEach((rawLine) => {
-      const line = rawLine.trim();
-      if (!line) return;
-      if (/^\[(id|ar|ti|al|by|hash|sign|qq|total|re|ve|offset):/i.test(line)) return;
-
-      const stamps = [];
-      let m;
-      tagRe.lastIndex = 0;
-      while ((m = tagRe.exec(line)) !== null) {
-        const mins = parseInt(m[1], 10) || 0;
-        const secs = parseInt(m[2], 10) || 0;
-        const frac = m[3] ? Number("0." + m[3]) : 0;
-        stamps.push(Math.max(0, mins * 60 + secs + frac - offsetSec));
-      }
-      const text = line.replace(tagRe, "").trim();
-      if (!stamps.length) {
-        if (text) plain.push(text);
-        return;
-      }
-      if (!text) return;
-      stamps.forEach((t) => timed.push({ time: t, text: text }));
-    });
-
-    timed.sort((a, b) => a.time - b.time);
-    return { offsetSec, timed, plain };
-  }
-
-  function parseLrcBundle(entry) {
-    if (!entry) return { type: "none", lines: [], hasTrans: false };
-    if (entry.type === "instrumental") {
-      return { type: "instrumental", lines: [], hasTrans: false };
-    }
-
-    const main = parseTimedLines(entry.lrc || "");
-    if (!main.timed.length) {
-      if (main.plain.length) {
-        return {
-          type: "plain",
-          lines: main.plain.map((txt) => ({ time: null, text: txt, trans: "" })),
-          hasTrans: false,
-        };
-      }
-      return { type: "none", lines: [], hasTrans: false };
-    }
-
-    const transParsed = parseTimedLines(entry.tlyric || "");
-    let hasTrans = false;
-    const lines = main.timed.map((item) => ({
-      time: item.time,
-      text: item.text,
-      trans: "",
-    }));
-
-    if (transParsed.timed.length) {
-      let ti = 0;
-      for (let i = 0; i < lines.length; i++) {
-        const target = lines[i].time;
-        while (
-          ti + 1 < transParsed.timed.length &&
-          Math.abs(transParsed.timed[ti + 1].time - target) <= Math.abs(transParsed.timed[ti].time - target)
-        ) {
-          ti++;
-        }
-        if (Math.abs(transParsed.timed[ti].time - target) <= 0.85) {
-          const trText = transParsed.timed[ti].text;
-          if (trText && trText !== "//" && trText !== lines[i].text) {
-            lines[i].trans = trText;
-            hasTrans = true;
-          }
-        }
-      }
-    }
-
-    return { type: "synced", lines, hasTrans };
-  }
-
-  async function fetchLiveLyricsFallback(track) {
-    const params = new URLSearchParams({ title: track.title || "" });
-    if (track.artist) params.set("artist", track.artist);
-    if (track.album && track.album.toLowerCase() !== "unknown album") {
-      params.set("album", track.album);
-    }
-    try {
-      const res = await fetch("https://api.lrc.cx/lyrics?" + params.toString());
-      if (!res.ok) return null;
-      const text = await res.text();
-      if (!text || !text.trim()) return null;
-      if (/纯音乐，请欣赏|此歌曲为没有填词的纯音乐/.test(text)) {
-        return { type: "instrumental" };
-      }
-      return { type: "synced", lrc: text };
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function updateCollapsedLyricSubtitle() {
-    if (currentIndex === -1 || !tracks[currentIndex]) return;
-    const tr = tracks[currentIndex];
-    if (
-      !audio.paused &&
-      !isLyricsPanelVisible() &&
-      currentLyricState &&
-      currentLyricState.type === "synced" &&
-      activeLyricIndex >= 0 &&
-      currentLyricState.lines[activeLyricIndex] &&
-      currentLyricState.lines[activeLyricIndex].text
-    ) {
-      els.trackSub.textContent = "\u266A " + currentLyricState.lines[activeLyricIndex].text;
-    } else {
-      els.trackSub.textContent = defaultTrackSub(tr);
-    }
-  }
-
-  async function loadTrackLyrics(track) {
-    if (!track) return;
-    const reqSeq = ++lyricsReqSeq;
-    exitUserScrollMode(true);
-    activeLyricIndex = -1;
-    els.lyricsTrackName.textContent = track.artist ? (track.title + " · " + track.artist) : track.title;
-
-    let entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
-    if (!entry && !lyricsCatalogLoaded && lyricsCatalogPromise) {
-      els.lyricsTransBtn.hidden = true;
-      els.lyricsList.innerHTML = '<li class="lyric-empty">正在加载唱词库…</li>';
-      await lyricsCatalogPromise;
-      if (reqSeq !== lyricsReqSeq || tracks[currentIndex] !== track) return;
-      entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
-    }
-    if (!entry) {
-      els.lyricsTransBtn.hidden = true;
-      els.lyricsList.innerHTML = '<li class="lyric-empty">正在检索唱词…</li>';
-      const fetched = await fetchLiveLyricsFallback(track);
-      if (reqSeq !== lyricsReqSeq || tracks[currentIndex] !== track) return;
-      if (fetched) {
-        liveLyricsCache[track.url] = fetched;
-        saveLiveLyricsCache();
-        entry = fetched;
-      }
-    }
-
-    currentLyricState = parseLrcBundle(entry);
-    renderLyricsView(track);
-    syncLyricsToTime(audio.currentTime || 0, true);
-    updateCollapsedLyricSubtitle();
-  }
-
-  function renderLyricsView(track) {
-    const st = currentLyricState;
-    els.lyricsList.innerHTML = "";
-    programmaticScrollGuardUntil = Date.now() + 180;
-    els.lyricsScroll.scrollTop = 0;
-
-    if (!st || st.type === "none") {
-      els.lyricsTransBtn.hidden = true;
-      const li = document.createElement("li");
-      li.className = "lyric-empty";
-      li.textContent = "馆藏暂未收录此曲唱词";
-      els.lyricsList.appendChild(li);
-      return;
-    }
-
-    if (st.type === "instrumental") {
-      els.lyricsTransBtn.hidden = true;
-      const li = document.createElement("li");
-      li.className = "lyric-instrumental";
-      const badge = document.createElement("div");
-      badge.className = "lyric-inst-badge";
-      badge.textContent = "\u2726 INSTRUMENTAL · 纯器乐曲 \u2726";
-      const msg = document.createElement("p");
-      msg.textContent = "此曲为器乐演奏曲目，无唱词，敬请静心聆听留声旋律。";
-      li.append(badge, msg);
-      els.lyricsList.appendChild(li);
-      return;
-    }
-
-    els.lyricsTransBtn.hidden = !st.hasTrans;
-    const frag = document.createDocumentFragment();
-
-    st.lines.forEach((ln, idx) => {
-      const li = document.createElement("li");
-      li.className = "lyric-line" + (ln.time !== null ? " timed" : "");
-      li.dataset.idx = idx;
-
-      const mainSpan = document.createElement("span");
-      mainSpan.className = "lyric-main";
-      mainSpan.textContent = ln.text;
-      li.appendChild(mainSpan);
-
-      if (ln.trans) {
-        const trSpan = document.createElement("span");
-        trSpan.className = "lyric-trans";
-        trSpan.textContent = ln.trans;
-        li.appendChild(trSpan);
-      }
-
-      if (ln.time !== null) {
-        const tmSpan = document.createElement("span");
-        tmSpan.className = "lyric-time";
-        tmSpan.textContent = fmt(ln.time);
-        li.appendChild(tmSpan);
-      }
-
-      frag.appendChild(li);
-    });
-
-    els.lyricsList.appendChild(frag);
-  }
-
-  // 歌词列表事件委托(点击任意带时间戳的唱词行跳转进度)
-  els.lyricsList.addEventListener("click", (e) => {
-    const li = e.target.closest(".lyric-line.timed");
-    if (!li || !currentLyricState || !currentLyricState.lines) return;
-    const idx = Number(li.dataset.idx);
-    const ln = currentLyricState.lines[idx];
-    if (!ln || ln.time === null) return;
-    if (isFinite(audio.duration) || audio.readyState >= 1) {
-      audio.currentTime = ln.time;
-    }
-    exitUserScrollMode(true);
-    syncLyricsToTime(ln.time, false);
-    if (audio.paused && currentIndex !== -1 && tracks[currentIndex]) safePlay();
-  });
-
-  function findActiveLyricIndex(timeSec) {
-    const st = currentLyricState;
-    if (!st || !st.lines.length) return -1;
-    if (st.type === "plain") {
-      if (!isFinite(audio.duration) || audio.duration <= 0) return 0;
-      const ratio = Math.min(0.999, Math.max(0, timeSec / audio.duration));
-      return Math.floor(ratio * st.lines.length);
-    }
-    if (st.type !== "synced") return -1;
-
-    const target = timeSec + 0.12;
-    const lines = st.lines;
-    if (target < lines[0].time) return -1;
-
-    let lo = 0;
-    let hi = lines.length - 1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (lines[mid].time <= target) lo = mid + 1;
-      else hi = mid - 1;
-    }
-    return hi;
-  }
-
-  function syncLyricsToTime(timeSec, immediate) {
-    const st = currentLyricState;
-    if (!st || (st.type !== "synced" && st.type !== "plain")) return;
-
-    const nextIdx = findActiveLyricIndex(timeSec);
-    if (nextIdx === activeLyricIndex && !immediate) return;
-    activeLyricIndex = nextIdx;
-
-    const items = els.lyricsList.children;
-    for (let i = 0; i < items.length; i++) {
-      items[i].classList.toggle("active", i === activeLyricIndex);
-      items[i].classList.toggle("past", activeLyricIndex > i);
-    }
-
-    updateCollapsedLyricSubtitle();
-
-    if (activeLyricIndex >= 0 && !userScrolling) {
-      centerActiveLyric(immediate);
-    }
-  }
-
-  // 程序化滚动 Promise 封装(原生支持时直接返回 Promise，旧浏览器回退到 scrollend + 空闲计时)
-  function scrollToAsync(scroller, options) {
-    const result = scroller.scrollTo(options);
-    if (result instanceof Promise) {
-      return result;
-    }
-    return new Promise((resolve) => {
-      let timeoutId;
-      const finish = () => {
-        clearTimeout(timeoutId);
-        scroller.removeEventListener("scrollend", finish);
-        scroller.removeEventListener("scroll", onScroll);
-        resolve();
-      };
-      const onScroll = () => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(finish, 100);
-      };
-      scroller.addEventListener("scrollend", finish, { once: true });
-      scroller.addEventListener("scroll", onScroll, { passive: true });
-      timeoutId = setTimeout(finish, 100);
-    });
-  }
-
-  async function centerActiveLyric(immediate) {
-    if (userScrolling || !isLyricsPanelVisible()) return;
-    const scroller = els.lyricsScroll;
-    const activeEl = els.lyricsList.querySelector(".lyric-line.active");
-    if (!scroller || !activeEl) return;
-
-    const targetTop = Math.max(
-      0,
-      activeEl.offsetTop - scroller.clientHeight / 2 + activeEl.offsetHeight / 2
-    );
-    if (Math.abs(scroller.scrollTop - targetTop) < 2) return;
-
-    const seq = ++lyricsScrollSeq;
-    const preferReduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    const behavior = immediate || preferReduced ? "instant" : "smooth";
-
-    programmaticScrollDepth++;
-    programmaticScrollGuardUntil = Date.now() + 180;
-    try {
-      await scrollToAsync(scroller, { top: targetTop, behavior: behavior });
-    } finally {
-      programmaticScrollDepth = Math.max(0, programmaticScrollDepth - 1);
-      programmaticScrollGuardUntil = Date.now() + 180;
-    }
-    if (seq !== lyricsScrollSeq) return;
-  }
-
-  function scheduleAutoFollowResume() {
-    clearTimeout(userScrollResumeTimer);
-    if (!userScrolling || isPointerTouchingLyrics) return;
-    userScrollResumeTimer = setTimeout(() => {
-      exitUserScrollMode(false);
-    }, USER_SCROLL_RESUME_MS);
-  }
-
-  function enterUserScrollMode() {
-    userScrolling = true;
-    lyricsScrollSeq++;
-    els.lyricsFollowBtn.hidden = false;
-    scheduleAutoFollowResume();
-  }
-
-  function exitUserScrollMode(silent) {
-    userScrolling = false;
-    isPointerTouchingLyrics = false;
-    clearTimeout(userScrollResumeTimer);
-    els.lyricsFollowBtn.hidden = true;
-    if (!silent && activeLyricIndex >= 0) {
-      centerActiveLyric(false);
-    }
-  }
-
-  els.lyricsFollowBtn.addEventListener("click", () => exitUserScrollMode(false));
-
-  els.lyricsScroll.addEventListener("wheel", () => {
-    enterUserScrollMode();
-  }, { passive: true });
-
-  els.lyricsScroll.addEventListener("touchstart", () => {
-    isPointerTouchingLyrics = true;
-    clearTimeout(userScrollResumeTimer);
-  }, { passive: true });
-
-  els.lyricsScroll.addEventListener("touchmove", () => {
-    enterUserScrollMode();
-  }, { passive: true });
-
-  els.lyricsScroll.addEventListener("touchend", () => {
-    isPointerTouchingLyrics = false;
-    scheduleAutoFollowResume();
-  }, { passive: true });
-
-  els.lyricsScroll.addEventListener("touchcancel", () => {
-    isPointerTouchingLyrics = false;
-    scheduleAutoFollowResume();
-  }, { passive: true });
-
-  els.lyricsScroll.addEventListener("pointerdown", (e) => {
-    const rect = els.lyricsScroll.getBoundingClientRect();
-    // 拖拽滚动条滑块时进入用户手动滚动模式
-    if (e.clientX >= rect.right - 18) {
-      isPointerTouchingLyrics = true;
-      enterUserScrollMode();
-    }
-  });
-
-  window.addEventListener("pointerup", () => {
-    if (isPointerTouchingLyrics) {
-      isPointerTouchingLyrics = false;
-      scheduleAutoFollowResume();
-    }
-  });
-
-  els.lyricsScroll.addEventListener("scroll", () => {
-    if (userScrolling) {
-      scheduleAutoFollowResume();
-    } else if (programmaticScrollDepth === 0 && Date.now() > programmaticScrollGuardUntil) {
-      enterUserScrollMode();
-    }
-  }, { passive: true });
 
   /* ---------------- media session ---------------- */
 
@@ -2785,10 +1853,15 @@
       if (e.key === "Escape") closeSettings();
       return;
     }
-    if (e.key === "Escape" && mobileLyricsOpen) {
-      mobileLyricsOpen = false;
-      updateLyricsPanelUI();
-      return;
+    if (e.key === "Escape") {
+      if (els.queueDrawer && !els.queueDrawer.hidden) {
+        closeQueueDrawer(true);
+        return;
+      }
+      if (lyricsCtrl.isMobileOpen()) {
+        lyricsCtrl.closeMobile(true);
+        return;
+      }
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
@@ -2800,11 +1873,10 @@
       if (e.key.indexOf("Arrow") === 0) return;
     }
     if ((tag === "button" || tag === "a") && (e.key === " " || e.key === "Enter")) return;
-    // 播放列表条目自带 Enter/Space 选曲与上下方向键/Home/End 漫游焦点导航，避免与全局快捷键冲突
     if (
       target.closest &&
       target.closest(".playlist-item") &&
-      (e.key === " " || e.key === "Enter" || e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "Home" || e.key === "End")
+      (e.key === " " || e.key === "Enter" || e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End")
     ) {
       return;
     }
@@ -2820,7 +1892,7 @@
       target.closest("#lyricsScroll") &&
       (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown" || e.key === "Home" || e.key === "End")
     ) {
-      enterUserScrollMode();
+      lyricsCtrl.enterUserScrollMode();
       return;
     }
     if (e.repeat && e.key.indexOf("Arrow") !== 0) return;
@@ -2838,9 +1910,10 @@
       case "n": case "N": nextTrack(false); break;
       case "p": case "P": prevTrack(); break;
       case "m": case "M": els.muteBtn.click(); break;
-      case "l": case "L": toggleLyricsPanel(); break;
-      case "v": case "V": toggleVinylFx(); break;
-      case "s": case "S": toggleSynthFx(); break;
+      case "l": case "L": lyricsCtrl.togglePanel(); break;
+      case "v": case "V": audioFx.toggleVinylFx(); break;
+      case "s": case "S": audioFx.toggleSynthFx(); break;
+      case "q": case "Q": toggleQueueDrawer(els.queueToggleBtn); break;
     }
   });
 
@@ -2857,18 +1930,10 @@
 
   function initShelfTabs() {
     const tabWrap = els.genreShelfTabs;
-    if (!tabWrap) return;
+    if (!tabWrap) return null;
     const tabs = Array.from(tabWrap.querySelectorAll(".shelf-tab"));
 
-    function activateShelfTab(cat, focusTab) {
-      if (cat !== shelfCategory) {
-        shelfCategory = cat;
-        if (activeGenre !== "all" && shelfCategory !== "all" && genreCategory(activeGenre) !== shelfCategory) {
-          activeGenre = "all";
-        }
-        renderGenreShelf();
-        applyFilter();
-      }
+    function sync(focusTab) {
       tabs.forEach((b) => {
         const on = b.dataset.category === shelfCategory;
         b.classList.toggle("on", on);
@@ -2878,9 +1943,20 @@
       });
     }
 
+    function activateShelfTab(catId, focusTab) {
+      if (catId !== shelfCategory) {
+        shelfCategory = catId;
+        if (activeGenre !== "all" && shelfCategory !== "all" && genreCategory(activeGenre) !== shelfCategory) {
+          activeGenre = "all";
+        }
+        renderGenreShelf();
+        applyFilter();
+      }
+      sync(focusTab);
+    }
+
     tabs.forEach((btn, idx) => {
-      const on = btn.dataset.category === shelfCategory;
-      btn.tabIndex = on ? 0 : -1;
+      btn.tabIndex = btn.dataset.category === shelfCategory ? 0 : -1;
       btn.addEventListener("click", () => {
         activateShelfTab(btn.dataset.category || "all", false);
       });
@@ -2896,6 +1972,8 @@
         }
       });
     });
+
+    return { sync };
   }
 
   /* ---------------- init ---------------- */
@@ -2903,11 +1981,10 @@
   function init() {
     loadSettings();
     updateRepeatUI();
-    els.shuffleBtn.classList.toggle("on", shuffle);
-    els.shuffleBtn.setAttribute("aria-pressed", shuffle ? "true" : "false");
+    setPressedButtonState(els.shuffleBtn, shuffle);
     setView(view);
-    initShelfTabs();
-    const v = parseInt(localStorage.getItem("gh-volume"), 10);
+    shelfTabsApi = initShelfTabs();
+    const v = parseInt(storageGet(KEYS.VOLUME, ""), 10);
     if (!isNaN(v)) {
       if (v > 0) lastVolume = Math.min(100, v);
       setVolume(v);
@@ -2915,17 +1992,12 @@
       syncSlider(els.volume);
     }
     syncSlider(els.seek);
-    updateLyricsPanelUI();
-    updateVinylUI();
-    updateSynthUI();
-    if (els.vinylFxBtn) {
-      els.vinylFxBtn.addEventListener("click", toggleVinylFx);
-    }
-    if (els.synthFxBtn) {
-      els.synthFxBtn.addEventListener("click", toggleSynthFx);
-    }
+    lyricsCtrl.init();
+    audioFx.syncUI();
+    if (els.vinylFxBtn) els.vinylFxBtn.addEventListener("click", audioFx.toggleVinylFx);
+    if (els.synthFxBtn) els.synthFxBtn.addEventListener("click", audioFx.toggleSynthFx);
+    updateQueueUI();
     setupMediaSession();
-    loadLyricsCatalog();
     loadLibrary(false);
   }
 
