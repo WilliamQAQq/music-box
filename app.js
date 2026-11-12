@@ -17,7 +17,7 @@
   // 连续多少首播放失败后停止自动跳歌(防止断网时无限跳歌)
   const MAX_ERROR_STREAK = 3;
 
-  // 十四大维多利亚风格唱片集与国歌军乐特辑定义(顺序即展示顺序)
+  // 十五大维多利亚风格唱片集与国歌军乐特辑定义(顺序即展示顺序)
   const GENRE_PRESETS = [
     {
       id: "黄金年代 · 爵士名伶",
@@ -245,10 +245,11 @@
     "濑户口藤吉": "国歌军乐 · 日本",
     "夏尔·勒鲁": "国歌军乐 · 日本",
     "imperial ensemble": "国歌军乐 · 日本",
+    "陸軍戸山学校軍楽隊": "国歌军乐 · 日本",
     "陸軍戸山学校軍乐隊": "国歌军乐 · 日本",
     "columbia orchestra": "国歌军乐 · 日本",
-    "帝国海軍軍乐隊": "国歌军乐 · 日本",
-    "帝国海軍軍乐隊 (1909)": "国歌军乐 · 日本",
+    "帝国海軍軍楽隊": "国歌军乐 · 日本",
+    "帝国海軍軍楽隊 (1909)": "国歌军乐 · 日本",
     "band of the grenadier guards": "国歌军乐 · 英国",
     "military band": "国歌军乐 · 英国",
     "f. j. ricketts (kenneth j. alford)": "国歌军乐 · 英国",
@@ -257,14 +258,91 @@
 
   // 同名/共享歌手曲目的文件名级风格映射(确保本地旧缓存与 GitHub API 兜底时 100% 精确归类)
   const FILENAME_GENRE_MAP = {
+    // 国歌军乐 · 中国 (10)
+    "中国人民解放军军乐团 - 义勇军进行曲 (中华人民共和国国歌).mp3": "国歌军乐 · 中国",
+    "中央乐团合唱团 - 歌唱祖国.mp3": "国歌军乐 · 中国",
+    "中央乐团合唱团 - 保卫黄河.mp3": "国歌军乐 · 中国",
+    "中国人民解放军总政歌舞团 - 游击队歌.mp3": "国歌军乐 · 中国",
+    "中央乐团合唱团 - 我们走在大路上.mp3": "国歌军乐 · 中国",
+    "百代唱片 (Pathé Records) - 义勇军进行曲 (1935年原版唱片).mp3": "国歌军乐 · 中国",
+    "中国人民解放军 - 东方红 (1963年录音).mp3": "国歌军乐 · 中国",
+    "八路军战士合唱团 - 八路军进行曲 (1939年原始录音).mp3": "国歌军乐 · 中国",
+    "中国人民解放军军乐团 - 义勇军进行曲 (1978-1982年版).mp3": "国歌军乐 · 中国",
+    "粤语合唱团 - 义勇军进行曲 (粤语版).mp3": "国歌军乐 · 中国",
+
+    // 国歌军乐 · 美国 (10)
+    "United States Military Ensemble - The Star-Spangled Banner.mp3": "国歌军乐 · 美国",
+    "John Philip Sousa - The Stars and Stripes Forever.mp3": "国歌军乐 · 美国",
+    "The Sandpiper Chorus - Battle Hymn of the Republic.mp3": "国歌军乐 · 美国",
+    "The Sandpiper Chorus - The Marines' Hymn (Halls of Montezuma).mp3": "国歌军乐 · 美国",
+    "The Sandpiper Chorus - The Caissons Go Rolling Along.mp3": "国歌军乐 · 美国",
+    "United States Marine Band - Semper Fidelis (永远忠诚).mp3": "国歌军乐 · 美国",
+    "United States Marine Band - The Washington Post (华盛顿邮报进行曲).mp3": "国歌军乐 · 美国",
+    "United States Marine Band - The Liberty Bell (自由钟进行曲).mp3": "国歌军乐 · 美国",
+    "United States Marine Band - El Capitan (上尉进行曲).mp3": "国歌军乐 · 美国",
+    "United States Naval Academy Band - Anchors Aweigh (起锚歌 - 海军军歌).mp3": "国歌军乐 · 美国",
+
+    // 国歌军乐 · 俄罗斯 (10)
     "The Red Army Choir - State Anthem of the Soviet Union.mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - The Sacred War (Священная война).mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - Farewell of Slavianka.mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - Polyushko-polye.mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - Along the Vales and Hills.mp3": "国歌军乐 · 俄罗斯",
-    "United States Military Ensemble - The Star-Spangled Banner.mp3": "国歌军乐 · 美国",
-    "United States Army Strings - Rule, Britannia! (统治吧，不列颠尼亚).mp3": "国歌军乐 · 英国",
+    "Русский хор «Волга» - Варшавянка (华沙工人歌).mp3": "国歌军乐 · 俄罗斯",
+    "Хор и оркестр - Марш энтузиастов (热情者进行曲).mp3": "国歌军乐 · 俄罗斯",
+    "Arturo Toscanini, NBC Symphony Orchestra - Интернационал (国际歌 - 1944).mp3": "国歌军乐 · 俄罗斯",
+    "Хор - Рабочая Марсельеза (工人马赛曲).mp3": "国歌军乐 · 俄罗斯",
+    "Военный оркестр - Старинный марш «Герой» (英雄古老进行曲).mp3": "国歌军乐 · 俄罗斯",
+
+    // 国歌军乐 · 法国 (10)
+    "Le Choeur des Enfants de Montmartre - La Marseillaise.mp3": "国歌军乐 · 法国",
+    "Germaine Sablon - Le Chant des Partisans.mp3": "国歌军乐 · 法国",
+    "Le Choeur des Enfants de Montmartre - Marche Lorraine.mp3": "国歌军乐 · 法国",
+    "Le Choeur des Enfants de Montmartre - Le Regiment de Sambre et Meuse.mp3": "国歌军乐 · 法国",
+    "Le Choeur des Enfants de Montmartre - Le Chant des Girondins.mp3": "国歌军乐 · 法国",
+    "Georges Thill, Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 蒂尔演唱版).mp3": "国歌军乐 · 法国",
+    "Georges Thill, Musique de la Garde Républicaine - Le Chant du départ (出征之歌).mp3": "国歌军乐 · 法国",
+    "Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 共和国卫队军乐版).mp3": "国歌军乐 · 法国",
+    "Pierre d'Assy - Le Régiment de Sambre-et-Meuse (1905年唱片).mp3": "国歌军乐 · 法国",
+    "Odeon Orchestra (Leopold Stokowski) - Sambre et Meuse (桑布尔与默兹 - 管弦乐版).mp3": "国歌军乐 · 法国",
+
+    // 国歌军乐 · 德国 (10)
+    "Michel Nowak Ensemble - Das Lied der Deutschen (Deutschlandlied).mp3": "国歌军乐 · 德国",
+    "Berliner Harmonie Orchester - Preussens Gloria.mp3": "国歌军乐 · 德国",
+    "Carl Teike - Alte Kameraden.mp3": "国歌军乐 · 德国",
+    "Trompeterkorps des Kavallerie-Regiments 6 - Der Hohenfriedberger Marsch.mp3": "国歌军乐 · 德国",
+    "Josef Franz Wagner - Unter dem Doppeladler.mp3": "国歌军乐 · 德国",
+    "Herms Niel (German March) - Erika (艾丽卡 - 德军行军歌).mp3": "国歌军乐 · 德国",
+    "Historische Aufnahme - Die Wacht am Rhein (莱茵河卫兵).mp3": "国歌军乐 · 德国",
+    "Blasorchester - Der Königgrätzer Marsch (柯尼希格雷茨进行曲).mp3": "国歌军乐 · 德国",
+    "Historische Aufnahme 1901 - Heil dir im Siegerkranz (胜利者桂冠万岁).mp3": "国歌军乐 · 德国",
     "United States Marine Band - Yorckscher Marsch (约克进行曲).mp3": "国歌军乐 · 德国",
+
+    // 国歌军乐 · 日本 (10)
+    "日本典礼合唱团 - 君之代 (Kimigayo).mp3": "国歌军乐 · 日本",
+    "濑户口藤吉 - 军舰进行曲 (Gunkan Koshinkyoku).mp3": "国歌军乐 · 日本",
+    "濑户口藤吉 - 敷岛舰进行曲 (Shikishima March).mp3": "国歌军乐 · 日本",
+    "夏尔·勒鲁 - 拔刀队进行曲 (Battotai).mp3": "国歌军乐 · 日本",
+    "Imperial Ensemble - Japanese National March.mp3": "国歌军乐 · 日本",
+    "陸軍戸山学校軍楽隊 - 分列行進曲 (阅兵分列进行曲).mp3": "国歌军乐 · 日本",
+    "陸軍戸山学校軍楽隊 - 雪の進軍 (雪中行军).mp3": "国歌军乐 · 日本",
+    "Columbia Orchestra - 露営の歌 (露营之歌).mp3": "国歌军乐 · 日本",
+    "帝国海軍軍楽隊 - 海軍記念日を称ふる歌 (海军纪念日颂歌).mp3": "国歌军乐 · 日本",
+    "帝国海軍軍楽隊 (1909) - 君が代 ／ 君が代行進曲 (1909年).mp3": "国歌军乐 · 日本",
+
+    // 国歌军乐 · 英国 (5)
+    "Band of the Grenadier Guards - God Save the King (天佑吾王 - 英国国歌).mp3": "国歌军乐 · 英国",
+    "United States Army Strings - Rule, Britannia! (统治吧，不列颠尼亚).mp3": "国歌军乐 · 英国",
+    "Military Band - The British Grenadiers (英国近卫掷弹兵进行曲).mp3": "国歌军乐 · 英国",
+    "F. J. Ricketts (Kenneth J. Alford) - Colonel Bogey March (博吉上校进行曲).mp3": "国歌军乐 · 英国",
+    "Dame Clara Butt - Land of Hope and Glory (希望与荣耀之地).mp3": "国歌军乐 · 英国",
+
+    // 古典沙龙 · 剧场礼乐 (同名/共享歌手曲目显式锁定)
+    "The Red Army Choir - Коробейники (SPOTISAVER).mp3": "古典沙龙 · 剧场礼乐",
+    "The Red Army Choir - Katyusha (Катюша).mp3": "古典沙龙 · 剧场礼乐",
+    "The Red Army Choir - Kalinka (Калинка).mp3": "古典沙龙 · 剧场礼乐",
+    "National Anthem- United States - Star Spangled Banner.mp3": "古典沙龙 · 剧场礼乐",
+    "United States of America National Anthem (Instrumental).mp3": "古典沙龙 · 剧场礼乐",
   };
 
   const GENRE_RANK = new Map(GENRE_PRESETS.map((g, idx) => [g.id, idx]));
@@ -369,6 +447,9 @@
 
   // 滚动歌词状态
   let lyricsCatalog = {};          // url -> { type, lrc, tlyric }
+  let lyricsCatalogLoaded = false;
+  let lyricsCatalogPromise = null;
+  let lyricsReqSeq = 0;
   let liveLyricsCache = {};        // 外部仓库在线兜底缓存
   let currentLyricState = null;    // { type: "none"|"instrumental"|"synced"|"plain", lines: [], hasTrans: false }
   let activeLyricIndex = -1;
@@ -852,7 +933,7 @@
         id: "all",
         category: "all",
         name: "全部馆藏",
-        sub: "十四大专区完整唱片库",
+        sub: "十五大专区完整唱片库",
         seal: "#d4a64a",
         desc: "留声机全馆典藏唱片，涵盖爵士、灵魂蓝调、独立与华语摇滚、古典沙龙及七国国歌军乐特辑。",
         count: tracks.length,
@@ -1282,7 +1363,9 @@
     view = next;
     localStorage.setItem(VIEW_KEY, view);
     els.viewToggle.querySelectorAll("button").forEach((b) => {
-      b.classList.toggle("on", b.dataset.view === view);
+      const on = b.dataset.view === view;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
     });
     applyFilter();
   }
@@ -1438,6 +1521,7 @@
     activeLyricIndex = -1;
     exitUserScrollMode(true);
     syncLyricsToTime(0, true);
+    updateCollapsedLyricSubtitle();
     safePlay();
   }
 
@@ -1531,15 +1615,14 @@
     errorStreak = 0;
     ensureAudioContextResumed();
     updateAudioFxGraph(false);
+    updateCollapsedLyricSubtitle();
   });
 
   audio.addEventListener("pause", () => {
     setPlayingUI(false);
     updateAudioFxGraph(false);
     scheduleAudioContextSuspend();
-    if (currentIndex !== -1 && tracks[currentIndex]) {
-      els.trackSub.textContent = defaultTrackSub(tracks[currentIndex]);
-    }
+    updateCollapsedLyricSubtitle();
   });
 
   audio.addEventListener("ended", () => {
@@ -2142,11 +2225,11 @@
   function toggleVinylFx() {
     vinylFxEnabled = !vinylFxEnabled;
     localStorage.setItem(VINYL_FX_KEY, vinylFxEnabled ? "1" : "0");
-    if (vinylFxEnabled) {
-      initVinylAudioEngine();
+    if (!audio.paused) {
+      if (vinylFxEnabled) initVinylAudioEngine();
+      ensureAudioContextResumed();
+      updateAudioFxGraph(false);
     }
-    ensureAudioContextResumed();
-    updateAudioFxGraph(false);
     updateVinylUI();
     toast(vinylFxEnabled ? "已开启黑胶唱片音效 · 温暖模拟与唱针底噪" : "已关闭黑胶音效 · 还原数码原声");
   }
@@ -2154,11 +2237,11 @@
   function toggleSynthFx() {
     synthFxEnabled = !synthFxEnabled;
     localStorage.setItem(SYNTH_FX_KEY, synthFxEnabled ? "1" : "0");
-    if (synthFxEnabled) {
-      initSynthAudioEngine();
+    if (!audio.paused) {
+      if (synthFxEnabled) initSynthAudioEngine();
+      ensureAudioContextResumed();
+      updateAudioFxGraph(false);
     }
-    ensureAudioContextResumed();
-    updateAudioFxGraph(false);
     updateSynthUI();
     toast(synthFxEnabled ? "已开启合成器模式 · 模拟 PWM 相位共振与复音合唱" : "已关闭合成器模式 · 还原原始乐器音色");
   }
@@ -2183,11 +2266,9 @@
     els.lyricsTransBtn.classList.toggle("on", showTrans);
     els.lyricsTransBtn.setAttribute("aria-pressed", showTrans ? "true" : "false");
     if (visible) {
-      if (currentIndex !== -1 && tracks[currentIndex]) {
-        els.trackSub.textContent = defaultTrackSub(tracks[currentIndex]);
-      }
       requestAnimationFrame(() => centerActiveLyric(true));
     }
+    updateCollapsedLyricSubtitle();
   }
 
   function toggleLyricsPanel() {
@@ -2245,17 +2326,22 @@
 
   async function loadLyricsCatalog() {
     loadLiveLyricsCache();
-    try {
-      const res = await fetch("lyrics.json", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data && typeof data === "object") {
-        lyricsCatalog = data;
-        if (currentIndex !== -1 && tracks[currentIndex]) {
-          loadTrackLyrics(tracks[currentIndex]);
+    lyricsCatalogPromise = (async () => {
+      try {
+        const res = await fetch("lyrics.json", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && typeof data === "object") {
+          lyricsCatalog = data;
+          if (currentIndex !== -1 && tracks[currentIndex]) {
+            loadTrackLyrics(tracks[currentIndex]);
+          }
         }
+      } catch (e) { /* 若缺失则走在线兜底 */ } finally {
+        lyricsCatalogLoaded = true;
       }
-    } catch (e) { /* 若缺失则走在线兜底 */ }
+    })();
+    return lyricsCatalogPromise;
   }
 
   function parseTimedLines(rawText) {
@@ -2364,18 +2450,44 @@
     }
   }
 
+  function updateCollapsedLyricSubtitle() {
+    if (currentIndex === -1 || !tracks[currentIndex]) return;
+    const tr = tracks[currentIndex];
+    if (
+      !audio.paused &&
+      !isLyricsPanelVisible() &&
+      currentLyricState &&
+      currentLyricState.type === "synced" &&
+      activeLyricIndex >= 0 &&
+      currentLyricState.lines[activeLyricIndex] &&
+      currentLyricState.lines[activeLyricIndex].text
+    ) {
+      els.trackSub.textContent = "\u266A " + currentLyricState.lines[activeLyricIndex].text;
+    } else {
+      els.trackSub.textContent = defaultTrackSub(tr);
+    }
+  }
+
   async function loadTrackLyrics(track) {
     if (!track) return;
+    const reqSeq = ++lyricsReqSeq;
     exitUserScrollMode(true);
     activeLyricIndex = -1;
     els.lyricsTrackName.textContent = track.artist ? (track.title + " · " + track.artist) : track.title;
 
     let entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
+    if (!entry && !lyricsCatalogLoaded && lyricsCatalogPromise) {
+      els.lyricsTransBtn.hidden = true;
+      els.lyricsList.innerHTML = '<li class="lyric-empty">正在加载唱词库…</li>';
+      await lyricsCatalogPromise;
+      if (reqSeq !== lyricsReqSeq || tracks[currentIndex] !== track) return;
+      entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
+    }
     if (!entry) {
       els.lyricsTransBtn.hidden = true;
       els.lyricsList.innerHTML = '<li class="lyric-empty">正在检索唱词…</li>';
       const fetched = await fetchLiveLyricsFallback(track);
-      if (tracks[currentIndex] !== track) return;
+      if (reqSeq !== lyricsReqSeq || tracks[currentIndex] !== track) return;
       if (fetched) {
         liveLyricsCache[track.url] = fetched;
         saveLiveLyricsCache();
@@ -2386,6 +2498,7 @@
     currentLyricState = parseLrcBundle(entry);
     renderLyricsView(track);
     syncLyricsToTime(audio.currentTime || 0, true);
+    updateCollapsedLyricSubtitle();
   }
 
   function renderLyricsView(track) {
@@ -2503,14 +2616,7 @@
       items[i].classList.toggle("past", activeLyricIndex > i);
     }
 
-    if (
-      activeLyricIndex >= 0 &&
-      st.lines[activeLyricIndex] &&
-      !audio.paused &&
-      !isLyricsPanelVisible()
-    ) {
-      els.trackSub.textContent = "\u266A " + st.lines[activeLyricIndex].text;
-    }
+    updateCollapsedLyricSubtitle();
 
     if (activeLyricIndex >= 0 && !userScrolling) {
       centerActiveLyric(immediate);
@@ -2699,6 +2805,13 @@
       target.closest &&
       target.closest(".playlist-item") &&
       (e.key === " " || e.key === "Enter" || e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "Home" || e.key === "End")
+    ) {
+      return;
+    }
+    if (
+      target.closest &&
+      target.closest(".shelf-tab") &&
+      (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End")
     ) {
       return;
     }

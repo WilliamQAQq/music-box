@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
 
@@ -66,10 +67,10 @@
 
       <div class="toolbar">
         <input type="search" id="searchInput" class="search" placeholder="检索曲目、歌者、风格或专辑…" aria-label="搜索曲目">
-        <div class="view-toggle" id="viewToggle">
-          <button type="button" data-view="genre">按风格</button>
-          <button type="button" data-view="artist">按作者</button>
-          <button type="button" data-view="flat">全部</button>
+        <div class="view-toggle" id="viewToggle" role="group" aria-label="列表分组视图">
+          <button type="button" data-view="genre" aria-pressed="true">按风格</button>
+          <button type="button" data-view="artist" aria-pressed="false">按作者</button>
+          <button type="button" data-view="flat" aria-pressed="false">全部</button>
         </div>
         <span class="count" id="trackCount">0 首</span>
       </div>
@@ -223,6 +224,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="app.js?v=19"></script>
+<script defer src="app.js?v=20"></script></script>
 </body>
 </html>

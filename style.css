@@ -1179,6 +1179,7 @@ input[type="range"].range.vol { flex: 0 0 100px; max-width: 120px; }
     position: sticky;
     top: 82px;
     height: calc(100vh - var(--player-h) - 102px);
+    height: calc(100dvh - var(--player-h) - 102px);
     min-height: 400px;
     max-height: 760px;
   }
@@ -1559,7 +1560,7 @@ body.synth-fx-active .playlist-item.playing .eq span {
     left: 8px;
     right: 8px;
     top: 62px;
-    bottom: calc(170px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(182px + env(safe-area-inset-bottom, 0px));
   }
   .player {
     grid-template-columns: 1fr auto;
@@ -1573,7 +1574,7 @@ body.synth-fx-active .playlist-item.playing .eq span {
   .content { padding-bottom: 224px; }
   .playlist-item .meta { max-width: 44%; }
   .vol { display: none; }
-  .toast { bottom: calc(176px + env(safe-area-inset-bottom, 0px)); }
+  .toast { bottom: calc(186px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (pointer: coarse) {
