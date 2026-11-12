@@ -127,67 +127,140 @@ ARTIST_GENRE = {
     "中国人民解放军军乐团": "国歌军乐 · 中国",
     "中央乐团合唱团": "国歌军乐 · 中国",
     "中国人民解放军总政歌舞团": "国歌军乐 · 中国",
+    "百代唱片 (pathé records)": "国歌军乐 · 中国",
+    "中国人民解放军": "国歌军乐 · 中国",
+    "八路军战士合唱团": "国歌军乐 · 中国",
+    "粤语合唱团": "国歌军乐 · 中国",
 
     # 10. 国歌军乐 · 美国 (National Anthems & Military Marches - USA)
     "the united states military ensemble": "国歌军乐 · 美国",
     "john philip sousa": "国歌军乐 · 美国",
     "the sandpiper chorus": "国歌军乐 · 美国",
+    "united states marine band": "国歌军乐 · 美国",
+    "united states naval academy band": "国歌军乐 · 美国",
 
-    # 11. 国歌军乐 · 法国 (National Anthems & Military Marches - France)
+    # 11. 国歌军乐 · 俄罗斯 (National Anthems & Military Marches - Russia)
+    "русский хор «волга»": "国歌军乐 · 俄罗斯",
+    "хор и оркестр": "国歌军乐 · 俄罗斯",
+    "arturo toscanini, nbc symphony orchestra": "国歌军乐 · 俄罗斯",
+    "хор": "国歌军乐 · 俄罗斯",
+    "военный оркестр": "国歌军乐 · 俄罗斯",
+
+    # 12. 国歌军乐 · 法国 (National Anthems & Military Marches - France)
     "le choeur des enfants de montmartre": "国歌军乐 · 法国",
     "germaine sablon": "国歌军乐 · 法国",
+    "georges thill, musique de la garde républicaine": "国歌军乐 · 法国",
+    "musique de la garde républicaine": "国歌军乐 · 法国",
+    "pierre d'assy": "国歌军乐 · 法国",
+    "odeon orchestra (leopold stokowski)": "国歌军乐 · 法国",
 
-    # 12. 国歌军乐 · 德国 (National Anthems & Military Marches - Germany)
+    # 13. 国歌军乐 · 德国 (National Anthems & Military Marches - Germany)
     "michel nowak ensemble": "国歌军乐 · 德国",
     "berliner harmonie orchester": "国歌军乐 · 德国",
     "carl teike": "国歌军乐 · 德国",
     "trompeterkorps des kavallerie-regiments 6": "国歌军乐 · 德国",
     "josef franz wagner": "国歌军乐 · 德国",
+    "herms niel (german march)": "国歌军乐 · 德国",
+    "historische aufnahme": "国歌军乐 · 德国",
+    "blasorchester": "国歌军乐 · 德国",
+    "historische aufnahme 1901": "国歌军乐 · 德国",
 
-    # 13. 国歌军乐 · 日本 (National Anthems & Military Marches - Japan)
+    # 14. 国歌军乐 · 日本 (National Anthems & Military Marches - Japan)
     "日本典礼合唱团": "国歌军乐 · 日本",
     "濑户口藤吉": "国歌军乐 · 日本",
     "夏尔·勒鲁": "国歌军乐 · 日本",
     "imperial ensemble": "国歌军乐 · 日本",
+    "陸軍戸山学校軍乐隊": "国歌军乐 · 日本",
+    "columbia orchestra": "国歌军乐 · 日本",
+    "帝国海軍軍楽隊": "国歌军乐 · 日本",
+    "帝国海軍軍楽隊 (1909)": "国歌军乐 · 日本",
+
+    # 15. 国歌军乐 · 英国 (National Anthems & Military Marches - UK)
+    "band of the grenadier guards": "国歌军乐 · 英国",
+    "military band": "国歌军乐 · 英国",
+    "f. j. ricketts (kenneth j. alford)": "国歌军乐 · 英国",
+    "dame clara butt": "国歌军乐 · 英国",
 }
 
 MANUAL_GENRE = {
-    # 国歌军乐 · 中国 (5)
+    # 国歌军乐 · 中国 (10)
     "中国人民解放军军乐团 - 义勇军进行曲 (中华人民共和国国歌).mp3": "国歌军乐 · 中国",
     "中央乐团合唱团 - 歌唱祖国.mp3": "国歌军乐 · 中国",
     "中央乐团合唱团 - 保卫黄河.mp3": "国歌军乐 · 中国",
     "中国人民解放军总政歌舞团 - 游击队歌.mp3": "国歌军乐 · 中国",
     "中央乐团合唱团 - 我们走在大路上.mp3": "国歌军乐 · 中国",
-    # 国歌军乐 · 美国 (5)
+    "百代唱片 (Pathé Records) - 义勇军进行曲 (1935年原版唱片).mp3": "国歌军乐 · 中国",
+    "中国人民解放军 - 东方红 (1963年录音).mp3": "国歌军乐 · 中国",
+    "八路军战士合唱团 - 八路军进行曲 (1939年原始录音).mp3": "国歌军乐 · 中国",
+    "中国人民解放军军乐团 - 义勇军进行曲 (1978-1982年版).mp3": "国歌军乐 · 中国",
+    "粤语合唱团 - 义勇军进行曲 (粤语版).mp3": "国歌军乐 · 中国",
+
+    # 国歌军乐 · 美国 (10)
     "United States Military Ensemble - The Star-Spangled Banner.mp3": "国歌军乐 · 美国",
     "John Philip Sousa - The Stars and Stripes Forever.mp3": "国歌军乐 · 美国",
     "The Sandpiper Chorus - Battle Hymn of the Republic.mp3": "国歌军乐 · 美国",
     "The Sandpiper Chorus - The Marines' Hymn (Halls of Montezuma).mp3": "国歌军乐 · 美国",
     "The Sandpiper Chorus - The Caissons Go Rolling Along.mp3": "国歌军乐 · 美国",
-    # 国歌军乐 · 俄罗斯 (5)
+    "United States Marine Band - Semper Fidelis (永远忠诚).mp3": "国歌军乐 · 美国",
+    "United States Marine Band - The Washington Post (华盛顿邮报进行曲).mp3": "国歌军乐 · 美国",
+    "United States Marine Band - The Liberty Bell (自由钟进行曲).mp3": "国歌军乐 · 美国",
+    "United States Marine Band - El Capitan (上尉进行曲).mp3": "国歌军乐 · 美国",
+    "United States Naval Academy Band - Anchors Aweigh (起锚歌 - 海军军歌).mp3": "国歌军乐 · 美国",
+
+    # 国歌军乐 · 俄罗斯 (10)
     "The Red Army Choir - State Anthem of the Soviet Union.mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - The Sacred War (Священная война).mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - Farewell of Slavianka.mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - Polyushko-polye.mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - Along the Vales and Hills.mp3": "国歌军乐 · 俄罗斯",
-    # 国歌军乐 · 法国 (5)
+    "Русский хор «Волга» - Варшавянка (华沙工人歌).mp3": "国歌军乐 · 俄罗斯",
+    "Хор и оркестр - Марш энтузиастов (热情者进行曲).mp3": "国歌军乐 · 俄罗斯",
+    "Arturo Toscanini, NBC Symphony Orchestra - Интернационал (国际歌 - 1944).mp3": "国歌军乐 · 俄罗斯",
+    "Хор - Рабочая Марсельеза (工人马赛曲).mp3": "国歌军乐 · 俄罗斯",
+    "Военный оркестр - Старинный марш «Герой» (英雄古老进行曲).mp3": "国歌军乐 · 俄罗斯",
+
+    # 国歌军乐 · 法国 (10)
     "Le Choeur des Enfants de Montmartre - La Marseillaise.mp3": "国歌军乐 · 法国",
     "Germaine Sablon - Le Chant des Partisans.mp3": "国歌军乐 · 法国",
     "Le Choeur des Enfants de Montmartre - Marche Lorraine.mp3": "国歌军乐 · 法国",
     "Le Choeur des Enfants de Montmartre - Le Regiment de Sambre et Meuse.mp3": "国歌军乐 · 法国",
     "Le Choeur des Enfants de Montmartre - Le Chant des Girondins.mp3": "国歌军乐 · 法国",
-    # 国歌军乐 · 德国 (5)
+    "Georges Thill, Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 蒂尔演唱版).mp3": "国歌军乐 · 法国",
+    "Georges Thill, Musique de la Garde Républicaine - Le Chant du départ (出征之歌).mp3": "国歌军乐 · 法国",
+    "Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 共和国卫队军乐版).mp3": "国歌军乐 · 法国",
+    "Pierre d'Assy - Le Régiment de Sambre-et-Meuse (1905年唱片).mp3": "国歌军乐 · 法国",
+    "Odeon Orchestra (Leopold Stokowski) - Sambre et Meuse (桑布尔与默兹 - 管弦乐版).mp3": "国歌军乐 · 法国",
+
+    # 国歌军乐 · 德国 (10)
     "Michel Nowak Ensemble - Das Lied der Deutschen (Deutschlandlied).mp3": "国歌军乐 · 德国",
     "Berliner Harmonie Orchester - Preussens Gloria.mp3": "国歌军乐 · 德国",
     "Carl Teike - Alte Kameraden.mp3": "国歌军乐 · 德国",
     "Trompeterkorps des Kavallerie-Regiments 6 - Der Hohenfriedberger Marsch.mp3": "国歌军乐 · 德国",
     "Josef Franz Wagner - Unter dem Doppeladler.mp3": "国歌军乐 · 德国",
-    # 国歌军乐 · 日本 (5)
+    "Herms Niel (German March) - Erika (艾丽卡 - 德军行军歌).mp3": "国歌军乐 · 德国",
+    "Historische Aufnahme - Die Wacht am Rhein (莱茵河卫兵).mp3": "国歌军乐 · 德国",
+    "Blasorchester - Der Königgrätzer Marsch (柯尼希格雷茨进行曲).mp3": "国歌军乐 · 德国",
+    "Historische Aufnahme 1901 - Heil dir im Siegerkranz (胜利者桂冠万岁).mp3": "国歌军乐 · 德国",
+    "United States Marine Band - Yorckscher Marsch (约克进行曲).mp3": "国歌军乐 · 德国",
+
+    # 国歌军乐 · 日本 (10)
     "日本典礼合唱团 - 君之代 (Kimigayo).mp3": "国歌军乐 · 日本",
     "濑户口藤吉 - 军舰进行曲 (Gunkan Koshinkyoku).mp3": "国歌军乐 · 日本",
     "濑户口藤吉 - 敷岛舰进行曲 (Shikishima March).mp3": "国歌军乐 · 日本",
     "夏尔·勒鲁 - 拔刀队进行曲 (Battotai).mp3": "国歌军乐 · 日本",
     "Imperial Ensemble - Japanese National March.mp3": "国歌军乐 · 日本",
+    "陸軍戸山学校軍乐隊 - 分列行進曲 (阅兵分列进行曲).mp3": "国歌军乐 · 日本",
+    "陸軍戸山学校軍乐隊 - 雪の進軍 (雪中行军).mp3": "国歌军乐 · 日本",
+    "Columbia Orchestra - 露営の歌 (露营之歌).mp3": "国歌军乐 · 日本",
+    "帝国海軍軍楽隊 - 海軍記念日を称ふる歌 (海军纪念日颂歌).mp3": "国歌军乐 · 日本",
+    "帝国海軍軍楽隊 (1909) - 君が代 ／ 君が代行進曲 (1909年).mp3": "国歌军乐 · 日本",
+
+    # 国歌军乐 · 英国 (5)
+    "Band of the Grenadier Guards - God Save the King (天佑吾王 - 英国国歌).mp3": "国歌军乐 · 英国",
+    "United States Army Strings - Rule, Britannia! (统治吧，不列颠尼亚).mp3": "国歌军乐 · 英国",
+    "Military Band - The British Grenadiers (英国近卫掷弹兵进行曲).mp3": "国歌军乐 · 英国",
+    "F. J. Ricketts (Kenneth J. Alford) - Colonel Bogey March (博吉上校进行曲).mp3": "国歌军乐 · 英国",
+    "Dame Clara Butt - Land of Hope and Glory (希望与荣耀之地).mp3": "国歌军乐 · 英国",
     # 古典沙龙 · 剧场礼乐 (同名/共享歌手曲目显式锁定)
     "The Red Army Choir - Коробейники (SPOTISAVER).mp3": "古典沙龙 · 剧场礼乐",
     "The Red Army Choir - Katyusha (Катюша).mp3": "古典沙龙 · 剧场礼乐",

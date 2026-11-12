@@ -32,6 +32,22 @@
     "dir": "music"
   },
   {
+    "title": "Интернационал (国际歌 - 1944)",
+    "artist": "Arturo Toscanini, NBC Symphony Orchestra",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/Arturo Toscanini, NBC Symphony Orchestra - Интернационал (国际歌 - 1944).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "God Save the King (天佑吾王 - 英国国歌)",
+    "artist": "Band of the Grenadier Guards",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/Band of the Grenadier Guards - God Save the King (天佑吾王 - 英国国歌).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Canon In D - Piano & Cello",
     "artist": "Benny Martin/The Wong Janice",
     "album": "Canon In D (Piano & Cello)",
@@ -104,6 +120,14 @@
     "dir": "music"
   },
   {
+    "title": "Der Königgrätzer Marsch (柯尼希格雷茨进行曲)",
+    "artist": "Blasorchester",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Blasorchester - Der Königgrätzer Marsch (柯尼希格雷茨进行曲).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Alte Kameraden (旧友进行曲)",
     "artist": "Carl Teike",
     "album": "Deutsche Traditionsmärsche",
@@ -133,6 +157,22 @@
     "album": "Debussy: Piano Works",
     "genre": "古典沙龙 · 剧场礼乐",
     "url": "music/Claude Debussy - Clair de Lune.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "露営の歌 (露营之歌)",
+    "artist": "Columbia Orchestra",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/Columbia Orchestra - 露営の歌 (露营之歌).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Land of Hope and Glory (希望与荣耀之地)",
+    "artist": "Dame Clara Butt",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/Dame Clara Butt - Land of Hope and Glory (希望与荣耀之地).mp3",
     "dir": "music"
   },
   {
@@ -240,6 +280,14 @@
     "dir": "music"
   },
   {
+    "title": "Colonel Bogey March (博吉上校进行曲)",
+    "artist": "F. J. Ricketts (Kenneth J. Alford)",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/F. J. Ricketts (Kenneth J. Alford) - Colonel Bogey March (博吉上校进行曲).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Dark Eyes (Очи чёрные)",
     "artist": "Feodor Chaliapin",
     "album": "Russian Salon Romances",
@@ -256,6 +304,22 @@
     "dir": "music"
   },
   {
+    "title": "La Marseillaise (马赛曲 - 蒂尔演唱版)",
+    "artist": "Georges Thill, Musique de la Garde Républicaine",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Georges Thill, Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 蒂尔演唱版).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Le Chant du départ (出征之歌)",
+    "artist": "Georges Thill, Musique de la Garde Républicaine",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Georges Thill, Musique de la Garde Républicaine - Le Chant du départ (出征之歌).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Le Chant des Partisans (游击队之歌)",
     "artist": "Germaine Sablon",
     "album": "Chants de la Résistance Française 1943",
@@ -269,6 +333,30 @@
     "album": "Greatest Hits",
     "genre": "蓝调之音 · 器乐爵士",
     "url": "music/In the Mood_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Erika (艾丽卡 - 德军行军歌)",
+    "artist": "Herms Niel (German March)",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Herms Niel (German March) - Erika (艾丽卡 - 德军行军歌).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Die Wacht am Rhein (莱茵河卫兵)",
+    "artist": "Historische Aufnahme",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Historische Aufnahme - Die Wacht am Rhein (莱茵河卫兵).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Heil dir im Siegerkranz (胜利者桂冠万岁)",
+    "artist": "Historische Aufnahme 1901",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/Historische Aufnahme 1901 - Heil dir im Siegerkranz (胜利者桂冠万岁).mp3",
     "dir": "music"
   },
   {
@@ -560,6 +648,22 @@
     "dir": "music"
   },
   {
+    "title": "The British Grenadiers (英国近卫掷弹兵进行曲)",
+    "artist": "Military Band",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/Military Band - The British Grenadiers (英国近卫掷弹兵进行曲).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "La Marseillaise (马赛曲 - 共和国卫队军乐版)",
+    "artist": "Musique de la Garde Républicaine",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 共和国卫队军乐版).mp3",
+    "dir": "music"
+  },
+  {
     "title": "大風吹",
     "artist": "No Party For Cao Dong",
     "album": "醜奴兒",
@@ -576,6 +680,14 @@
     "dir": "music"
   },
   {
+    "title": "Sambre et Meuse (桑布尔与默兹 - 管弦乐版)",
+    "artist": "Odeon Orchestra (Leopold Stokowski)",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Odeon Orchestra (Leopold Stokowski) - Sambre et Meuse (桑布尔与默兹 - 管弦乐版).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Stolen Moments",
     "artist": "Oliver Nelson",
     "album": "The Blues And The Abstract Truth",
@@ -589,6 +701,14 @@
     "album": "Great Ladies Of Song / Spotlight On Peggy Lee",
     "genre": "黄金年代 · 爵士名伶",
     "url": "music/Fever_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Le Régiment de Sambre-et-Meuse (1905年唱片)",
+    "artist": "Pierre d'Assy",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 法国",
+    "url": "music/Pierre d'Assy - Le Régiment de Sambre-et-Meuse (1905年唱片).mp3",
     "dir": "music"
   },
   {
@@ -752,6 +872,62 @@
     "dir": "music"
   },
   {
+    "title": "Rule, Britannia! (统治吧，不列颠尼亚)",
+    "artist": "United States Army Strings",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/United States Army Strings - Rule, Britannia! (统治吧，不列颠尼亚).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "El Capitan (上尉进行曲)",
+    "artist": "United States Marine Band",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/United States Marine Band - El Capitan (上尉进行曲).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Semper Fidelis (永远忠诚)",
+    "artist": "United States Marine Band",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/United States Marine Band - Semper Fidelis (永远忠诚).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "The Liberty Bell (自由钟进行曲)",
+    "artist": "United States Marine Band",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/United States Marine Band - The Liberty Bell (自由钟进行曲).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "The Washington Post (华盛顿邮报进行曲)",
+    "artist": "United States Marine Band",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/United States Marine Band - The Washington Post (华盛顿邮报进行曲).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Yorckscher Marsch (约克进行曲)",
+    "artist": "United States Marine Band",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 德国",
+    "url": "music/United States Marine Band - Yorckscher Marsch (约克进行曲).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Anchors Aweigh (起锚歌 - 海军军歌)",
+    "artist": "United States Naval Academy Band",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 美国",
+    "url": "music/United States Naval Academy Band - Anchors Aweigh (起锚歌 - 海军军歌).mp3",
+    "dir": "music"
+  },
+  {
     "title": "食人夢",
     "artist": "VH (Vast & Hazy)",
     "album": "次等秘密",
@@ -808,6 +984,38 @@
     "dir": "music"
   },
   {
+    "title": "Старинный марш «Герой» (英雄古老进行曲)",
+    "artist": "Военный оркестр",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/Военный оркестр - Старинный марш «Герой» (英雄古老进行曲).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Варшавянка (华沙工人歌)",
+    "artist": "Русский хор «Волга»",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/Русский хор «Волга» - Варшавянка (华沙工人歌).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Рабочая Марсельеза (工人马赛曲)",
+    "artist": "Хор",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/Хор - Рабочая Марсельеза (工人马赛曲).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Марш энтузиастов (热情者进行曲)",
+    "artist": "Хор и оркестр",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 俄罗斯",
+    "url": "music/Хор и оркестр - Марш энтузиастов (热情者进行曲).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Прощальное танго",
     "artist": "Юрий Щербаков",
     "album": "Когда мы покидали свой родимый край...",
@@ -837,6 +1045,22 @@
     "album": "冀西南林路行",
     "genre": "先锋浪潮 · 独立摇滚",
     "url": "music/泥河_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "东方红 (1963年录音)",
+    "artist": "中国人民解放军",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/中国人民解放军 - 东方红 (1963年录音).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "义勇军进行曲 (1978-1982年版)",
+    "artist": "中国人民解放军军乐团",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/中国人民解放军军乐团 - 义勇军进行曲 (1978-1982年版).mp3",
     "dir": "music"
   },
   {
@@ -885,6 +1109,14 @@
     "album": "你看到的我",
     "genre": "街巷叙事 · 民谣流行",
     "url": "music/你看到的我_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "八路军进行曲 (1939年原始录音)",
+    "artist": "八路军战士合唱团",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/八路军战士合唱团 - 八路军进行曲 (1939年原始录音).mp3",
     "dir": "music"
   },
   {
@@ -941,6 +1173,22 @@
     "album": "新长征路上的摇滚",
     "genre": "赤焰岁月 · 华语摇滚",
     "url": "music/新长征路上的摇滚_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "海軍記念日を称ふる歌 (海军纪念日颂歌)",
+    "artist": "帝国海軍軍楽隊",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/帝国海軍軍楽隊 - 海軍記念日を称ふる歌 (海军纪念日颂歌).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "君が代 / 君が代行進曲 (1909年)",
+    "artist": "帝国海軍軍楽隊 (1909)",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/帝国海軍軍楽隊 (1909) - 君が代 ／ 君が代行進曲 (1909年).mp3",
     "dir": "music"
   },
   {
@@ -1008,6 +1256,22 @@
     "dir": "music"
   },
   {
+    "title": "义勇军进行曲 (1935年原版唱片)",
+    "artist": "百代唱片 (Pathé Records)",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/百代唱片 (Pathé Records) - 义勇军进行曲 (1935年原版唱片).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "义勇军进行曲 (粤语版)",
+    "artist": "粤语合唱团",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 中国",
+    "url": "music/粤语合唱团 - 义勇军进行曲 (粤语版).mp3",
+    "dir": "music"
+  },
+  {
     "title": "大家免著驚",
     "artist": "羅大佑",
     "album": "Unknown Album",
@@ -1045,6 +1309,22 @@
     "album": "抓狂歌",
     "genre": "赤焰岁月 · 华语摇滚",
     "url": "music/抓狂_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "分列行進曲 (阅兵分列进行曲)",
+    "artist": "陸軍戸山学校軍乐隊",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/陸軍戸山学校軍乐隊 - 分列行進曲 (阅兵分列进行曲).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "雪の進軍 (雪中行军)",
+    "artist": "陸軍戸山学校軍乐隊",
+    "album": "国歌军乐特辑",
+    "genre": "国歌军乐 · 日本",
+    "url": "music/陸軍戸山学校軍乐隊 - 雪の進軍 (雪中行军).mp3",
     "dir": "music"
   }
 ]

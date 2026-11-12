@@ -123,6 +123,14 @@
       seal: "#b45309",
       desc: "明治与昭和初期黑胶唱片经典行进军乐与雅乐国歌，历史留声机原声重现。",
     },
+    {
+      id: "国歌军乐 · 英国",
+      category: "military",
+      flag: "🇬🇧",
+      sub: "天佑吾王 · 统治吧不列颠尼亚 · 博吉上校 · 希望与荣耀之地",
+      seal: "#1e3a8a",
+      desc: "日不落帝国的国歌、海军战歌与近卫军进行曲，铜管号角与爱德华时代唱片的庄严回响。",
+    },
   ];
 
   // 旧缓存兜底歌手->风格映射(与 .github/gen_music_json.py 保持一致)
@@ -204,20 +212,47 @@
     "中国人民解放军军乐团": "国歌军乐 · 中国",
     "中央乐团合唱团": "国歌军乐 · 中国",
     "中国人民解放军总政歌舞团": "国歌军乐 · 中国",
+    "百代唱片 (pathé records)": "国歌军乐 · 中国",
+    "中国人民解放军": "国歌军乐 · 中国",
+    "八路军战士合唱团": "国歌军乐 · 中国",
+    "粤语合唱团": "国歌军乐 · 中国",
     "the united states military ensemble": "国歌军乐 · 美国",
     "john philip sousa": "国歌军乐 · 美国",
     "the sandpiper chorus": "国歌军乐 · 美国",
+    "united states marine band": "国歌军乐 · 美国",
+    "united states naval academy band": "国歌军乐 · 美国",
+    "русский хор «волга»": "国歌军乐 · 俄罗斯",
+    "хор и оркестр": "国歌军乐 · 俄罗斯",
+    "arturo toscanini, nbc symphony orchestra": "国歌军乐 · 俄罗斯",
+    "хор": "国歌军乐 · 俄罗斯",
+    "военный оркестр": "国歌军乐 · 俄罗斯",
     "le choeur des enfants de montmartre": "国歌军乐 · 法国",
     "germaine sablon": "国歌军乐 · 法国",
+    "georges thill, musique de la garde républicaine": "国歌军乐 · 法国",
+    "musique de la garde républicaine": "国歌军乐 · 法国",
+    "pierre d'assy": "国歌军乐 · 法国",
+    "odeon orchestra (leopold stokowski)": "国歌军乐 · 法国",
     "michel nowak ensemble": "国歌军乐 · 德国",
     "berliner harmonie orchester": "国歌军乐 · 德国",
     "carl teike": "国歌军乐 · 德国",
     "trompeterkorps des kavallerie-regiments 6": "国歌军乐 · 德国",
     "josef franz wagner": "国歌军乐 · 德国",
+    "herms niel (german march)": "国歌军乐 · 德国",
+    "historische aufnahme": "国歌军乐 · 德国",
+    "blasorchester": "国歌军乐 · 德国",
+    "historische aufnahme 1901": "国歌军乐 · 德国",
     "日本典礼合唱团": "国歌军乐 · 日本",
     "濑户口藤吉": "国歌军乐 · 日本",
     "夏尔·勒鲁": "国歌军乐 · 日本",
     "imperial ensemble": "国歌军乐 · 日本",
+    "陸軍戸山学校軍乐隊": "国歌军乐 · 日本",
+    "columbia orchestra": "国歌军乐 · 日本",
+    "帝国海軍軍乐隊": "国歌军乐 · 日本",
+    "帝国海軍軍乐隊 (1909)": "国歌军乐 · 日本",
+    "band of the grenadier guards": "国歌军乐 · 英国",
+    "military band": "国歌军乐 · 英国",
+    "f. j. ricketts (kenneth j. alford)": "国歌军乐 · 英国",
+    "dame clara butt": "国歌军乐 · 英国",
   };
 
   // 同名/共享歌手曲目的文件名级风格映射(确保本地旧缓存与 GitHub API 兜底时 100% 精确归类)
@@ -228,6 +263,8 @@
     "The Red Army Choir - Polyushko-polye.mp3": "国歌军乐 · 俄罗斯",
     "The Red Army Choir - Along the Vales and Hills.mp3": "国歌军乐 · 俄罗斯",
     "United States Military Ensemble - The Star-Spangled Banner.mp3": "国歌军乐 · 美国",
+    "United States Army Strings - Rule, Britannia! (统治吧，不列颠尼亚).mp3": "国歌军乐 · 英国",
+    "United States Marine Band - Yorckscher Marsch (约克进行曲).mp3": "国歌军乐 · 德国",
   };
 
   const GENRE_RANK = new Map(GENRE_PRESETS.map((g, idx) => [g.id, idx]));
@@ -805,9 +842,9 @@
         id: "all",
         category: "military",
         name: "全部国歌军乐",
-        sub: "中 · 美 · 俄 · 法 · 德 · 日 六国军礼典藏",
+        sub: "中 · 美 · 俄 · 法 · 德 · 日 · 英 七国军礼典藏",
         seal: "#b91c1c",
-        desc: "汇集中国、美国、俄罗斯、法国、德国与日本六国庄严国歌与历史经典行进军乐。",
+        desc: "汇集中国、美国、俄罗斯、法国、德国、日本与英国七国庄严国歌与历史经典行进军乐。",
         count: militaryTrackCount,
       };
     } else {
@@ -817,7 +854,7 @@
         name: "全部馆藏",
         sub: "十四大专区完整唱片库",
         seal: "#d4a64a",
-        desc: "留声机全馆典藏唱片，涵盖爵士、灵魂蓝调、独立与华语摇滚、古典沙龙及六国国歌军乐特辑。",
+        desc: "留声机全馆典藏唱片，涵盖爵士、灵魂蓝调、独立与华语摇滚、古典沙龙及七国国歌军乐特辑。",
         count: tracks.length,
       };
     }

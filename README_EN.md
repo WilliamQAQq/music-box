@@ -8,8 +8,8 @@
 [**简体中文**](README.md) · **English**
 
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_Listen_Live-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
-[![Tracks](https://img.shields.io/badge/Records-131_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
-[![Genres](https://img.shields.io/badge/Collections-14_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections)
+[![Tracks](https://img.shields.io/badge/Records-166_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
+[![Genres](https://img.shields.io/badge/Collections-15_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections)
 [![Lyrics](https://img.shields.io/badge/Scrolling_Lyrics-Synced_Bilingual_LRC-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
 
 ### 👉 [Enter the Live Phonograph Salon: https://williamqaqq.github.io/music-box/](https://williamqaqq.github.io/music-box/)
@@ -37,9 +37,9 @@
 ## 🏛️ Key Highlights
 
 - **Victorian Vinyl Gramophone Aesthetic**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and a responsive layout that adapts from a two-column desktop salon to a slide-up mobile drawer.
-- **14 Curated Record Collections & National Anthem Editions**: **131 tracks across 90 artists**, organized into 8 salon genres and 6 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
+- **15 Curated Record Collections & National Anthem Editions**: **166 tracks across 118 artists**, organized into 8 salon genres and 7 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan, United Kingdom). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
 - **Time-Synced Scrolling Lyrics (Victorian Libretto Folio)**:
-  - **110 tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 74 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **21 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
+  - **129 tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 82 foreign-language vocal tracks include bilingual Chinese translations**, toggleable via the `译` button), while **37 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
 - **Zero API Rate Limits · Instant Load & Hot Refresh**: Reads same-origin static manifests ([`music.json`](music.json) and [`lyrics.json`](lyrics.json)) paired with `localStorage` caching for instant startup and silent background refreshes. Also supports pointing to any public or private GitHub repository via the top-right **⚙️ Cabinet Settings** modal (falling back to the GitHub Trees API).
@@ -56,7 +56,7 @@
 
 ---
 
-## 💿 Curated Record Collections (14 Editions)
+## 💿 Curated Record Collections (15 Editions)
 
 ### 🎷 Salon Genres (8 Collections)
 
@@ -71,16 +71,17 @@
 | **灵魂低吟 · 节奏蓝调**<br>*(Classic Soul & R&B)* | Bill Withers · Etta James · Sam Cooke · David Tao | Warm, heartfelt soul classics, blues ballads, and rhythm & blues grooves | **6** |
 | **街巷叙事 · 民谣流行**<br>*(Urban Folk & Ballads)* | Vadim Kazachenko · Angang · Chen Doujiang · Ren Haoming | Intimate acoustic storytelling, retro Estrada & folk-pop ballads | **4** |
 
-### 🎺 National Anthems & Military Marches (6 Nations)
+### 🎺 National Anthems & Military Marches (7 Nations)
 
 | Country Edition | Featured Tracks | Highlights | Tracks |
 | :--- | :--- | :--- | :---: |
-| 🇨🇳 **国歌军乐 · 中国**<br>*(China Anthems & Marches)* | March of the Volunteers · Ode to the Motherland · Defend the Yellow River · Guerrilla Song | Historic brass band national anthem, grand choral Yellow River Cantata & revolutionary marches | **5** |
-| 🇺🇸 **国歌军乐 · 美国**<br>*(USA Anthems & Marches)* | The Star-Spangled Banner · The Stars and Stripes Forever · Battle Hymn of the Republic | John Philip Sousa military marches, American Civil War chorales & Armed Forces hymns | **5** |
-| 🇷🇺 **国歌军乐 · 俄罗斯**<br>*(Russia & Soviet Marches)* | State Anthem of the USSR · The Sacred War · Farewell of Slavianka · Polyushko-polye | Powerful Red Army Choir & brass band recordings from the Great Patriotic War | **5** |
-| 🇫🇷 **国歌军乐 · 法国**<br>*(France Anthems & Marches)* | La Marseillaise · Le Chant des Partisans · Marche Lorraine · Sambre-et-Meuse | French Revolutionary brass fanfares, WWII Resistance chants & Montmartre choir | **5** |
-| 🇩🇪 **国歌军乐 · 德国**<br>*(Germany Traditional Marches)* | Das Lied der Deutschen · Preußens Gloria · Alte Kameraden · Hohenfriedberger | Classical European ceremonial brass repertoire, Haydn anthem & Prussian infantry marches | **5** |
-| 🇯🇵 **国歌军乐 · 日本**<br>*(Japan Ceremonial Marches)* | Kimigayo · Gunkan Kōshinkyoku · Shikishima March · Battōtai · National March | Vintage Meiji/Taisho/Showa 78 RPM gramophone brass marches & imperial anthem | **5** |
+| 🇨🇳 **国歌军乐 · 中国**<br>*(China Anthems & Marches)* | March of the Volunteers · The East Is Red · March of 8th Route Army · Defend the Yellow River | Historic brass band anthem, 1939 Yan'an battle recordings, Yellow River Cantata & revolutionary marches | **10** |
+| 🇺🇸 **国歌军乐 · 美国**<br>*(USA Anthems & Marches)* | The Star-Spangled Banner · Semper Fidelis · The Washington Post · The Liberty Bell · Anchors Aweigh | John Philip Sousa ceremonial brass marches, USNA choir chorales & Armed Forces hymns | **10** |
+| 🇷🇺 **国歌军乐 · 俄罗斯**<br>*(Russia & Soviet Marches)* | State Anthem of the USSR · The Sacred War · Farewell of Slavianka · Warszawianka · March of Enthusiasts | Powerful Red Army Choir recordings, industrial youth anthems & heroic military marches | **10** |
+| 🇫🇷 **国歌军乐 · 法国**<br>*(France Anthems & Marches)* | La Marseillaise · Le Chant du départ · Le Chant des Partisans · Sambre-et-Meuse | French Revolutionary brass fanfares, First Empire anthem & Garde Républicaine chorus | **10** |
+| 🇩🇪 **国歌军乐 · 德国**<br>*(Germany Traditional Marches)* | Das Lied der Deutschen · Erika · Preußens Gloria · Alte Kameraden · Königgrätzer · Wacht am Rhein | Classical European ceremonial brass repertoire, marching soldier songs & Prussian infantry brass | **10** |
+| 🇯🇵 **国歌军乐 · 日本**<br>*(Japan Ceremonial Marches)* | Kimigayo · Gunkan Kōshinkyoku · Review March · Yuki no Shingun · Roei no Uta | Vintage Meiji/Taisho/Showa 78 RPM gramophone brass marches, military choirs & imperial anthem | **10** |
+| 🇬🇧 **国歌军乐 · 英国**<br>*(UK Anthems & Marches)* | God Save the King · Rule, Britannia! · The British Grenadiers · Colonel Bogey · Land of Hope and Glory | Band of the Grenadier Guards, Edwardian diva Clara Butt 78 RPM & Royal Navy war standards | **5** |
 
 ---
 
@@ -128,7 +129,7 @@ music-box/
 ├── app.js                          # Playback, genre filtering, search & LRC scrolling lyrics engine
 ├── music.json                      # Track manifest (title / artist / album / genre / relative path)
 ├── lyrics.json                     # Synced LRC lyrics catalog (lyrics / translations / instrumental flags)
-├── music/                          # Audio files directory (currently 131 tracks)
+├── music/                          # Audio files directory (currently 166 tracks)
 ├── AGENTS.md                       # Technical architecture & maintainer handover notes
 └── .github/
     ├── assets/                     # High-DPI WebP preview screenshots for README
