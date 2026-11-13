@@ -22,6 +22,7 @@
     setPressedButtonState,
     debounce,
     parseTrackShareHash,
+    canonicalTrackKey,
   } = cat;
 
   const DEFAULT_DOC_TITLE = document.title || "GitHub 音乐盒 · 维多利亚留声机";
@@ -340,16 +341,17 @@
       return next;
     });
     covers = data.covers instanceof Map ? data.covers : new Map(data.covers || []);
-    trackIdxByUrl = new Map(tracks.map((t, i) => [t.url, i]));
+    trackIdxByUrl = new Map(tracks.map((t, i) => [canonicalTrackKey(t.url), i]));
 
     // 清理已下线曲目的 DOM 缓存，同时保留现存节点的 DOM 引用与用户持久化收藏/历史（避免切源或网关暂退时误删）
-    playlistRowCache.forEach((_, url) => {
-      if (!trackIdxByUrl.has(url)) playlistRowCache.delete(url);
+    playlistRowCache.forEach((_, urlKey) => {
+      if (!trackIdxByUrl.has(urlKey)) playlistRowCache.delete(urlKey);
     });
 
     const remap = (i) => {
       const t = oldTracks[i];
-      return t && trackIdxByUrl.has(t.url) ? trackIdxByUrl.get(t.url) : -1;
+      const key = t ? canonicalTrackKey(t.url) : "";
+      return key && trackIdxByUrl.has(key) ? trackIdxByUrl.get(key) : -1;
     };
     if (currentIndex !== -1) currentIndex = remap(currentIndex);
     order = order.map(remap).filter((i) => i !== -1);
@@ -691,7 +693,7 @@
 
     if (activeGenre === COLLECTION_FAVORITES) {
       userState.getFavoriteUrls().forEach((url) => {
-        const idx = trackIdxByUrl.get(url);
+        const idx = trackIdxByUrl.get(canonicalTrackKey(url));
         if (idx === undefined) return;
         const t = tracks[idx];
         if (!tokens.length || matchesSearchTokens(t._searchKey || buildSearchKey(t), tokens)) {
@@ -700,7 +702,7 @@
       });
     } else if (activeGenre === COLLECTION_RECENT) {
       userState.getRecentUrls().forEach((url) => {
-        const idx = trackIdxByUrl.get(url);
+        const idx = trackIdxByUrl.get(canonicalTrackKey(url));
         if (idx === undefined) return;
         const t = tracks[idx];
         if (!tokens.length || matchesSearchTokens(t._searchKey || buildSearchKey(t), tokens)) {
@@ -714,11 +716,12 @@
 
       for (let i = 0; i < tracks.length; i++) {
         const t = tracks[i];
+        const tKey = canonicalTrackKey(t.url);
         const g = t.genre || "其他典藏";
         if (activeGenre !== "all") {
           if (g !== activeGenre) continue;
         } else if (isPersonalTabAll) {
-          if (!favUrls.has(t.url) && !recUrls.has(t.url)) continue;
+          if (!favUrls.has(tKey) && !recUrls.has(tKey)) continue;
         } else if (shelfCategory !== "all") {
           if (genreCategory(g) !== shelfCategory) continue;
         }
@@ -813,10 +816,11 @@
 
   function getOrCreatePlaylistRow(tIndex, k, mode, tabTargetK) {
     const t = tracks[tIndex];
+    const rowKey = canonicalTrackKey(t.url);
     const isRovingTarget = k === tabTargetK;
     const isFav = userState.isFavorite(t.url);
     const metaText = formatItemMeta(t, mode);
-    let entry = playlistRowCache.get(t.url);
+    let entry = playlistRowCache.get(rowKey);
 
     if (!entry) {
       const li = document.createElement("li");
@@ -848,7 +852,7 @@
 
       li.append(idxEl, eqEl, nameEl, metaEl, favBtn, enqueueBtn);
       entry = { li, idxEl, eqEl, nameEl, metaEl, favBtn, enqueueBtn };
-      playlistRowCache.set(t.url, entry);
+      playlistRowCache.set(rowKey, entry);
     }
 
     entry.li.dataset.index = String(tIndex);
@@ -1019,7 +1023,7 @@
     }
     activePlaylistEl = null;
     if (currentIndex !== -1 && tracks[currentIndex]) {
-      const cached = playlistRowCache.get(tracks[currentIndex].url);
+      const cached = playlistRowCache.get(canonicalTrackKey(tracks[currentIndex].url));
       const curEl = (cached && cached.li.isConnected)
         ? cached.li
         : els.playlist.querySelector('.playlist-item[data-index="' + currentIndex + '"]');
@@ -1102,9 +1106,10 @@
     if (activeGenre === COLLECTION_FAVORITES || (shelfCategory === "personal" && activeGenre === "all")) {
       applyFilter();
     } else if (payload && payload.url) {
-      const entry = playlistRowCache.get(payload.url);
+      const key = canonicalTrackKey(payload.url);
+      const entry = playlistRowCache.get(key);
       if (entry) {
-        const idx = trackIdxByUrl.get(payload.url);
+        const idx = trackIdxByUrl.get(key);
         const title = idx !== undefined && tracks[idx] ? tracks[idx].title : "";
         syncRowFavButton(entry.favBtn, payload.added, title);
       }
@@ -1134,10 +1139,12 @@
     pendingSeekSec = Math.max(0, Number(seekSec) || 0);
     lastShownCurSec = -1;
     inTailFade = false;
+    userState.clearAbLoop();
     audioFx.setTransitionFadeFactor(1, true);
     cancelPreload();
     isSeeking = false;
     audio.src = t.url;
+    studioCtrl.applyPlaybackSpeed(Number(storageGet(KEYS.SPEED, "1")) || 1, false);
     els.seek.max = 0;
     els.seek.value = 0;
     syncSlider(els.seek);
@@ -1156,30 +1163,40 @@
 
   function handleStartupTarget() {
     const share = parseTrackShareHash(window.location.hash);
-    if (share && trackIdxByUrl.has(share.url)) {
-      const idx = trackIdxByUrl.get(share.url);
-      hideResumeBar();
-      prepareTrackAtTime(idx, share.time, false);
-      toast("已定位分享曲目：" + tracks[idx].title + (share.time > 0 ? " (" + fmtTime(share.time) + ")" : ""));
-      return;
+    if (share) {
+      const shareKey = canonicalTrackKey(share.url);
+      if (trackIdxByUrl.has(shareKey)) {
+        const idx = trackIdxByUrl.get(shareKey);
+        hideResumeBar();
+        prepareTrackAtTime(idx, share.time, false);
+        toast("已定位分享曲目：" + tracks[idx].title + (share.time > 0 ? " (" + fmtTime(share.time) + ")" : ""));
+        return;
+      }
     }
 
     const saved = userState.getResume();
-    if (saved && trackIdxByUrl.has(saved.url) && currentIndex === -1 && (saved.time >= 3 || saved.title)) {
-      const tr = tracks[trackIdxByUrl.get(saved.url)];
-      if (els.resumeText) {
-        els.resumeText.textContent = "上次听到：《" + tr.title + "》" + (saved.time > 0 ? " · " + fmtTime(saved.time) : "");
+    if (saved && currentIndex === -1 && (saved.time >= 3 || saved.title)) {
+      const savedKey = canonicalTrackKey(saved.url);
+      if (trackIdxByUrl.has(savedKey)) {
+        const tr = tracks[trackIdxByUrl.get(savedKey)];
+        if (els.resumeText) {
+          els.resumeText.textContent = "上次听到：《" + tr.title + "》" + (saved.time > 0 ? " · " + fmtTime(saved.time) : "");
+        }
+        if (els.resumeBar) els.resumeBar.hidden = false;
       }
-      if (els.resumeBar) els.resumeBar.hidden = false;
     }
   }
 
   window.addEventListener("hashchange", () => {
     const share = parseTrackShareHash(window.location.hash);
-    if (share && trackIdxByUrl.has(share.url)) {
-      hideResumeBar();
-      prepareTrackAtTime(trackIdxByUrl.get(share.url), share.time, false);
-      toast("已定位分享曲目：" + tracks[trackIdxByUrl.get(share.url)].title);
+    if (share) {
+      const shareKey = canonicalTrackKey(share.url);
+      if (trackIdxByUrl.has(shareKey)) {
+        const idx = trackIdxByUrl.get(shareKey);
+        hideResumeBar();
+        prepareTrackAtTime(idx, share.time, false);
+        toast("已定位分享曲目：" + tracks[idx].title);
+      }
     }
   });
 
@@ -1187,8 +1204,9 @@
     els.resumePlayBtn.addEventListener("click", () => {
       const saved = userState.getResume();
       hideResumeBar();
-      if (!saved || !trackIdxByUrl.has(saved.url)) return;
-      prepareTrackAtTime(trackIdxByUrl.get(saved.url), saved.time, true);
+      const savedKey = saved ? canonicalTrackKey(saved.url) : "";
+      if (!savedKey || !trackIdxByUrl.has(savedKey)) return;
+      prepareTrackAtTime(trackIdxByUrl.get(savedKey), saved.time, true);
     });
   }
   if (els.resumeDismissBtn) {
@@ -1361,9 +1379,10 @@
     for (let i = 0; i < order.length; i++) {
       const t = tracks[order[i]];
       if (!t) continue;
-      const occ = (occCounts.get(t.url) || 0) + 1;
-      occCounts.set(t.url, occ);
-      const cacheKey = t.url + "#" + occ;
+      const tKey = canonicalTrackKey(t.url);
+      const occ = (occCounts.get(tKey) || 0) + 1;
+      occCounts.set(tKey, occ);
+      const cacheKey = tKey + "#" + occ;
       seenKeys.add(cacheKey);
 
       const isActive = i === pos;
@@ -1693,7 +1712,13 @@
   function nextTrack(auto) {
     if (!ensureOrder()) return;
     if (pos < order.length - 1) { playAt(pos + 1); return; }
-    if (auto === true && repeat !== "all") return;
+    if (auto === true && repeat !== "all") {
+      if (inTailFade) {
+        inTailFade = false;
+        audioFx.setTransitionFadeFactor(1, true);
+      }
+      return;
+    }
     if (shuffle && order.length > 1) {
       const last = order[order.length - 1];
       order = arrangeOrder(order, null);
@@ -1886,6 +1911,8 @@
   audio.addEventListener("ended", () => {
     audioFx.onPauseOrEnd();
     if (userState.notifyTrackEndedForSleep()) {
+      inTailFade = false;
+      audioFx.setTransitionFadeFactor(1, true);
       toast("本曲已播完，睡眠定时已停止播放");
       return;
     }
@@ -1896,6 +1923,8 @@
   audio.addEventListener("error", () => {
     if (currentIndex === -1 || !audio.error) return;
     setPlayingUI(false);
+    inTailFade = false;
+    audioFx.setTransitionFadeFactor(1, true);
     cancelPreload();
     const t = tracks[currentIndex];
     errorStreak++;

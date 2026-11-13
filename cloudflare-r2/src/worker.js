@@ -208,14 +208,20 @@ function mergeQuotaStates(localState, remoteState, remoteStorage, env, now = new
   applyRemoteStorageRecord(remoteBase, remoteStorage);
   const remoteRec = reconcileQuotaState(remoteBase, env, now);
 
-  const hasRemoteStorageMetric =
-    hasRemoteStorage ||
-    (hasRemoteState && remoteState.storageBytes !== undefined);
-
   const localUpdated = String(localRec.updatedAt || "");
   const remoteUpdated = String(remoteRec.updatedAt || "");
   const localSynced = String(localRec.analyticsSyncedAt || "");
   const remoteSynced = String(remoteRec.analyticsSyncedAt || "");
+  const remoteFreshness = remoteSynced || remoteUpdated;
+  const localFreshness = localSynced || localUpdated;
+
+  const pickedStorageBytes = hasRemoteStorage
+    ? remoteRec.storageBytes
+    : hasRemoteState && remoteState.storageBytes !== undefined
+      ? (remoteFreshness >= localFreshness
+          ? (remoteRec.storageBytes || localRec.storageBytes)
+          : Math.max(localRec.storageBytes || 0, remoteRec.storageBytes || 0))
+      : localRec.storageBytes;
 
   const merged = Object.assign({}, remoteRec, {
     day: periods.day,
@@ -224,7 +230,7 @@ function mergeQuotaStates(localState, remoteState, remoteStorage, env, now = new
     dailyKvWrites: Math.max(localRec.dailyKvWrites, remoteRec.dailyKvWrites),
     monthlyClassB: Math.max(localRec.monthlyClassB, remoteRec.monthlyClassB),
     monthlyClassA: Math.max(localRec.monthlyClassA, remoteRec.monthlyClassA),
-    storageBytes: hasRemoteStorageMetric ? remoteRec.storageBytes : localRec.storageBytes,
+    storageBytes: pickedStorageBytes,
     tripped: Boolean(localRec.tripped || remoteRec.tripped),
     reason: remoteRec.reason || localRec.reason || "",
     trippedAt: remoteRec.trippedAt || localRec.trippedAt || "",

@@ -2,7 +2,8 @@
   "use strict";
 
   const ns = global.__MusicBox || (global.__MusicBox = {});
-  const { KEYS, storageGet, storageSet } = ns.catalog;
+  const { KEYS, storageGet, storageSet, canonicalTrackKey } = ns.catalog;
+  const toTrackKey = (u) => (typeof canonicalTrackKey === "function" ? canonicalTrackKey(u) : String(u || ""));
 
   const MAX_RECENT = 45;
   const RESUME_THROTTLE_MS = 3500;
@@ -60,13 +61,27 @@
     function loadPersistedLists() {
       const favRaw = safeParseJson(storageGet(KEYS.FAVORITES, ""), []);
       if (Array.isArray(favRaw)) {
-        favoriteList = favRaw.filter((u) => typeof u === "string" && u);
         favoriteSet.clear();
-        favoriteList.forEach((u) => favoriteSet.add(u));
+        favoriteList = [];
+        favRaw.forEach((u) => {
+          const k = typeof u === "string" ? toTrackKey(u) : "";
+          if (k && !favoriteSet.has(k)) {
+            favoriteSet.add(k);
+            favoriteList.push(k);
+          }
+        });
       }
       const recRaw = safeParseJson(storageGet(KEYS.RECENT, ""), []);
       if (Array.isArray(recRaw)) {
-        recentList = recRaw.filter((u) => typeof u === "string" && u).slice(0, MAX_RECENT);
+        const seenRec = new Set();
+        recentList = [];
+        for (let i = 0; i < recRaw.length && recentList.length < MAX_RECENT; i++) {
+          const k = typeof recRaw[i] === "string" ? toTrackKey(recRaw[i]) : "";
+          if (k && !seenRec.has(k)) {
+            seenRec.add(k);
+            recentList.push(k);
+          }
+        }
       }
     }
 
@@ -79,45 +94,53 @@
     }
 
     function isFavorite(url) {
-      return !!(url && favoriteSet.has(url));
+      const k = toTrackKey(url);
+      return !!(k && favoriteSet.has(k));
     }
 
     function toggleFavorite(url) {
-      if (!url) return false;
+      const k = toTrackKey(url);
+      if (!k) return false;
       let added;
-      if (favoriteSet.has(url)) {
-        favoriteSet.delete(url);
-        favoriteList = favoriteList.filter((u) => u !== url);
+      if (favoriteSet.has(k)) {
+        favoriteSet.delete(k);
+        favoriteList = favoriteList.filter((u) => u !== k);
         added = false;
       } else {
-        favoriteSet.add(url);
-        favoriteList.unshift(url);
+        favoriteSet.add(k);
+        favoriteList.unshift(k);
         added = true;
       }
       persistFavorites();
-      emit("favorites", { url, added, count: favoriteList.length });
+      emit("favorites", { url: k, added, count: favoriteList.length });
       return added;
     }
 
     function pruneByAvailableUrls(validSet) {
       if (!validSet || !validSet.size) return;
+      const normalizedSet = new Set();
+      validSet.forEach((u) => {
+        const k = toTrackKey(u);
+        if (k) normalizedSet.add(k);
+      });
       const prevFav = favoriteList.length;
-      favoriteList = favoriteList.filter((u) => validSet.has(u));
+      favoriteList = favoriteList.filter((u) => normalizedSet.has(u));
       if (favoriteList.length !== prevFav) {
         favoriteSet.clear();
         favoriteList.forEach((u) => favoriteSet.add(u));
         persistFavorites();
       }
       const prevRec = recentList.length;
-      recentList = recentList.filter((u) => validSet.has(u));
+      recentList = recentList.filter((u) => normalizedSet.has(u));
       if (recentList.length !== prevRec) persistRecent();
     }
 
     function recordRecent(url) {
-      if (!url) return;
-      recentList = [url].concat(recentList.filter((u) => u !== url)).slice(0, MAX_RECENT);
+      const k = toTrackKey(url);
+      if (!k) return;
+      recentList = [k].concat(recentList.filter((u) => u !== k)).slice(0, MAX_RECENT);
       persistRecent();
-      emit("recent", { url, count: recentList.length });
+      emit("recent", { url: k, count: recentList.length });
     }
 
     function getRecentRankMap() {
@@ -133,19 +156,20 @@
     }
 
     function saveResume(url, timeSec, title, force) {
-      if (!url) return;
+      const k = toTrackKey(url);
+      if (!k) return;
       const t = Math.max(0, Math.floor(Number(timeSec) || 0));
       const now = Date.now();
       if (!force && now - lastResumeWriteAt < RESUME_THROTTLE_MS) return;
       lastResumeWriteAt = now;
-      storageSet(KEYS.RESUME, JSON.stringify({ url, time: t, title: title || "", savedAt: now }));
+      storageSet(KEYS.RESUME, JSON.stringify({ url: k, time: t, title: title || "", savedAt: now }));
     }
 
     function getResume() {
       const data = safeParseJson(storageGet(KEYS.RESUME, ""), null);
       if (!data || typeof data.url !== "string" || !data.url) return null;
       return {
-        url: data.url,
+        url: toTrackKey(data.url),
         time: isFinite(data.time) && data.time >= 0 ? Number(data.time) : 0,
         title: typeof data.title === "string" ? data.title : "",
         savedAt: Number(data.savedAt) || 0,

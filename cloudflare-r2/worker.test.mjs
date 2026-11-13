@@ -618,4 +618,72 @@ test("monotonic quota merge prevents lagging KV from rolling counters backward a
     env
   );
   assert.equal(unauthDuringShield.status, 403, "Disallowed origin must receive 403 even while quota shield is active");
+
+  // Stale KV remoteState with storageBytes: 0 must not erase newer GraphQL storageBytes cached in isolate
+  const origFetch = globalThis.fetch;
+  try {
+    const cronKv = makeMockKv({
+      "quota:state:v1": JSON.stringify({
+        day: today,
+        month,
+        dailyReqs: 1,
+        dailyKvWrites: 1,
+        monthlyClassB: 1,
+        monthlyClassA: 0,
+        storageBytes: 0,
+        analyticsSyncedAt: "",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        tripped: false,
+        reason: "",
+      }),
+    });
+    const cronEnv = makeEnv({
+      MUSIC_QUOTA_KV: cronKv,
+      CF_ANALYTICS_TOKEN: "tok",
+      CF_ACCOUNT_ID: "acct",
+      QUOTA_CACHE_MS: "0",
+    });
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            viewer: {
+              accounts: [
+                {
+                  r2OperationsAdaptiveGroups: [],
+                  r2StorageAdaptiveGroups: [{ dimensions: { bucketName: "music-box-audio" }, max: { payloadSize: 500000, metadataSize: 123 } }],
+                },
+              ],
+            },
+          },
+        }),
+        { status: 200 }
+      );
+    await handleScheduled({}, cronEnv);
+    // Simulate a lagging edge KV read returning the old 0-byte snapshot while isolate holds 500123
+    cronKv.store.set(
+      "quota:state:v1",
+      JSON.stringify({
+        day: today,
+        month,
+        dailyReqs: 1,
+        dailyKvWrites: 1,
+        monthlyClassB: 1,
+        monthlyClassA: 0,
+        storageBytes: 0,
+        analyticsSyncedAt: "",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        tripped: false,
+        reason: "",
+      })
+    );
+    const quotaAfterLagRes = await handleRequest(
+      new Request("https://worker.example/quota", { headers: originHeaders }),
+      cronEnv
+    );
+    const quotaAfterLag = await quotaAfterLagRes.json();
+    assert.equal(quotaAfterLag.usage.storageBytes, 500123, "Stale KV snapshot must not erase newer GraphQL storageBytes");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 });

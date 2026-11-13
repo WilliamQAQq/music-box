@@ -553,7 +553,7 @@
             isPartialDegraded = true;
             const errMsg = (r2Res.reason && r2Res.reason.message) || "网络或权限异常";
             const cacheHasR2 = !!(useCache && Array.isArray(cache.tracks) && cache.tracks.some((t) => t && t.source === "r2"));
-            if (!useCache || force || cacheHasR2) {
+            if (!useCache || force || cacheHasR2 || /熔断|口令|受限/.test(errMsg)) {
               partialWarning = "R2 网关暂不可用（" + errMsg + "），当前显示 GitHub 曲库";
             }
             data = ghRes.value;

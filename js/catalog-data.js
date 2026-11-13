@@ -610,6 +610,30 @@
   }
 
   /**
+   * 提取曲目或链接的稳定身份标识键：移除 R2 签名直链中的临时 exp/sig 参数，
+   * 确保开启 ACCESS_KEY 时收藏、最近聆听、断点续播与队列在签名刷新后仍准确匹配。
+   */
+  function canonicalTrackKey(trackOrUrl) {
+    const raw = (trackOrUrl && typeof trackOrUrl === "object")
+      ? String(trackOrUrl.url || trackOrUrl.path || "").trim()
+      : String(trackOrUrl || "").trim();
+    if (!raw) return "";
+    const qIdx = raw.indexOf("?");
+    if (qIdx === -1) return raw;
+    try {
+      const base = raw.slice(0, qIdx);
+      const params = new URLSearchParams(raw.slice(qIdx + 1));
+      if (!params.has("exp") && !params.has("sig")) return raw;
+      params.delete("exp");
+      params.delete("sig");
+      const rest = params.toString();
+      return rest ? base + "?" + rest : base;
+    } catch (e) {
+      return raw;
+    }
+  }
+
+  /**
    * 解析浏览器 URL Hash 中的曲目分享直链参数 (#track=...&t=...)。
    */
   function parseTrackShareHash(hashStr) {
@@ -630,12 +654,12 @@
   }
 
   /**
-   * 构建分享用的当前曲目链接（携带时间戳）。
+   * 构建分享用的当前曲目链接（携带时间戳，自动剥离短期签名参数）。
    */
   function buildTrackShareUrl(trackUrl, timeSec) {
     const base = global.location ? (global.location.href.split("#")[0]) : "";
     const params = new URLSearchParams();
-    params.set("track", String(trackUrl || ""));
+    params.set("track", canonicalTrackKey(trackUrl));
     const sec = Math.max(0, Math.floor(Number(timeSec) || 0));
     if (sec > 0) params.set("t", String(sec));
     return base + "#" + params.toString();
@@ -802,6 +826,7 @@
     buildTrackShareUrl,
     copyTextToClipboard,
     formatLrcExport,
+    canonicalTrackKey,
     normalizeR2BaseUrl,
     resolveR2Track,
   };
