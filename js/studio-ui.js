@@ -273,19 +273,30 @@
       }
     }
 
+    function applyFallbackStudioState(open, restoreFocus) {
+      studioOpen = open;
+      els.studioPanel.classList.toggle(":popover-open", open);
+      els.studioPanel.classList.toggle("studio-open", open);
+      setPressedButtonState(els.studioBtn, open);
+      syncSpectrumRunState();
+      if (open) {
+        refreshSwCacheStats();
+      } else if (restoreFocus && els.studioBtn) {
+        els.studioBtn.focus();
+      }
+    }
+
     function openStudio(triggerEl) {
       if (!els.studioPanel) return;
       if (onBeforeOpen) onBeforeOpen();
+      let openedNatively = false;
       if (hasNativePopover) {
         try {
           if (!els.studioPanel.matches(":popover-open")) els.studioPanel.showPopover();
-        } catch (e) { /* ignore */ }
-      } else {
-        studioOpen = true;
-        els.studioPanel.classList.add(":popover-open");
-        setPressedButtonState(els.studioBtn, true);
-        syncSpectrumRunState();
+          openedNatively = els.studioPanel.matches(":popover-open");
+        } catch (e) { openedNatively = false; }
       }
+      if (!openedNatively) applyFallbackStudioState(true, false);
       if (triggerEl) els.studioPanel.dataset.lastTriggerId = triggerEl.id || "";
     }
 
@@ -295,12 +306,9 @@
         try {
           if (els.studioPanel.matches(":popover-open")) els.studioPanel.hidePopover();
         } catch (e) { /* ignore */ }
-      } else if (studioOpen) {
-        studioOpen = false;
-        els.studioPanel.classList.remove(":popover-open");
-        setPressedButtonState(els.studioBtn, false);
-        syncSpectrumRunState();
-        if (restoreFocus && els.studioBtn) els.studioBtn.focus();
+      }
+      if (studioOpen || els.studioPanel.classList.contains("studio-open") || els.studioPanel.classList.contains(":popover-open")) {
+        applyFallbackStudioState(false, restoreFocus);
       }
     }
 

@@ -49,6 +49,7 @@ html {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--serif);
   color: var(--text);
   overflow-wrap: anywhere;
@@ -72,6 +73,7 @@ button {
   color: inherit;
   font: inherit;
   user-select: none;
+  touch-action: manipulation;
 }
 
 button:focus-visible,
@@ -772,7 +774,7 @@ button:focus-visible,
     inset 0 3px 0 rgba(243, 212, 134, 0.32),
     0 -10px 30px rgba(0, 0, 0, 0.72);
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-columns: minmax(180px, 1fr) minmax(300px, 1.45fr) minmax(max-content, 1fr);
   align-items: center;
   gap: 14px;
   padding: 0 22px;
@@ -1260,7 +1262,8 @@ input[type="range"].range.vol { flex: 0 0 100px; max-width: 120px; }
     top: 82px;
     height: calc(100vh - var(--player-h) - 102px);
     height: calc(100dvh - var(--player-h) - 102px);
-    min-height: 400px;
+    min-height: min(380px, calc(100vh - var(--player-h) - 102px));
+    min-height: min(380px, calc(100dvh - var(--player-h) - 102px));
     max-height: 760px;
   }
 }
@@ -1824,6 +1827,35 @@ body.synth-fx-active .playlist-item.playing .eq span {
   text-wrap: pretty;
 }
 
+@media (max-width: 1120px) {
+  :root {
+    --player-h: 170px;
+  }
+  .player {
+    grid-template-columns: minmax(0, 1fr) auto;
+    height: auto;
+    min-height: var(--player-h);
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    gap: 6px 12px;
+  }
+  .player-center { grid-column: 1 / -1; grid-row: 1; }
+  .player-track { grid-column: 1; grid-row: 2; }
+  .player-right {
+    grid-column: 2;
+    grid-row: 2;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  input[type="range"].range.vol { flex: 0 0 74px; max-width: 84px; }
+}
+
+@media (max-width: 900px) {
+  .genre-shelf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 980px) {
   .lyrics-panel {
     display: none;
@@ -2099,11 +2131,13 @@ body.synth-fx-active .playlist-item.playing .eq span {
 
 /* Studio Popover Panel (Top-Layer Popover API + Fallback) */
 .studio-popover {
+  position: fixed;
   inset: auto;
   right: max(18px, env(safe-area-inset-right, 0px));
   bottom: calc(var(--player-h) + 12px + env(safe-area-inset-bottom, 0px));
   width: min(450px, calc(100vw - 24px));
-  max-height: min(76vh, 660px);
+  max-height: min(660px, calc(100vh - var(--player-h) - 28px));
+  max-height: min(660px, calc(100dvh - var(--player-h) - 28px));
   margin: 0;
   padding: 0;
   border-radius: 10px;
@@ -2123,7 +2157,7 @@ body.synth-fx-active .playlist-item.playing .eq span {
 .studio-popover::backdrop {
   background: rgba(6, 3, 2, 0.35);
 }
-.studio-popover:is(:popover-open, .\:popover-open) {
+.studio-popover:is(:popover-open, .\:popover-open, .studio-open) {
   display: flex;
   flex-direction: column;
   overscroll-behavior: contain;
@@ -2303,6 +2337,7 @@ body.synth-fx-active .playlist-item.playing .eq span {
     width: auto;
     bottom: calc(184px + env(safe-area-inset-bottom, 0px));
     max-height: calc(100vh - 245px);
+    max-height: calc(100dvh - 245px);
   }
   .studio-two-col {
     grid-template-columns: 1fr;
@@ -2358,11 +2393,26 @@ body.synth-fx-active .playlist-item.playing .eq span {
   .studio-popover {
     bottom: calc(212px + env(safe-area-inset-bottom, 0px));
     max-height: calc(100vh - 275px);
+    max-height: calc(100dvh - 275px);
   }
   .toast { bottom: calc(216px + env(safe-area-inset-bottom, 0px)); }
 }
 
+@media (pointer: coarse), (max-width: 1024px) {
+  body {
+    background-attachment: scroll;
+  }
+}
+
+@media (pointer: coarse), (hover: none) {
+  .playlist-fav-btn,
+  .playlist-enqueue-btn {
+    opacity: 0.88;
+  }
+}
+
 @media (pointer: coarse) {
+  .icon-btn,
   .genre-play-btn,
   .sm-icon-btn,
   .playlist-fav-btn,
@@ -2386,6 +2436,7 @@ body.synth-fx-active .playlist-item.playing .eq span {
     min-block-size: 36px;
     position: relative;
   }
+  .icon-btn::before,
   .ctrl-btn::before,
   .genre-play-btn::before,
   .playlist-fav-btn::before,
@@ -2396,9 +2447,15 @@ body.synth-fx-active .playlist-item.playing .eq span {
     inset: -4px;
   }
   .lyrics-pill-btn,
-  .studio-pill-btn {
-    min-block-size: 34px;
+  .studio-pill-btn,
+  .shelf-tab {
+    min-block-size: 40px;
+    min-inline-size: 44px;
     padding-inline: 12px;
+  }
+  .studio-pills,
+  .genre-shelf-tabs {
+    gap: 8px;
   }
   .player-right {
     gap: 8px;

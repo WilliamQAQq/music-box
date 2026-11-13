@@ -8,7 +8,7 @@
 [**简体中文**](README.md) · **English**
 
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_Listen_Live-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
-[![Tracks](https://img.shields.io/badge/Records-197_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
+[![Tracks](https://img.shields.io/badge/Records-209_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
 [![Genres](https://img.shields.io/badge/Collections-18_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections-18-editions)
 [![Lyrics](https://img.shields.io/badge/Scrolling_Lyrics-Synced_Bilingual_LRC-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
 
@@ -36,10 +36,10 @@
 
 ## 🏛️ Key Highlights
 
-- **Victorian Vinyl Gramophone Aesthetic**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and a responsive layout that adapts from a two-column desktop salon to a slide-up mobile drawer.
-- **18 Curated Record Collections & National Anthem Editions**: **197 tracks across 148 artists**, organized into 11 salon genres and 7 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan, United Kingdom). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
+- **Victorian Vinyl Gramophone Aesthetic**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and a responsive layout that adapts seamlessly from a two-column desktop salon to an iPad two-row cabinet and a slide-up mobile drawer.
+- **18 Curated Record Collections & National Anthem Editions**: **209 tracks across 158 artists**, organized into 11 salon genres and 7 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan, United Kingdom). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
 - **Time-Synced Scrolling Lyrics (Victorian Libretto Folio)**:
-  - **155 vocal & analog-broadcast tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 109 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **42 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
+  - **163 vocal & analog-broadcast tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 117 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **46 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
 - **Zero API Limits · Lazy Lyrics · PWA Offline Cache & Smart Preload**: Instant boot from same-origin [`music.json`](music.json) paired with 64-bit FNV-1a library signatures; [`lyrics.json`](lyrics.json) now loads strictly on demand upon track playback (zero cold-boot lyric transfer); [`sw.js`](sw.js) and [`manifest.webmanifest`](manifest.webmanifest) deliver Range-safe offline track caching, while **⚙️ Cabinet Settings** connects any public/private GitHub repo.
@@ -75,8 +75,8 @@
 | **交响爵士 · 浪漫夜曲**<br>*(Symphonic & Night Jazz)* | Laufey & Iceland Symphony Orchestra · Anthony Lazaro | Contemporary vocal jazz interwoven with lush orchestral arrangements | **16** |
 | **先锋浪潮 · 独立摇滚**<br>*(Indie Rock & Post-Rock)* | Omnipotent Youth Society · No Party For Cao Dong · Hedgehog · Wang Wen | Contemporary Chinese indie bands, post-rock instrumentals, and synth-wave | **15** |
 | **赤焰岁月 · 华语摇滚**<br>*(Chinese Rock Pioneers)* | Cui Jian · Tang Dynasty · Dou Wei · Black Panther · Second Hand Rose · Lo Ta-yu | Foundational anthems and raw live energy from the golden age of Chinese rock | **13** |
-| **世界民谣 · 万国乡音**<br>*(World Folk Heritage)* | Simon & Garfunkel · Milva · Pedro Infante · Youn Sun Nah · Yuko Takahashi | Traditional folk ballads from 12 regions (England, Scotland, Ireland, FR, DE, IT, CU, MX, US, CN, JP, KR) | **12** |
-| **暗夜怪谈 · 模拟恐怖**<br>*(Analog Horror & Liminal)* | The Caretaker · Local 58 · Kane Pixels · Mandela Catalogue · IBM 7094 | Liminal Backrooms ambience, 1961 computer vocal synthesis, hauntological 78 RPMs & emergency broadcast tapes | **10** |
+| **世界民谣 · 万国乡音**<br>*(World Folk Heritage)* | Simon & Garfunkel · The Animals · Eva Cassidy · Milva · Yves Montand | Canonical studio folk masters from 12 regions (England, Scotland, Ireland, FR, DE, IT, CU, MX, US, CN, JP, KR) | **12** |
+| **暗夜怪谈 · 模拟恐怖**<br>*(Analog Horror & Liminal)* | The Caretaker · Boards of Canada · Akira Yamaoka · Local 58 · Kane Pixels | Liminal Backrooms & Silent Hill ambience, number-station eerie tapes, 1961 speech synthesis & haunting pre-war 78s | **22** |
 | **流金热浪 · 时代新声**<br>*(Modern Viral & Pop Hits)* | Billie Eilish · Lady Gaga & Bruno Mars · ROSÉ · Kendrick Lamar · Wen Yixin | Recent global chart-toppers and contemporary Chinese viral pop hits | **10** |
 | **蓝调之音 · 器乐爵士**<br>*(Instrumental Jazz & Cool Bop)* | Miles Davis · John Coltrane · Ryo Fukui · Glenn Miller | Late-night trumpet, saxophone, and piano trio improvisations & big band swing | **9** |
 | **灵魂低吟 · 节奏蓝调**<br>*(Classic Soul & R&B)* | Bill Withers · Etta James · Sam Cooke · David Tao | Warm, heartfelt soul classics, blues ballads, and rhythm & blues grooves | **6** |
@@ -153,7 +153,7 @@ music-box/
 ├── tests/                          # Node unit tests & Playwright headless Chromium E2E test suite
 ├── music.json                      # Track manifest (title / artist / album / genre / relative path)
 ├── lyrics.json                     # Synced LRC lyrics catalog (lyrics / translations / instrumental flags)
-├── music/                          # Audio files directory (currently 197 tracks)
+├── music/                          # Audio files directory (currently 209 tracks)
 ├── AGENTS.md                       # Technical architecture & maintainer handover notes
 └── .github/
     ├── assets/                     # High-DPI WebP preview screenshots for README

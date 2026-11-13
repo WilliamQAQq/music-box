@@ -403,7 +403,97 @@ async function run() {
     assert.deepEqual(mobileErrors, [], `Mobile E2E hit unexpected errors: ${mobileErrors.join(" | ")}`);
     await mobileCtx.close();
 
-    console.log("E2E SMOKE PASS: desktop (lazy lyrics, SW, favorites, keyed DOM, studio/EQ/speed/crossfade/sleep/A-B/share, resume, deep-link) + mobile (375px layout, zero overlap, zero errors)");
+    // -------------------- 3. IPAD PORTRAIT & LANDSCAPE TOUCH TESTS --------------------
+    for (const tabletSpec of [
+      { name: "iPad Portrait 820x1180", width: 820, height: 1180, expectSideLyrics: false },
+      { name: "iPad Landscape 1024x768", width: 1024, height: 768, expectSideLyrics: true },
+    ]) {
+      const tabCtx = await browser.newContext({
+        viewport: { width: tabletSpec.width, height: tabletSpec.height },
+        hasTouch: true,
+        isMobile: false,
+      });
+      const tPage = await tabCtx.newPage();
+      const tabErrors = [];
+      tPage.on("pageerror", (err) => tabErrors.push(`pageerror: ${err.message}`));
+      tPage.on("console", (msg) => {
+        if (msg.type() === "error") tabErrors.push(`console.error: ${msg.text()}`);
+      });
+
+      await tPage.goto(`${baseUrl}/index.html`, { waitUntil: "networkidle" });
+      await tPage.waitForSelector(".playlist-item");
+
+      const tabletMetrics = await tPage.evaluate(() => {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const overflow = document.documentElement.scrollWidth > vw;
+        const playerRect = document.getElementById("player").getBoundingClientRect();
+        const rightControls = ["#vinylFxBtn", "#synthFxBtn", "#studioBtn", "#lyricsToggleBtn", "#queueToggleBtn", "#muteBtn", "#volume"]
+          .map((sel) => {
+            const el = document.querySelector(sel);
+            const r = el.getBoundingClientRect();
+            return { sel, left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: r.width, h: r.height };
+          });
+        const favOpacity = parseFloat(getComputedStyle(document.querySelector(".playlist-fav-btn")).opacity);
+        const enqOpacity = parseFloat(getComputedStyle(document.querySelector(".playlist-enqueue-btn")).opacity);
+        const lyricsRect = document.getElementById("lyricsPanel").getBoundingClientRect();
+        return { vw, vh, overflow, playerRect, rightControls, favOpacity, enqOpacity, lyricsRect };
+      });
+
+      assert.equal(tabletMetrics.overflow, false, `${tabletSpec.name} must have zero horizontal overflow`);
+      assert.ok(tabletMetrics.favOpacity >= 0.8, `${tabletSpec.name}: fav button should stay visible on touch (${tabletMetrics.favOpacity})`);
+      assert.ok(tabletMetrics.enqOpacity >= 0.8, `${tabletSpec.name}: enqueue button should stay visible on touch (${tabletMetrics.enqOpacity})`);
+
+      for (const ctrl of tabletMetrics.rightControls) {
+        assert.ok(ctrl.left >= 0 && ctrl.right <= tabletMetrics.vw + 0.5, `${tabletSpec.name}: ${ctrl.sel} clipped horizontally (${ctrl.left}..${ctrl.right} vs vw=${tabletMetrics.vw})`);
+        assert.ok(ctrl.bottom <= tabletMetrics.vh + 0.5 && ctrl.top >= tabletMetrics.playerRect.top - 1, `${tabletSpec.name}: ${ctrl.sel} outside player vertical bounds`);
+        assert.ok(ctrl.w >= 34 && ctrl.h >= 20, `${tabletSpec.name}: ${ctrl.sel} crushed (${ctrl.w}x${ctrl.h})`);
+      }
+
+      if (tabletSpec.expectSideLyrics) {
+        assert.ok(tabletMetrics.lyricsRect.height > 250, `${tabletSpec.name}: side lyrics panel should be visible`);
+        assert.ok(tabletMetrics.lyricsRect.bottom <= tabletMetrics.playerRect.top + 2, `${tabletSpec.name}: side lyrics (${tabletMetrics.lyricsRect.bottom}) overlaps player (${tabletMetrics.playerRect.top})`);
+      } else {
+        await tPage.tap("#lyricsToggleBtn");
+        await tPage.waitForSelector("body.mobile-lyrics-open .lyrics-panel");
+        const lClear = await tPage.evaluate(() => ({
+          lBottom: document.getElementById("lyricsPanel").getBoundingClientRect().bottom,
+          pTop: document.getElementById("player").getBoundingClientRect().top,
+        }));
+        assert.ok(lClear.lBottom <= lClear.pTop + 2, `${tabletSpec.name}: lyrics overlay (${lClear.lBottom}) overlaps player (${lClear.pTop})`);
+        await tPage.tap("#lyricsCloseBtn");
+      }
+
+      // Open Studio panel via touch tap and verify positioning & non-overlap
+      await tPage.tap("#studioBtn");
+      const studioBox = await tPage.evaluate(() => {
+        const d = document.getElementById("studioPanel");
+        const isOpen = d.matches(":popover-open") || d.classList.contains(":popover-open") || d.classList.contains("studio-open");
+        const r = d.getBoundingClientRect();
+        const p = document.getElementById("player").getBoundingClientRect();
+        const eqCtrl = document.getElementById("eqBass").getBoundingClientRect();
+        return {
+          isOpen,
+          top: r.top,
+          bottom: r.bottom,
+          left: r.left,
+          right: r.right,
+          vw: window.innerWidth,
+          playerTop: p.top,
+          eqW: eqCtrl.width,
+        };
+      });
+      assert.equal(studioBox.isOpen, true, `${tabletSpec.name}: tapping #studioBtn must open Studio panel`);
+      assert.ok(studioBox.top >= 0 && studioBox.left >= 0 && studioBox.right <= studioBox.vw + 0.5, `${tabletSpec.name}: Studio panel must fit inside viewport`);
+      assert.ok(studioBox.bottom <= studioBox.playerTop + 2, `${tabletSpec.name}: Studio panel (${studioBox.bottom}) must stay above player (${studioBox.playerTop})`);
+      assert.ok(studioBox.eqW > 80, `${tabletSpec.name}: EQ slider inside Studio must be visible and usable`);
+
+      await tPage.tap("#studioCloseBtn");
+      assert.deepEqual(tabErrors, [], `${tabletSpec.name} hit unexpected errors: ${tabErrors.join(" | ")}`);
+      await tabCtx.close();
+    }
+
+    console.log("E2E SMOKE PASS: desktop + mobile (375px) + iPad Portrait (820x1180) + iPad Landscape (1024x768) verified");
   } finally {
     await browser.close();
     server.close();

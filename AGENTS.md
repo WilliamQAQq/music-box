@@ -7,7 +7,7 @@
 一个以 **GitHub 仓库为存储**的在线音乐播放器,部署在 GitHub Pages。
 
 - 在线地址:https://williamqaqq.github.io/music-box/
-- 仓库:https://github.com/WilliamQAQq/music-box (公开,约 894MB)
+- 仓库:https://github.com/WilliamQAQq/music-box (公开,曲库约 933MB)
 - 纯前端静态项目,无框架、无构建步骤,按 `defer` 顺序加载模块化脚本(`window.__MusicBox`)。
 
 ## 文件结构
@@ -33,7 +33,7 @@
 │   └── e2e_smoke.mjs     Playwright 无头浏览器端到端验证(桌面与 375px 移动端实测)
 ├── music.json            音乐清单(前端主数据源:标题/歌手/专辑/风格/相对路径)
 ├── lyrics.json           全馆时间轴滚动歌词库(LRC 原文/双语译文/纯器乐标记)
-├── music/                音乐文件(mp3 等,目前 197 首)
+├── music/                音乐文件(mp3 等,目前 209 首)
 └── .github/
     ├── assets/           README 实机预览图
     ├── gen_music_json.py 清单生成脚本(扫描 music/ 并读取 ID3 标签与在线歌词)
@@ -59,7 +59,7 @@ push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/�
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=23` / `VERSION = "v23"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=24` / `VERSION = "v24"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查
@@ -77,8 +77,8 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 
 - **工作流依赖 mutagen**:`update-music.yml` 里那行 `python -m pip install --quiet mutagen` 不能删,否则 Actions 生成的 music.json 丢失所有 ID3 歌手信息(曾因此出过事故)。
 - **无 ID3 标签的文件 / 风格归类**:在 `.github/gen_music_json.py` 的 `MANUAL_ARTIST` 补歌手,`ARTIST_GENRE` / `MANUAL_GENRE` 维护风格歌单映射(无映射时自动按 ID3 `genre` 标签推断或归入"其他典藏")。
-- **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前约 475MB,单曲最大约 15.5MB。私有仓库无法免费启用 GitHub Pages,需保持公开。
-- **浏览器缓存**:music.json 用 `no-store` 拉取,且有本地缓存时也会后台重新拉取,加歌后刷新即见;前端 JS/CSS 靠 `?v=` 版本号破缓存。
+- **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前曲库约 933MB(单曲最大约 15.5MB,.git 约 879MB,已接近 1GB 容量阈值,后续如需大批量增补新歌建议先精简旧曲目比特率或拆分存储)。私有仓库无法免费启用 GitHub Pages,需保持公开。
+- **浏览器缓存**:`music.json` 用 `no-store` 拉取(有本地缓存时先秒开缓存并后台静默更新),`sw.js` 对 HTML 导航请求采用 `networkFirst` 确保入口页不锁死旧版本;前端 JS/CSS 靠 `?v=` 版本号破缓存。
 - **`hidden` 属性**:style.css 里有全局 `[hidden]{display:none !important}`,不要删,否则带 `display` 样式的元素(如横幅)用 `hidden` 隐藏不掉。
 - **URL 编码**:前端用相对 URL(原样交给浏览器),API 兜底路径时按路径段 `encodeURIComponent`。
 
@@ -86,7 +86,7 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 
 - 分组渲染与 Keyed DOM 复用:按 `genre` / `artist` 在列表中插入 `playlist-header` 吸顶标题,列表行按 URL、队列行按 URL+出现序号复用 DOM 节点 (`replaceChildren`),避免筛选、收藏与队列调序重建整棵 DOM 树;清单变更比对使用 64-bit FNV-1a 指纹签名(`sig`)。
 - 性能与离线优化:`lyrics.json` 采用真正按需延迟加载(首屏冷启动 0 歌词字节请求),`timeupdate` 仅在跨整秒边界时更新 `#curTime`;频谱 Canvas 基于 `contentvisibilityautostatechange` / 页面可见性 / 暂停状态自动停帧节能;通过 `sw.js` 提供仅限 `http:`/`https:` 的 Range 安全离线音轨缓存(兼容本地 `file://` 直接打开)。
-- 个人雅集与留声机调音台:支持个人收藏(`♥` / `F` 键)、最近 45 首聆听历史、上次断点续播横幅、URL 分享直链(`#track=...&t=...`),以及 `<dialog popover="auto">` 顶层调音台(`E` 键):实时频谱、3 段 EQ + 预设、黑胶/合成器浓淡比例、0.75x–1.5x 保调倍速、0/2/4/6s Crossfade 曲间淡入淡出、睡眠定时(播完本曲/15/30/60 分钟渐弱停播)与 A-B 区间精听复读(`[ / ] / \`)。
+- 个人雅集与留声机调音台:支持个人收藏(`♥` / `F` 键)、最近 45 首聆听历史、上次断点续播横幅、URL 分享直链(`#track=...&t=...`),以及 `<dialog popover="auto">` 顶层调音台(`E` 键,内置旧版 Safari/iPadOS `.studio-open` 固定定位降级兜底与 `max-width: 1120px` 平板双排播控适配):实时频谱、3 段 EQ + 预设、黑胶/合成器浓淡比例、0.75x–1.5x 保调倍速、0/2/4/6s Crossfade 曲间淡入淡出、睡眠定时(播完本曲/15/30/60 分钟渐弱停播)与 A-B 区间精听复读(`[ / ] / \`)。
 - 循环三档:`none → all → one`;`repeat-one` 类给按钮加"1"角标。
 - 播放顺序与队列抽屉(`order[]`/`pos`/`#queueDrawer`):点歌时以当前可见列表为上下文,随机模式使用 Fisher-Yates 洗牌;列表每行附 `♥` 与 `+` 下一首按钮,队列抽屉支持跳播、顶置下一首、移除、重洗与清空后续。
 - 下一首智能预加载:起播稳定 1.4 秒后检查 `navigator.connection`(`saveData` / `2g` 跳过),利用离屏 `Audio` 预热下一首并自动释放解码器。

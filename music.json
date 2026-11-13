@@ -16,6 +16,14 @@
     "dir": "music"
   },
   {
+    "title": "Promise (Reprise)",
+    "artist": "Akira Yamaoka",
+    "album": "Silent Hill 2 OST",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Akira Yamaoka - Promise (Reprise).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Midnight, the Stars and You (1934)",
     "artist": "Al Bowlly, Ray Noble",
     "album": "1930s Shellac Archive",
@@ -168,6 +176,22 @@
     "dir": "music"
   },
   {
+    "title": "Beware the Friendly Stranger",
+    "artist": "Boards of Canada",
+    "album": "Geogaddi",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Boards of Canada - Beware the Friendly Stranger.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Gyroscope",
+    "artist": "Boards of Canada",
+    "album": "Geogaddi",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Boards of Canada - Gyroscope.mp3",
+    "dir": "music"
+  },
+  {
     "title": "Alte Kameraden (旧友进行曲)",
     "artist": "Carl Teike",
     "album": "Deutsche Traditionsmärsche",
@@ -208,11 +232,11 @@
     "dir": "music"
   },
   {
-    "title": "Guantanamera (关塔那摩姑娘 · 古巴民谣)",
-    "artist": "Cuban Traditional",
+    "title": "Guajira Guantanamera (关塔那摩姑娘 · 古巴民谣)",
+    "artist": "Compay Segundo",
     "album": "世界民谣 · 万国乡音",
     "genre": "世界民谣 · 万国乡音",
-    "url": "music/Cuban Traditional - Guantanamera (关塔那摩姑娘 · 古巴民谣).mp3",
+    "url": "music/Compay Segundo - Guajira Guantanamera (关塔那摩姑娘 · 古巴民谣).mp3",
     "dir": "music"
   },
   {
@@ -328,6 +352,14 @@
     "dir": "music"
   },
   {
+    "title": "Danny Boy (丹尼男孩 · 爱尔兰民谣)",
+    "artist": "Eva Cassidy",
+    "album": "世界民谣 · 万国乡音",
+    "genre": "世界民谣 · 万国乡音",
+    "url": "music/Eva Cassidy - Danny Boy (丹尼男孩 · 爱尔兰民谣).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Colonel Bogey March (博吉上校进行曲)",
     "artist": "F. J. Ricketts (Kenneth J. Alford)",
     "album": "国歌军乐特辑",
@@ -349,14 +381,6 @@
     "album": "",
     "genre": "古典沙龙 · 剧场礼乐",
     "url": "music/Francis_Shaw_-_Military_March_(SkySound7.com).mp3",
-    "dir": "music"
-  },
-  {
-    "title": "Loch Lomond (罗梦湖畔 · 苏格兰民谣)",
-    "artist": "Frank Munn",
-    "album": "世界民谣 · 万国乡音",
-    "genre": "世界民谣 · 万国乡音",
-    "url": "music/Frank Munn - Loch Lomond (罗梦湖畔 · 苏格兰民谣).mp3",
     "dir": "music"
   },
   {
@@ -389,6 +413,22 @@
     "album": "Greatest Hits",
     "genre": "蓝调之音 · 器乐爵士",
     "url": "music/In the Mood_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Poison Tree",
+    "artist": "Grouper",
+    "album": "A I A: Alien Observer",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Grouper - Poison Tree.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "In einem kühlen Grunde (山谷清泉 · 德国民谣)",
+    "artist": "Hermann Prey",
+    "album": "世界民谣 · 万国乡音",
+    "genre": "世界民谣 · 万国乡音",
+    "url": "music/Hermann Prey - In einem kühlen Grunde (山谷清泉 · 德国民谣).mp3",
     "dir": "music"
   },
   {
@@ -448,14 +488,6 @@
     "dir": "music"
   },
   {
-    "title": "Danny Boy (丹尼男孩 · 爱尔兰民谣)",
-    "artist": "Jay Kiernan, Liz Hollister",
-    "album": "世界民谣 · 万国乡音",
-    "genre": "世界民谣 · 万国乡音",
-    "url": "music/Jay Kiernan, Liz Hollister - Danny Boy (丹尼男孩 · 爱尔兰民谣).mp3",
-    "dir": "music"
-  },
-  {
     "title": "My One And Only Love",
     "artist": "John Coltrane, Johnny Hartman",
     "album": "John Coltrane And Johnny Hartman",
@@ -477,14 +509,6 @@
     "album": "Historische Deutsche Militärmärsche",
     "genre": "国歌军乐 · 德国",
     "url": "music/Josef Franz Wagner - Unter dem Doppeladler.mp3",
-    "dir": "music"
-  },
-  {
-    "title": "House of the Rising Sun (日升之屋 · 美国民谣)",
-    "artist": "Josh White",
-    "album": "世界民谣 · 万国乡音",
-    "genre": "世界民谣 · 万国乡音",
-    "url": "music/Josh White - House of the Rising Sun (日升之屋 · 美国民谣).mp3",
     "dir": "music"
   },
   {
@@ -720,6 +744,14 @@
     "dir": "music"
   },
   {
+    "title": "Acid Rain",
+    "artist": "Lorn",
+    "album": "The Maze to Nowhere",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Lorn - Acid Rain.mp3",
+    "dir": "music"
+  },
+  {
     "title": "La vie en rose",
     "artist": "Louis Armstrong",
     "album": "C'est Si Bon",
@@ -832,11 +864,19 @@
     "dir": "music"
   },
   {
-    "title": "Cielito Lindo (美丽的甜心 · 墨西哥民谣)",
-    "artist": "Pedro Infante",
-    "album": "世界民谣 · 万国乡音",
-    "genre": "世界民谣 · 万国乡音",
-    "url": "music/Pedro Infante - Cielito Lindo (美丽的甜心 · 墨西哥民谣).mp3",
+    "title": "Dark Beach",
+    "artist": "Pastel Ghost",
+    "album": "Abyss",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Pastel Ghost - Dark Beach.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Tonight You Belong to Me",
+    "artist": "Patience & Prudence",
+    "album": "1956 Vintage Archive",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Patience & Prudence - Tonight You Belong to Me.mp3",
     "dir": "music"
   },
   {
@@ -861,14 +901,6 @@
     "album": "Золотая коллекция",
     "genre": "古典沙龙 · 剧场礼乐",
     "url": "music/Pyotr Leshchenko - Бессарабянка (SPOTISAVER).mp3",
-    "dir": "music"
-  },
-  {
-    "title": "In einem kühlen Grunde (山谷清泉 · 德国民谣)",
-    "artist": "Richard Tauber",
-    "album": "世界民谣 · 万国乡音",
-    "genre": "世界民谣 · 万国乡音",
-    "url": "music/Richard Tauber - In einem kühlen Grunde (山谷清泉 · 德国民谣).mp3",
     "dir": "music"
   },
   {
@@ -936,6 +968,14 @@
     "dir": "music"
   },
   {
+    "title": "The House of the Rising Sun (日升之屋 · 美国民谣)",
+    "artist": "The Animals",
+    "album": "世界民谣 · 万国乡音",
+    "genre": "世界民谣 · 万国乡音",
+    "url": "music/The Animals - The House of the Rising Sun (日升之屋 · 美国民谣).mp3",
+    "dir": "music"
+  },
+  {
     "title": "It's Just a Burning Memory",
     "artist": "The Caretaker",
     "album": "Everywhere at the End of Time (Stage 1)",
@@ -949,6 +989,30 @@
     "album": "An Empty Bliss Beyond This World",
     "genre": "暗夜怪谈 · 模拟恐怖",
     "url": "music/The Caretaker - Libet's Delay.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "We Don't Have Many Days",
+    "artist": "The Caretaker",
+    "album": "Everywhere at the End of Time (Stage 1)",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/The Caretaker - We Don't Have Many Days.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Loch Lomond (罗梦湖畔 · 苏格兰民谣)",
+    "artist": "The Corries",
+    "album": "世界民谣 · 万国乡音",
+    "genre": "世界民谣 · 万国乡音",
+    "url": "music/The Corries - Loch Lomond (罗梦湖畔 · 苏格兰民谣).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "I Don't Want to Set the World on Fire",
+    "artist": "The Ink Spots",
+    "album": "1941 Vintage Archive",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/The Ink Spots - I Don't Want to Set the World on Fire.mp3",
     "dir": "music"
   },
   {
@@ -1048,11 +1112,11 @@
     "dir": "music"
   },
   {
-    "title": "Le Temps des cerises (樱桃时节 · 法国民谣)",
-    "artist": "Tino Rossi",
-    "album": "世界民谣 · 万国乡音",
-    "genre": "世界民谣 · 万国乡音",
-    "url": "music/Tino Rossi - Le Temps des cerises (樱桃时节 · 法国民谣).mp3",
+    "title": "Tiptoe Through the Tulips",
+    "artist": "Tiny Tim",
+    "album": "God Bless Tiny Tim",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Tiny Tim - Tiptoe Through the Tulips.mp3",
     "dir": "music"
   },
   {
@@ -1120,11 +1184,27 @@
     "dir": "music"
   },
   {
+    "title": "We'll Meet Again",
+    "artist": "Vera Lynn",
+    "album": "1939 Wartime Broadcast Archive",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Vera Lynn - We'll Meet Again.mp3",
+    "dir": "music"
+  },
+  {
     "title": "食人夢",
     "artist": "VH (Vast & Hazy)",
     "album": "次等秘密",
     "genre": "先锋浪潮 · 独立摇滚",
     "url": "music/食人夢_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Cielito Lindo (美丽的甜心 · 墨西哥民谣)",
+    "artist": "Vicente Fernández",
+    "album": "世界民谣 · 万国乡音",
+    "genre": "世界民谣 · 万国乡音",
+    "url": "music/Vicente Fernández - Cielito Lindo (美丽的甜心 · 墨西哥民谣).mp3",
     "dir": "music"
   },
   {
@@ -1176,11 +1256,19 @@
     "dir": "music"
   },
   {
-    "title": "Sakura Sakura (さくらさくら · 日本民谣)",
-    "artist": "Yuko Takahashi",
+    "title": "Le Temps des cerises (樱桃时节 · 法国民谣)",
+    "artist": "Yves Montand",
     "album": "世界民谣 · 万国乡音",
     "genre": "世界民谣 · 万国乡音",
-    "url": "music/Yuko Takahashi - Sakura Sakura (さくらさくら · 日本民谣).mp3",
+    "url": "music/Yves Montand - Le Temps des cerises (樱桃时节 · 法国民谣).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "snowfall",
+    "artist": "Øneheart, reidenshi",
+    "album": "暗夜怪谈 · 模拟恐怖",
+    "genre": "暗夜怪谈 · 模拟恐怖",
+    "url": "music/Øneheart, reidenshi - snowfall.mp3",
     "dir": "music"
   },
   {
@@ -1485,6 +1573,14 @@
     "album": "Polydor 333 昭和初期黑胶典藏",
     "genre": "国歌军乐 · 日本",
     "url": "music/濑户口藤吉 - 敷岛舰进行曲 (Shikishima March).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "さくらさくら (Sakura Sakura · 日本民谣)",
+    "artist": "由紀さおり・安田祥子",
+    "album": "世界民谣 · 万国乡音",
+    "genre": "世界民谣 · 万国乡音",
+    "url": "music/由紀さおり・安田祥子 - さくらさくら (Sakura Sakura · 日本民谣).mp3",
     "dir": "music"
   },
   {

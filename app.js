@@ -2107,7 +2107,9 @@
     if (!("serviceWorker" in navigator)) return;
     const proto = window.location && window.location.protocol;
     if (proto !== "http:" && proto !== "https:") return;
-    navigator.serviceWorker.register("./sw.js").catch(() => { /* ignore offline/restricted origin */ });
+    navigator.serviceWorker.register("./sw.js").then((reg) => {
+      if (reg && reg.update) reg.update().catch(() => {});
+    }).catch(() => { /* ignore offline/restricted origin */ });
   }
 
   function init() {

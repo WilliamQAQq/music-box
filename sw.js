@@ -1,4 +1,4 @@
-const VERSION = "v23";
+const VERSION = "v24";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v1";
@@ -7,14 +7,14 @@ const MAX_CACHED_AUDIO = 18;
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=23",
-  "./js/catalog-data.js?v=23",
-  "./js/user-state.js?v=23",
-  "./js/library-loader.js?v=23",
-  "./js/audio-fx.js?v=23",
-  "./js/lyrics.js?v=23",
-  "./js/studio-ui.js?v=23",
-  "./app.js?v=23",
+  "./style.css?v=24",
+  "./js/catalog-data.js?v=24",
+  "./js/user-state.js?v=24",
+  "./js/library-loader.js?v=24",
+  "./js/audio-fx.js?v=24",
+  "./js/lyrics.js?v=24",
+  "./js/studio-ui.js?v=24",
+  "./app.js?v=24",
   "./manifest.webmanifest",
 ];
 
@@ -46,6 +46,10 @@ async function networkFirst(request, cacheName) {
   } catch (err) {
     const cached = await cache.match(request, { ignoreSearch: true });
     if (cached) return cached;
+    if (request.mode === "navigate") {
+      const shell = await cache.match("./index.html");
+      if (shell) return shell;
+    }
     throw err;
   }
 }
@@ -127,7 +131,11 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(networkFirst(req, DATA_CACHE));
     return;
   }
-  if (req.mode === "navigate" || /\.(html|css|js|webmanifest)$/i.test(url.pathname) || url.pathname.endsWith("/")) {
+  if (req.mode === "navigate" || /\.html$/i.test(url.pathname) || url.pathname.endsWith("/")) {
+    event.respondWith(networkFirst(req, SHELL_CACHE));
+    return;
+  }
+  if (/\.(css|js|webmanifest)$/i.test(url.pathname)) {
     event.respondWith(staleWhileRevalidate(req, SHELL_CACHE));
   }
 });

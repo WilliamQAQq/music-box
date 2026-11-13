@@ -41,19 +41,19 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v23", () => {
+test("HTML/SW/CSS structural invariants & asset version v24", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=23",
-    "js/user-state.js?v=23",
-    "js/library-loader.js?v=23",
-    "js/audio-fx.js?v=23",
-    "js/lyrics.js?v=23",
-    "js/studio-ui.js?v=23",
-    "app.js?v=23",
+    "js/catalog-data.js?v=24",
+    "js/user-state.js?v=24",
+    "js/library-loader.js?v=24",
+    "js/audio-fx.js?v=24",
+    "js/lyrics.js?v=24",
+    "js/studio-ui.js?v=24",
+    "app.js?v=24",
   ];
 
   let lastPos = -1;
@@ -63,12 +63,13 @@ test("HTML/SW/CSS structural invariants & asset version v23", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=23"'), "index.html missing style.css?v=23");
+  assert.ok(html.includes('href="style.css?v=24"'), "index.html missing style.css?v=24");
   assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'), "index.html missing manifest link");
   assert.ok(html.includes('<dialog id="studioPanel" class="studio-popover" popover="auto"'), "Missing <dialog popover=\"auto\">");
-  assert.ok(sw.includes('const VERSION = "v23";'), "sw.js VERSION must match v23");
+  assert.ok(sw.includes('const VERSION = "v24";'), "sw.js VERSION must match v24");
+  assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
-  assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open)"), "Dialog display must be scoped to open state");
+  assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
 });
 
