@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 .DS_Store
+.wrangler/
+r2_music/
+cloudflare-r2/.wrangler/
+cloudflare-r2/.dev.vars
+cloudflare-r2/node_modules/

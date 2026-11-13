@@ -702,6 +702,79 @@
     return out.join("\n") + "\n";
   }
 
+  // 已部署的公开只读 Cloudflare R2 网关（仅放行白名单源站，禁止第三方盗链与列目录）
+  const DEFAULT_R2_GATEWAY = "https://music-box-r2-gateway.chattsun268.workers.dev";
+
+  /**
+   * 规范化 Cloudflare R2 Worker 网关根地址（仅允许 http/https，去除末尾斜杠与 query/hash）。
+   */
+  function normalizeR2BaseUrl(rawUrl) {
+    const trimmed = String(rawUrl || "").trim();
+    if (!trimmed) return "";
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+      const cleanPath = parsed.pathname.replace(/\/+$/, "");
+      return parsed.origin + cleanPath;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function encodeR2MediaKey(key) {
+    return String(key || "")
+      .replace(/^\/+/, "")
+      .split("/")
+      .filter(Boolean)
+      .map((seg) => encodeURIComponent(seg))
+      .join("/");
+  }
+
+  /**
+   * 将 R2 manifest.json 原始条目解析为播放器标准曲目对象，兼容公开与签名 URL 模式。
+   */
+  function resolveR2Track(item, r2Base) {
+    if (!item || typeof item !== "object") return null;
+    const base = normalizeR2BaseUrl(r2Base);
+    const rawUrl = String(item.url || "").trim();
+    const isAbsUrl = /^https?:\/\//i.test(rawUrl);
+    const rawPath = String(item.path || (!isAbsUrl ? rawUrl : "")).replace(/^\/+/, "");
+    if (!rawUrl && !rawPath) return null;
+
+    let finalUrl = rawUrl;
+    if (!isAbsUrl) {
+      if (!base || !rawPath) return null;
+      finalUrl = base + "/media/" + encodeR2MediaKey(rawPath);
+    }
+
+    const rawCover = String(item.cover || "").trim();
+    let finalCover = "";
+    if (rawCover) {
+      if (/^https?:\/\//i.test(rawCover)) {
+        finalCover = rawCover;
+      } else if (base) {
+        finalCover = base + "/media/" + encodeR2MediaKey(rawCover.replace(/^\/+/, ""));
+      }
+    }
+
+    const fallbackName = rawPath.split("/").pop() || String(item.title || "track");
+    const artist = String(item.artist || "");
+    const title = String(item.title || fallbackName);
+    const genre = String(item.genre || "") || inferGenre(artist);
+    return {
+      name: String(item.name || fallbackName),
+      path: rawPath || rawUrl,
+      url: finalUrl,
+      dir: String(item.dir || (rawPath.includes("/") ? rawPath.slice(0, rawPath.lastIndexOf("/")) : "")),
+      title: title,
+      artist: artist,
+      album: String(item.album || ""),
+      genre: genre,
+      cover: finalCover,
+      source: "r2",
+    };
+  }
+
   ns.catalog = {
     KEYS,
     COLLECTION_FAVORITES,
@@ -712,6 +785,7 @@
     MAX_ERROR_STREAK,
     GENRE_PRESETS,
     GENRE_META,
+    DEFAULT_R2_GATEWAY,
     inferGenre,
     genreRank,
     genreCategory,
@@ -728,5 +802,7 @@
     buildTrackShareUrl,
     copyTextToClipboard,
     formatLrcExport,
+    normalizeR2BaseUrl,
+    resolveR2Track,
   };
 })(window);

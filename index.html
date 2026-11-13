@@ -8,7 +8,7 @@
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 
@@ -219,27 +219,61 @@
       <h2 id="settingsModalTitle">唱片柜设置</h2>
       <button type="button" id="closeModalBtn" class="icon-btn" aria-label="关闭">&times;</button>
     </div>
-    <form id="settingsForm">
-      <label>
-        <span>仓库所有者 (Owner) *</span>
-        <input type="text" id="setOwner" required placeholder="例如 octocat" autocomplete="off">
-      </label>
-      <label>
-        <span>仓库名称 (Repo) *</span>
-        <input type="text" id="setRepo" required placeholder="例如 my-music" autocomplete="off">
-      </label>
-      <label>
-        <span>分支 (可留空自动检测)</span>
-        <input type="text" id="setBranch" placeholder="例如 main" autocomplete="off">
-      </label>
-      <label>
-        <span>音乐目录 (留空为仓库根目录)</span>
-        <input type="text" id="setPath" placeholder="例如 music / 专辑1" autocomplete="off">
-      </label>
-      <label>
-        <span>访问令牌 (私有仓库必填，仅存于本地浏览器)</span>
-        <input type="password" id="setToken" placeholder="ghp_…" autocomplete="off">
-      </label>
+    <form id="settingsForm" novalidate>
+      <fieldset class="source-mode-group">
+        <legend>曲库数据源</legend>
+        <label class="source-radio-opt">
+          <input type="radio" name="sourceMode" value="hybrid" checked>
+          <span>GitHub + R2 混排</span>
+        </label>
+        <label class="source-radio-opt">
+          <input type="radio" name="sourceMode" value="r2">
+          <span>仅 Cloudflare R2</span>
+        </label>
+        <label class="source-radio-opt">
+          <input type="radio" name="sourceMode" value="github">
+          <span>仅 GitHub 仓库</span>
+        </label>
+      </fieldset>
+
+      <div id="r2FieldsWrap" class="source-fields">
+        <div class="field-block">
+          <label for="setR2Url">Cloudflare R2 网关地址</label>
+          <input type="url" id="setR2Url" name="r2Url" placeholder="https://music-box-r2-gateway.你的子域.workers.dev" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" aria-describedby="r2UrlHint" data-error="r2UrlError">
+          <span id="r2UrlHint" class="field-hint">填入部署后的 Worker HTTPS 地址（自动隐藏真实桶名并开启防盗链）。</span>
+          <span id="r2UrlError" class="field-error" role="status" aria-live="polite" hidden>请输入有效的 HTTP/HTTPS Worker 网关地址</span>
+        </div>
+        <div class="field-block">
+          <label for="setR2Key">R2 访问口令（仅在 Worker 设置 ACCESS_KEY 时填写）</label>
+          <input type="password" id="setR2Key" name="r2Key" placeholder="公开只读白名单模式请留空" autocomplete="off">
+        </div>
+      </div>
+
+      <div id="githubFieldsWrap" class="source-fields">
+        <div class="field-block">
+          <label for="setOwner">仓库所有者 (Owner) *</label>
+          <input type="text" id="setOwner" name="owner" required placeholder="例如 octocat" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-error="ownerError">
+          <span id="ownerError" class="field-error" role="status" aria-live="polite" hidden>请填写 GitHub 仓库所有者</span>
+        </div>
+        <div class="field-block">
+          <label for="setRepo">仓库名称 (Repo) *</label>
+          <input type="text" id="setRepo" name="repo" required placeholder="例如 my-music" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-error="repoError">
+          <span id="repoError" class="field-error" role="status" aria-live="polite" hidden>请填写 GitHub 仓库名称</span>
+        </div>
+        <div class="field-block">
+          <label for="setBranch">分支 (可留空自动检测)</label>
+          <input type="text" id="setBranch" name="branch" placeholder="例如 main" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+        </div>
+        <div class="field-block">
+          <label for="setPath">音乐目录 (留空为仓库根目录)</label>
+          <input type="text" id="setPath" name="path" placeholder="例如 music / 专辑1" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+        </div>
+        <div class="field-block">
+          <label for="setToken">GitHub 访问令牌 (私有仓库必填，仅存于本地浏览器)</label>
+          <input type="password" id="setToken" name="token" placeholder="ghp_…" autocomplete="off">
+        </div>
+      </div>
+
       <div class="modal-foot">
         <span class="form-error" id="formError" role="alert"></span>
         <div class="modal-actions">
@@ -248,7 +282,7 @@
         </div>
       </div>
     </form>
-    <p class="hint modal-hint">说明：默认仓库直接读取本站 music.json 歌单(无需消耗 API 限额)；改为其他仓库或分支后，则通过 GitHub API 列出音频文件(未填令牌时每小时限 60 次)。令牌仅保存在本地浏览器 localStorage 中。</p>
+    <p class="hint modal-hint">说明：默认仓库直接读取本站 music.json（无需消耗 GitHub API 限额）；填入 Cloudflare R2 Worker 地址后可无限扩容大容量私藏音乐并支持流式播放与防盗链保护。所有密钥仅保存在本地浏览器 localStorage 中。</p>
   </div>
 </div>
 
@@ -408,12 +442,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="js/catalog-data.js?v=24"></script>
-<script defer src="js/user-state.js?v=24"></script>
-<script defer src="js/library-loader.js?v=24"></script>
-<script defer src="js/audio-fx.js?v=24"></script>
-<script defer src="js/lyrics.js?v=24"></script>
-<script defer src="js/studio-ui.js?v=24"></script>
-<script defer src="app.js?v=24"></script>
+<script defer src="js/catalog-data.js?v=25"></script>
+<script defer src="js/user-state.js?v=25"></script>
+<script defer src="js/library-loader.js?v=25"></script>
+<script defer src="js/audio-fx.js?v=25"></script>
+<script defer src="js/lyrics.js?v=25"></script>
+<script defer src="js/studio-ui.js?v=25"></script>
+<script defer src="app.js?v=25"></script>
 </body>
 </html>

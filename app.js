@@ -139,6 +139,10 @@
     settingsForm: $("settingsForm"),
     closeModalBtn: $("closeModalBtn"),
     resetSettingsBtn: $("resetSettingsBtn"),
+    r2FieldsWrap: $("r2FieldsWrap"),
+    githubFieldsWrap: $("githubFieldsWrap"),
+    setR2Url: $("setR2Url"),
+    setR2Key: $("setR2Key"),
     setOwner: $("setOwner"),
     setRepo: $("setRepo"),
     setBranch: $("setBranch"),
@@ -278,6 +282,9 @@
       shelfCategory = "all";
       if (shelfTabsApi) shelfTabsApi.sync(false);
     },
+    onExternalLyricsChange: (cfg) => {
+      lyricsCtrl.setExternalLyricsSource(cfg.r2Url, cfg.r2Key, cfg.sourceMode);
+    },
   });
 
   /* ---------------- library apply & shelf ---------------- */
@@ -297,13 +304,15 @@
     const s = st || libraryLoader.getSettings();
     els.banner.hidden = !show;
     if (show) {
-      if (s.owner && s.repo) {
+      const hasR2 = !!(s.r2Url && (s.sourceMode === "r2" || s.sourceMode === "hybrid"));
+      const hasGh = !!(s.owner && s.repo && s.sourceMode !== "r2");
+      if (hasR2 || hasGh) {
         els.bannerTitle.textContent = "音乐列表加载失败";
-        els.bannerSub.textContent = "请检查网络后重试；如需从其他 GitHub 仓库读取，可在右上角设置中修改";
+        els.bannerSub.textContent = "请检查网络或 Cloudflare R2 网关配置后重试，也可在右上角设置中切换数据源";
         els.bannerCta.textContent = "重试";
       } else {
-        els.bannerTitle.textContent = "设置你的 GitHub 音乐仓库";
-        els.bannerSub.textContent = "填入仓库信息后即可在线播放仓库里的音乐";
+        els.bannerTitle.textContent = "设置你的音乐数据源";
+        els.bannerSub.textContent = "填入 GitHub 仓库或 Cloudflare R2 网关地址即可在线播放";
         els.bannerCta.textContent = "打开设置";
       }
     }

@@ -126,9 +126,10 @@ Once pushed, the GitHub Actions workflow [`.github/workflows/update-music.yml`](
 2. Search and match time-synced `.lrc` lyrics online for newly added songs;
 3. Commit the updated [`music.json`](music.json) and [`lyrics.json`](lyrics.json) back to `main` and trigger a GitHub Pages deployment.
 
-### Connect Your Own Repository or Fork
-- **Switch Source on the Fly**: Click **⚙️ Cabinet Settings** in the top-right corner of the player and enter any GitHub `Owner` and `Repo` (plus an optional `ghp_` token stored only in your browser's `localStorage` for private repositories).
-- **Deploy Your Own Salon**: Fork this repository → replace tracks in [`music/`](music) and update `DEFAULT_SETTINGS` in [`app.js`](app.js) → enable GitHub Pages (`Deploy from a branch: main / root`) in your repository settings.
+### Connect Cloudflare R2 Storage, Another Repo, or Fork
+- **Cloudflare R2 Scaling Gateway**: Supports **Hybrid (GitHub + R2) / R2 Only / GitHub Only** source modes in Settings. The read-only Cloudflare Worker ([`cloudflare-r2/src/worker.js`](cloudflare-r2/src/worker.js)) enforces strict `Origin`/`Referer` allowlists, path/extension sanitization, full HTTP `206 Range` streaming, and optional `ACCESS_KEY` HMAC-signed URLs; [`cloudflare-r2/sync_r2.py`](cloudflare-r2/sync_r2.py) incrementally syncs local audio, ID3 metadata, and LRC lyrics from `r2_music/`.
+- **Switch Source on the Fly**: Click **⚙️ Cabinet Settings** in the top-right corner to switch source modes, point to any R2 Worker URL (with optional access key), or connect any GitHub `Owner`/`Repo` (all credentials stay strictly in browser `localStorage`).
+- **Deploy Your Own Salon**: Fork this repository → replace tracks in [`music/`](music) and update defaults in [`js/catalog-data.js`](js/catalog-data.js) / [`js/library-loader.js`](js/library-loader.js) → enable GitHub Pages (`Deploy from a branch: main / root`) in repository settings.
 
 ---
 
@@ -151,6 +152,7 @@ music-box/
 │   ├── lyrics.js                   # Lazy-loaded LRC parser, in-panel search & .lrc export engine
 │   └── studio-ui.js                # Studio popover controller (Canvas spectrum, EQ, speed, timer, share)
 ├── tests/                          # Node unit tests & Playwright headless Chromium E2E test suite
+├── cloudflare-r2/                  # Cloudflare R2 read-only Worker gateway & incremental sync tool
 ├── music.json                      # Track manifest (title / artist / album / genre / relative path)
 ├── lyrics.json                     # Synced LRC lyrics catalog (lyrics / translations / instrumental flags)
 ├── music/                          # Audio files directory (currently 209 tracks)

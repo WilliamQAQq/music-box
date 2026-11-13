@@ -4,6 +4,7 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { handleRequest } from "../cloudflare-r2/src/worker.js";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -111,10 +112,133 @@ function startStaticServer() {
   });
 }
 
+function startMockR2GatewayServer(baseOrigin) {
+  const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, "music.json"), "utf8"));
+  const sampleTrack = catalog[0];
+  const sampleAudioBytes = fs.readFileSync(path.join(ROOT, sampleTrack.url));
+  const r2Key = "私藏精选/R2 E2E Track.mp3";
+  const objects = {
+    "manifest.json": {
+      contentType: "application/json; charset=utf-8",
+      etag: '"r2m1"',
+      bytes: Buffer.from(
+        JSON.stringify([
+          {
+            name: "R2 E2E Track.mp3",
+            title: "R2 Streamed Sonata",
+            artist: "Cloudflare R2 Trio",
+            album: "Edge Vault",
+            genre: "黄金年代 · 爵士名伶",
+            path: r2Key,
+            url: r2Key,
+          },
+        ])
+      ),
+    },
+    "lyrics.json": {
+      contentType: "application/json; charset=utf-8",
+      etag: '"r2l1"',
+      bytes: Buffer.from(
+        JSON.stringify({
+          [r2Key]: {
+            type: "synced",
+            lrc: "[00:00.50]From Cloudflare R2 Edge\n[00:04.00]Streaming cleanly with Range",
+          },
+        })
+      ),
+    },
+    [r2Key]: {
+      contentType: "audio/mpeg",
+      etag: '"r2a1"',
+      bytes: sampleAudioBytes,
+    },
+  };
+
+  const env = {
+    ALLOWED_ORIGINS: baseOrigin,
+    ALLOW_LOCALHOST: "1",
+    MUSIC_BUCKET: {
+      async head(key) {
+        const o = objects[key];
+        if (!o) return null;
+        return {
+          key,
+          size: o.bytes.byteLength,
+          httpEtag: o.etag,
+          writeHttpMetadata(h) {
+            h.set("Content-Type", o.contentType);
+          },
+        };
+      },
+      async get(key, opts = {}) {
+        const o = objects[key];
+        if (!o) return null;
+        let slice = o.bytes;
+        if (opts && opts.range && Number.isFinite(opts.range.offset)) {
+          const start = opts.range.offset;
+          const len = Number.isFinite(opts.range.length) ? opts.range.length : o.bytes.byteLength - start;
+          slice = o.bytes.subarray(start, start + len);
+        }
+        return {
+          key,
+          size: o.bytes.byteLength,
+          httpEtag: o.etag,
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(new Uint8Array(slice));
+              controller.close();
+            },
+          }),
+          async json() {
+            return JSON.parse(o.bytes.toString("utf8"));
+          },
+          writeHttpMetadata(h) {
+            h.set("Content-Type", o.contentType);
+          },
+        };
+      },
+    },
+  };
+
+  return new Promise((resolve) => {
+    let gwUrl = "";
+    const server = http.createServer(async (req, res) => {
+      try {
+        const reqUrl = `${gwUrl}${req.url || "/"}`;
+        const headers = new Headers();
+        for (const [k, v] of Object.entries(req.headers)) {
+          if (v !== undefined) headers.set(k, Array.isArray(v) ? v.join(", ") : String(v));
+        }
+        const workerRes = await handleRequest(new Request(reqUrl, { method: req.method, headers }), env);
+        const outHeaders = {};
+        workerRes.headers.forEach((v, k) => {
+          outHeaders[k] = v;
+        });
+        res.writeHead(workerRes.status, outHeaders);
+        if (workerRes.body && req.method !== "HEAD") {
+          const buf = Buffer.from(await workerRes.arrayBuffer());
+          res.end(buf);
+        } else {
+          res.end();
+        }
+      } catch (err) {
+        res.writeHead(500);
+        res.end(String(err && err.message ? err.message : err));
+      }
+    });
+    server.listen(0, "127.0.0.1", () => {
+      const addr = server.address();
+      gwUrl = `http://127.0.0.1:${addr.port}`;
+      resolve({ server, url: gwUrl, sampleCount: catalog.length });
+    });
+  });
+}
+
 async function run() {
   const pw = loadPlaywright();
   const exePath = findBrowserExecutable();
   const { server, url: baseUrl } = await startStaticServer();
+  const r2Gateway = await startMockR2GatewayServer(baseUrl);
   const browser = await pw.chromium.launch({
     headless: true,
     executablePath: exePath,
@@ -493,10 +617,74 @@ async function run() {
       await tabCtx.close();
     }
 
-    console.log("E2E SMOKE PASS: desktop + mobile (375px) + iPad Portrait (820x1180) + iPad Landscape (1024x768) verified");
+    // -------------------- 4. CLOUDFLARE R2 GATEWAY + HYBRID MODE E2E --------------------
+    const r2Ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const r2Page = await r2Ctx.newPage();
+    const r2Errors = [];
+    r2Page.on("pageerror", (err) => r2Errors.push(`pageerror: ${err.message}`));
+    r2Page.on("console", (msg) => {
+      if (msg.type() === "error") r2Errors.push(`console.error: ${msg.text()}`);
+    });
+
+    await r2Page.goto(`${baseUrl}/index.html`, { waitUntil: "networkidle" });
+    await r2Page.waitForSelector(".playlist-item");
+
+    // Open Settings and validate R2 URL inline feedback before submission
+    await r2Page.click("#settingsBtn");
+    await r2Page.waitForSelector("#settingsModal:not([hidden])");
+    await r2Page.click('input[name="sourceMode"][value="r2"]');
+    await r2Page.fill("#setR2Url", "not-a-valid-url");
+    await r2Page.click('#settingsForm button[type="submit"]');
+
+    const validationState = await r2Page.evaluate(() => {
+      const inp = document.getElementById("setR2Url");
+      const err = document.getElementById("r2UrlError");
+      return {
+        modalOpen: !document.getElementById("settingsModal").hidden,
+        ariaInvalid: inp.getAttribute("aria-invalid"),
+        describedBy: inp.getAttribute("aria-describedby") || "",
+        errorVisible: !err.hidden,
+        focused: document.activeElement === inp,
+      };
+    });
+    assert.equal(validationState.modalOpen, true, "Invalid R2 URL must keep settings modal open");
+    assert.equal(validationState.ariaInvalid, "true");
+    assert.ok(validationState.describedBy.includes("r2UrlError"));
+    assert.equal(validationState.errorVisible, true);
+    assert.equal(validationState.focused, true);
+
+    // Save valid local Worker R2 URL in R2-only mode
+    await r2Page.fill("#setR2Url", r2Gateway.url);
+    await r2Page.click('#settingsForm button[type="submit"]');
+    await r2Page.waitForFunction(() => document.getElementById("settingsModal").hidden);
+    await r2Page.waitForFunction(() => document.querySelectorAll(".playlist-item").length === 1);
+
+    // Play the R2 track and verify audio playback + R2 /lyrics.json timed lyrics
+    await r2Page.click(".playlist-item");
+    await r2Page.waitForFunction(() => {
+      const a = document.getElementById("audio");
+      const txt = document.getElementById("lyricsList").textContent;
+      return !a.paused && a.currentTime > 0.05 && txt.includes("From Cloudflare R2 Edge");
+    }, { timeout: 6000 });
+    await r2Page.evaluate(() => document.getElementById("audio").pause());
+
+    // Switch to Hybrid mode and verify merged GitHub + R2 library
+    await r2Page.click("#settingsBtn");
+    await r2Page.click('input[name="sourceMode"][value="hybrid"]');
+    await r2Page.click('#settingsForm button[type="submit"]');
+    await r2Page.waitForFunction(
+      (expectedTotal) => document.querySelectorAll(".playlist-item").length === expectedTotal,
+      r2Gateway.sampleCount + 1
+    );
+
+    assert.deepEqual(r2Errors, [], `R2 E2E hit unexpected errors: ${r2Errors.join(" | ")}`);
+    await r2Ctx.close();
+
+    console.log("E2E SMOKE PASS: desktop + mobile (375px) + iPad + Cloudflare R2 gateway & hybrid mode verified");
   } finally {
     await browser.close();
     server.close();
+    r2Gateway.server.close();
   }
 }
 

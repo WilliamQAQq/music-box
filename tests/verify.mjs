@@ -41,19 +41,19 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v24", () => {
+test("HTML/SW/CSS structural invariants & asset version v25", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=24",
-    "js/user-state.js?v=24",
-    "js/library-loader.js?v=24",
-    "js/audio-fx.js?v=24",
-    "js/lyrics.js?v=24",
-    "js/studio-ui.js?v=24",
-    "app.js?v=24",
+    "js/catalog-data.js?v=25",
+    "js/user-state.js?v=25",
+    "js/library-loader.js?v=25",
+    "js/audio-fx.js?v=25",
+    "js/lyrics.js?v=25",
+    "js/studio-ui.js?v=25",
+    "app.js?v=25",
   ];
 
   let lastPos = -1;
@@ -63,14 +63,17 @@ test("HTML/SW/CSS structural invariants & asset version v24", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=24"'), "index.html missing style.css?v=24");
+  assert.ok(html.includes('href="style.css?v=25"'), "index.html missing style.css?v=25");
   assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'), "index.html missing manifest link");
   assert.ok(html.includes('<dialog id="studioPanel" class="studio-popover" popover="auto"'), "Missing <dialog popover=\"auto\">");
-  assert.ok(sw.includes('const VERSION = "v24";'), "sw.js VERSION must match v24");
+  assert.ok(html.includes('<fieldset class="source-mode-group">'), "Missing sourceMode radio fieldset");
+  assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
+  assert.ok(sw.includes('const VERSION = "v25";'), "sw.js VERSION must match v25");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
+  assert.ok(css.includes('[aria-invalid="true"]'), "style.css must style aria-invalid form inputs");
 });
 
 test("catalog-data: share hash, LRC export, signature, search matching", () => {
@@ -109,6 +112,51 @@ test("catalog-data: share hash, LRC export, signature, search matching", () => {
   const key = cat.buildSearchKey({ title: "Катюша", artist: "红旗歌舞团", genre: "俄罗斯军歌" });
   assert.equal(cat.matchesSearchTokens(key, cat.tokenizeQuery("红旗 军歌")), true);
   assert.equal(cat.matchesSearchTokens(key, cat.tokenizeQuery("红旗 爵士")), false);
+
+  assert.equal(
+    cat.normalizeR2BaseUrl("https://music-box-r2-gateway.demo.workers.dev///?foo=1#bar"),
+    "https://music-box-r2-gateway.demo.workers.dev"
+  );
+  assert.ok(cat.DEFAULT_R2_GATEWAY.startsWith("https://"), "DEFAULT_R2_GATEWAY should point to deployed HTTPS gateway");
+  assert.equal(cat.normalizeR2BaseUrl("javascript:alert(1)"), "");
+  assert.equal(cat.normalizeR2BaseUrl("not a url"), "");
+
+  const r2Unsigned = cat.resolveR2Track(
+    {
+      name: "Song A.mp3",
+      title: "Song A",
+      artist: "Tester",
+      genre: "民谣诗篇",
+      path: "民谣/Song A.mp3",
+      url: "民谣/Song A.mp3",
+      cover: "民谣/cover.jpg",
+    },
+    "https://gw.example.workers.dev/"
+  );
+  assert.equal(
+    r2Unsigned.url,
+    "https://gw.example.workers.dev/media/%E6%B0%91%E8%B0%A3/Song%20A.mp3"
+  );
+  assert.equal(
+    r2Unsigned.cover,
+    "https://gw.example.workers.dev/media/%E6%B0%91%E8%B0%A3/cover.jpg"
+  );
+  assert.equal(r2Unsigned.source, "r2");
+
+  const r2Signed = cat.resolveR2Track(
+    {
+      title: "Signed Song",
+      artist: "Tester",
+      path: "Private/Signed.mp3",
+      url: "https://gw.example.workers.dev/media/Private/Signed.mp3?exp=1999999999&sig=abcd",
+    },
+    "https://gw.example.workers.dev"
+  );
+  assert.equal(
+    r2Signed.url,
+    "https://gw.example.workers.dev/media/Private/Signed.mp3?exp=1999999999&sig=abcd"
+  );
+  assert.equal(r2Signed.path, "Private/Signed.mp3");
 });
 
 test("user-state: favorites, recent deduplication/cap, resume & A-B loop", () => {

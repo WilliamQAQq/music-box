@@ -1110,7 +1110,10 @@ input[type="range"].range.vol { flex: 0 0 100px; max-width: 120px; }
 
 .modal-box {
   width: 100%;
-  max-width: 460px;
+  max-width: 500px;
+  max-height: min(88dvh, 760px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   contain: layout style paint;
   background:
     linear-gradient(180deg, #271810 0%, #190f0a 100%);
@@ -1139,17 +1142,83 @@ input[type="range"].range.vol { flex: 0 0 100px; max-width: 120px; }
   text-wrap: balance;
 }
 
-.modal form label {
-  display: block;
-  margin-bottom: 14px;
+.source-mode-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(212, 166, 74, 0.28);
+  background: rgba(14, 8, 5, 0.55);
 }
-.modal form label span {
+.source-mode-group legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brass-hi);
+  letter-spacing: 0.4px;
+}
+.source-radio-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-block-size: 38px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #170d08;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.source-radio-opt:hover {
+  border-color: var(--brass-dim);
+  color: var(--text);
+}
+.source-radio-opt:has(input:checked) {
+  border-color: var(--brass);
+  background: rgba(212, 166, 74, 0.14);
+  color: var(--brass-hi);
+  font-weight: 600;
+}
+.source-radio-opt input[type="radio"] {
+  accent-color: var(--brass);
+  inline-size: 15px;
+  block-size: 15px;
+  margin: 0;
+  flex-shrink: 0;
+}
+.source-radio-opt input[type="radio"]:focus-visible {
+  outline: 2px solid var(--brass-hi);
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .source-mode-group {
+    grid-template-columns: 1fr;
+  }
+}
+
+.source-fields {
+  margin-bottom: 12px;
+  padding: 12px 12px 2px;
+  border-radius: 8px;
+  border: 1px solid rgba(212, 166, 74, 0.18);
+  background: rgba(10, 6, 4, 0.28);
+}
+
+.modal form .field-block {
+  display: block;
+  margin-bottom: 12px;
+}
+.modal form label:not(.source-radio-opt) {
   display: block;
   font-size: 12.5px;
   color: var(--muted);
   margin-bottom: 6px;
 }
-.modal form input {
+.modal form input:not([type="range"]):not([type="radio"]) {
   width: 100%;
   padding: 10px 12px;
   border-radius: 6px;
@@ -1161,14 +1230,30 @@ input[type="range"].range.vol { flex: 0 0 100px; max-width: 120px; }
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
   transition: border-color .15s, box-shadow .15s;
 }
-.modal form input:focus-visible {
+.modal form input:not([type="range"]):not([type="radio"]):focus-visible {
   outline: 2px solid var(--brass-hi);
   outline-offset: 1px;
   border-color: var(--brass);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(212, 166, 74, 0.18);
 }
-.modal form input:not(input[type="range"]):user-invalid {
-  border-color: #c94a4a;
+.modal form input:not([type="range"]):not([type="radio"]):user-invalid,
+.modal form input[aria-invalid="true"] {
+  border-color: #d95d5d;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(217, 93, 93, 0.2);
+}
+.field-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.field-error {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #f49797;
 }
 
 .modal-foot {
@@ -1198,7 +1283,7 @@ input[type="range"].range.vol { flex: 0 0 100px; max-width: 120px; }
   color: var(--brass-hi);
   border-color: var(--brass-dim);
 }
-.form-error { color: #e87c7c; font-size: 13px; }
+.form-error { color: #f49797; font-size: 13px; }
 .modal-hint { margin-top: 14px; font-size: 12px; line-height: 1.6; color: var(--muted); text-wrap: pretty; }
 
 /* ---------- toast ---------- */
@@ -2448,8 +2533,9 @@ body.synth-fx-active .playlist-item.playing .eq span {
   }
   .lyrics-pill-btn,
   .studio-pill-btn,
-  .shelf-tab {
-    min-block-size: 40px;
+  .shelf-tab,
+  .source-radio-opt {
+    min-block-size: 44px;
     min-inline-size: 44px;
     padding-inline: 12px;
   }

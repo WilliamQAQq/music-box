@@ -1,0 +1,12 @@
+name = "music-box-r2-gateway"
+main = "src/worker.js"
+compatibility_date = "2025-11-01"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "MUSIC_BUCKET"
+bucket_name = "music-box-audio"
+
+[vars]
+ALLOWED_ORIGINS = "https://williamqaqq.github.io"
+ALLOW_LOCALHOST = "1"

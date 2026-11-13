@@ -126,9 +126,10 @@ git push
 2. 自动为新增曲目检索匹配时间轴 `.lrc` 滚动歌词；
 3. 自动提交更新 [`music.json`](music.json) 与 [`lyrics.json`](lyrics.json) 并触发 GitHub Pages 重新发布，刷新网页即可收听。
 
-### 复刻或连接你自己的仓库
-- **临时切换音源**：打开播放器右上角 **⚙️ 唱片柜设置**，填入任意 GitHub 用户名与仓库名（私有仓库可填入仅保存在本地浏览器的 `ghp_` Token），即可直接在线播放。
-- **Fork 部署个人站点**：Fork 本仓库 → 替换 [`music/`](music) 中的音频并修改 [`app.js`](app.js) 中的 `DEFAULT_SETTINGS` → 在仓库 `Settings → Pages` 开启 `Deploy from a branch (main / root)` 即可拥有同款私人黑胶音乐馆。
+### 连接个人 Cloudflare R2 曲库或复刻你自己的仓库
+- **Cloudflare R2 扩容网关**：除 GitHub 仓内基础馆藏外，现支持「**GitHub + R2 混排 / 仅 R2 / 仅 GitHub**」三档音源切换；配套只读网关 Worker（[`cloudflare-r2/src/worker.js`](cloudflare-r2/src/worker.js)）强制 `Origin`/`Referer` 来源白名单、路径扩展名消毒与 HTTP `206 Range` 断点拖动，并通过 [`cloudflare-r2/sync_r2.py`](cloudflare-r2/sync_r2.py) 自动增量上传本地 `r2_music/` 音频、提取 ID3 标签并匹配滚动歌词。
+- **临时切换音源**：打开播放器右上角 **⚙️ 唱片柜设置**，可切换音源模式、填入自己的 Cloudflare R2 Worker 地址（若 Worker 设了 `ACCESS_KEY` 也可填访问口令），或任意 GitHub `Owner` / `Repo`（所有密钥仅存于本地浏览器 `localStorage`）。
+- **Fork 部署个人站点**：Fork 本仓库 → 替换 [`music/`](music) 中的音频并在 [`js/catalog-data.js`](js/catalog-data.js) / [`js/library-loader.js`](js/library-loader.js) 修改默认仓库或网关 → 在仓库 `Settings → Pages` 开启 `Deploy from a branch (main / root)` 即可拥有同款私人黑胶音乐馆。
 
 ---
 
@@ -151,6 +152,7 @@ music-box/
 │   ├── lyrics.js                   # LRC 时间轴解析、按需延迟加载、歌词检索与 .lrc 导出引擎
 │   └── studio-ui.js                # 留声机调音台浮层（Popover API、实时频谱、EQ、倍速、定时与分享）
 ├── tests/                          # Node 单元测试与 Playwright 端到端测试套件
+├── cloudflare-r2/                  # Cloudflare R2 只读防盗链 Worker 网关与增量上传同步脚本
 ├── music.json                      # 曲目主清单（标题 / 歌手 / 专辑 / 风格 / 相对路径）
 ├── lyrics.json                     # 全馆时间轴滚动歌词库（原文 / 双语译文 / 器乐标记）
 ├── music/                          # 馆藏音频文件目录（当前 209 首）

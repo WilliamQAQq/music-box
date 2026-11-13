@@ -7,13 +7,21 @@
     AUDIO_EXTS,
     IMAGE_EXTS,
     COVER_NAMES,
+    DEFAULT_R2_GATEWAY,
     inferGenre,
     hashLibrarySignature,
     storageGet,
     storageSet,
+    normalizeR2BaseUrl,
+    resolveR2Track,
   } = ns.catalog;
 
+  const VALID_SOURCE_MODES = { hybrid: 1, r2: 1, github: 1 };
+
   const DEFAULT_SETTINGS = {
+    sourceMode: "hybrid",
+    r2Url: DEFAULT_R2_GATEWAY || "",
+    r2Key: "",
     owner: "WilliamQAQq",
     repo: "music-box",
     branch: "",
@@ -22,7 +30,7 @@
   };
 
   /**
-   * 负责曲库清单加载（本地 music.json / localStorage 指纹缓存 / GitHub API 兜底）及唱片柜设置弹窗管理。
+   * 负责曲库清单加载（本地 music.json / localStorage 指纹缓存 / GitHub API 兜底 / Cloudflare R2 网关）及设置弹窗管理。
    */
   function createLibraryLoader(options) {
     const els = options.els;
@@ -32,28 +40,143 @@
     const onBannerChange = options.onBannerChange;
     const onBeforeModalOpen = options.onBeforeModalOpen;
     const onSettingsResetFilter = options.onSettingsResetFilter;
+    const onExternalLyricsChange = options.onExternalLyricsChange;
 
     let settings = Object.assign({}, DEFAULT_SETTINGS);
     let lastModalTrigger = null;
     let loadSeq = 0;
 
+    function normalizeSourceMode(mode) {
+      return VALID_SOURCE_MODES[mode] ? mode : "hybrid";
+    }
+
+    function notifyExternalLyricsSource() {
+      if (typeof onExternalLyricsChange === "function") {
+        onExternalLyricsChange({
+          r2Url: normalizeR2BaseUrl(settings.r2Url),
+          r2Key: settings.r2Key || "",
+          sourceMode: normalizeSourceMode(settings.sourceMode),
+        });
+      }
+    }
+
     function loadSettings() {
       try {
         const raw = storageGet(KEYS.STORE, "");
-        if (raw) Object.assign(settings, JSON.parse(raw));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            Object.assign(settings, parsed);
+          }
+        }
       } catch (e) { /* ignore */ }
+      settings.sourceMode = normalizeSourceMode(settings.sourceMode);
+      settings.r2Url = normalizeR2BaseUrl(settings.r2Url || DEFAULT_R2_GATEWAY || "");
+      settings.r2Key = String(settings.r2Key || "").trim();
+      notifyExternalLyricsSource();
     }
 
     function saveSettings() {
       storageSet(KEYS.STORE, JSON.stringify(settings));
     }
 
+    function getModeRadios() {
+      return els.settingsForm
+        ? Array.from(els.settingsForm.querySelectorAll('input[name="sourceMode"]'))
+        : [];
+    }
+
+    function getSelectedSourceMode() {
+      const checked = els.settingsForm && els.settingsForm.querySelector('input[name="sourceMode"]:checked');
+      return normalizeSourceMode(checked ? checked.value : settings.sourceMode);
+    }
+
+    function clearFieldValidation(field) {
+      if (!field) return;
+      field.setCustomValidity("");
+      field.removeAttribute("aria-invalid");
+      const errId = field.dataset && field.dataset.error;
+      if (errId) {
+        const errEl = document.getElementById(errId);
+        if (errEl) errEl.hidden = true;
+        const baseDesc = (field.getAttribute("aria-describedby") || "")
+          .split(/\s+/)
+          .filter((id) => id && id !== errId);
+        if (baseDesc.length) field.setAttribute("aria-describedby", baseDesc.join(" "));
+        else field.removeAttribute("aria-describedby");
+      }
+    }
+
+    function syncSourceModeUI(mode) {
+      const m = normalizeSourceMode(mode);
+      const showR2 = m === "hybrid" || m === "r2";
+      const showGh = m === "hybrid" || m === "github";
+      if (els.r2FieldsWrap) els.r2FieldsWrap.hidden = !showR2;
+      if (els.githubFieldsWrap) els.githubFieldsWrap.hidden = !showGh;
+      if (els.setR2Url) els.setR2Url.required = m === "r2";
+      if (els.setOwner) els.setOwner.required = m === "github";
+      if (els.setRepo) els.setRepo.required = m === "github";
+      if (!showR2) clearFieldValidation(els.setR2Url);
+      if (!showGh) {
+        clearFieldValidation(els.setOwner);
+        clearFieldValidation(els.setRepo);
+      }
+    }
+
+    function syncFieldAria(field) {
+      if (!field) return true;
+      const errId = field.dataset && field.dataset.error;
+      const errEl = errId ? document.getElementById(errId) : null;
+      const isHiddenGroup = !!(field.closest && field.closest("[hidden]"));
+      let msg = "";
+
+      if (!field.disabled && !isHiddenGroup) {
+        const mode = getSelectedSourceMode();
+        if (field === els.setR2Url) {
+          const raw = field.value.trim();
+          if (mode === "r2" && !raw) {
+            msg = "仅 Cloudflare R2 模式下请填写 Worker 网关地址";
+          } else if (raw && !normalizeR2BaseUrl(raw)) {
+            msg = "请输入有效的 http:// 或 https:// Worker 网关地址";
+          }
+        } else {
+          field.setCustomValidity("");
+          if (!field.checkValidity()) {
+            msg = field === els.setOwner ? "请填写 GitHub 仓库所有者" : "请填写 GitHub 仓库名称";
+          }
+        }
+      }
+
+      field.setCustomValidity(msg);
+      const invalid = !!msg;
+      field.setAttribute("aria-invalid", invalid ? "true" : "false");
+      if (errEl) {
+        if (msg) errEl.textContent = msg;
+        errEl.hidden = !invalid;
+        const baseDesc = (field.getAttribute("aria-describedby") || "")
+          .split(/\s+/)
+          .filter((id) => id && id !== errId);
+        if (invalid) baseDesc.push(errId);
+        if (baseDesc.length) field.setAttribute("aria-describedby", baseDesc.join(" "));
+        else field.removeAttribute("aria-describedby");
+      }
+      return !invalid;
+    }
+
     function fillSettingsForm() {
+      const mode = normalizeSourceMode(settings.sourceMode);
+      getModeRadios().forEach((radio) => {
+        radio.checked = radio.value === mode;
+      });
+      if (els.setR2Url) els.setR2Url.value = settings.r2Url || "";
+      if (els.setR2Key) els.setR2Key.value = settings.r2Key || "";
       els.setOwner.value = settings.owner;
       els.setRepo.value = settings.repo;
       els.setBranch.value = settings.branch;
       els.setPath.value = settings.path;
       els.setToken.value = settings.token;
+      syncSourceModeUI(mode);
+      [els.setR2Url, els.setOwner, els.setRepo].forEach(clearFieldValidation);
     }
 
     function setBackgroundInert(isInert) {
@@ -74,7 +197,10 @@
       els.formError.textContent = "";
       els.settingsModal.hidden = false;
       setBackgroundInert(true);
-      els.setOwner.focus();
+      const focusTarget = settings.sourceMode === "github" || !els.setR2Url
+        ? els.setOwner
+        : els.setR2Url;
+      if (focusTarget && typeof focusTarget.focus === "function") focusTarget.focus();
     }
 
     function closeSettings() {
@@ -244,44 +370,181 @@
       } catch (e) { /* ignore quota */ }
     }
 
+    async function loadFromR2(r2Base, r2Key, force) {
+      const base = normalizeR2BaseUrl(r2Base);
+      if (!base) throw new Error("Cloudflare R2 网关地址无效");
+      const headers = {};
+      if (r2Key) headers["X-Music-Key"] = r2Key;
+      const res = await fetch(base + "/manifest.json", {
+        cache: force ? "no-store" : "no-cache",
+        headers,
+      });
+      if (!res.ok) {
+        let msg = "R2 HTTP " + res.status;
+        if (res.status === 401) msg = "R2 访问口令无效或缺失";
+        else if (res.status === 403) msg = "R2 来源受限（请检查 Worker 白名单 ALLOWED_ORIGINS）";
+        else if (res.status === 404) msg = "R2 未找到 manifest.json";
+        throw new Error(msg);
+      }
+      const list = await res.json();
+      if (!Array.isArray(list)) throw new Error("R2 manifest.json 格式异常");
+      const r2Tracks = [];
+      const r2Covers = new Map();
+      list.forEach((item) => {
+        const track = resolveR2Track(item, base);
+        if (!track) return;
+        r2Tracks.push(track);
+        if (track.cover && !r2Covers.has(track.dir)) {
+          r2Covers.set(track.dir, track.cover);
+        }
+      });
+      return { tracks: r2Tracks, covers: r2Covers };
+    }
+
+    function canonicalMergeKey(track) {
+      return String((track && (track.path || track.url)) || "")
+        .replace(/^\/+/, "")
+        .replace(/^music\//i, "")
+        .toLowerCase();
+    }
+
+    function mergeLibraryData(ghData, r2Data) {
+      const byKey = new Map();
+      const ordered = [];
+      const mergedCovers = new Map(ghData ? ghData.covers : []);
+      if (r2Data && r2Data.covers) {
+        r2Data.covers.forEach((val, key) => mergedCovers.set(key, val));
+      }
+
+      if (ghData && Array.isArray(ghData.tracks)) {
+        ghData.tracks.forEach((t) => {
+          const key = canonicalMergeKey(t);
+          if (key && !byKey.has(key)) {
+            byKey.set(key, ordered.length);
+            ordered.push(t);
+          }
+        });
+      }
+      if (r2Data && Array.isArray(r2Data.tracks)) {
+        r2Data.tracks.forEach((t) => {
+          const key = canonicalMergeKey(t);
+          if (key && byKey.has(key)) {
+            ordered[byKey.get(key)] = t;
+          } else {
+            if (key) byKey.set(key, ordered.length);
+            ordered.push(t);
+          }
+        });
+      }
+
+      ordered.sort((a, b) => {
+        const al = String(a.artist || "").toLowerCase();
+        const bl = String(b.artist || "").toLowerCase();
+        if (al !== bl) return al < bl ? -1 : 1;
+        return String(a.title || "").localeCompare(String(b.title || ""), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      });
+      return { tracks: ordered, covers: mergedCovers };
+    }
+
+    function getActiveSourceState() {
+      const mode = normalizeSourceMode(settings.sourceMode);
+      const r2Base = normalizeR2BaseUrl(settings.r2Url);
+      const wantR2 = (mode === "r2" || mode === "hybrid") && !!r2Base;
+      const wantGh = (mode === "github" || mode === "hybrid") && !!(settings.owner && settings.repo);
+      return { mode, r2Base, wantR2, wantGh };
+    }
+
+    function isCacheMatching(cache) {
+      if (!cache || !Array.isArray(cache.tracks) || !cache.tracks.length) return false;
+      const mode = normalizeSourceMode(settings.sourceMode);
+      const r2Base = normalizeR2BaseUrl(settings.r2Url);
+      if ((cache.sourceMode || "hybrid") !== mode) return false;
+      if ((cache.r2Url || "") !== r2Base) return false;
+      if (!!cache.hasR2Key !== !!settings.r2Key) return false;
+      if (mode === "r2") return true;
+      return (
+        cache.owner === settings.owner &&
+        cache.repo === settings.repo &&
+        (cache.branch || "") === settings.branch &&
+        (cache.path === undefined ? DEFAULT_SETTINGS.path : cache.path) === settings.path
+      );
+    }
+
     async function loadLibrary(force) {
-      if (!settings.owner || !settings.repo) {
+      const { mode, r2Base, wantR2, wantGh } = getActiveSourceState();
+      if (!wantR2 && !wantGh) {
+        onLoadingChange(false);
         onBannerChange(true, settings);
         return;
       }
 
       const seq = ++loadSeq;
-      const useLocal = canUseLocalManifest();
+      const useLocal = wantGh && canUseLocalManifest();
       const cache = force ? null : loadCache();
-      const useCache = !!(cache &&
-        cache.owner === settings.owner &&
-        cache.repo === settings.repo &&
-        (cache.branch || "") === settings.branch &&
-        (cache.path === undefined ? DEFAULT_SETTINGS.path : cache.path) === settings.path &&
-        Array.isArray(cache.tracks) && cache.tracks.length);
+      const useCache = isCacheMatching(cache);
 
       let cacheSig = "";
+      const shouldRevalidate = useLocal || wantR2;
       if (useCache) {
         cacheSig = cache.sig || hashLibrarySignature(cache.tracks, cache.covers);
         onApplyLibrary(cache);
         onBannerChange(false, settings);
-        if (!useLocal) return;
+        if (!shouldRevalidate) return;
       } else {
         onLoadingChange(true);
       }
 
-      try {
-        let data = null;
+      const fetchGitHubSource = async () => {
+        let ghData = null;
         if (useLocal) {
           try {
-            data = filterLocalManifest(await loadFromMusicJson(force));
+            ghData = filterLocalManifest(await loadFromMusicJson(force));
           } catch (e) { /* music.json 不存在时回退到 GitHub API */ }
         }
-        if (!data || !data.tracks.length) {
-          if (useCache) return;
+        if (!ghData || !ghData.tracks.length) {
+          if (useCache && !wantR2) return null;
           const branch = await getDefaultBranch();
-          data = await fetchTracks(branch);
+          ghData = await fetchTracks(branch);
         }
+        return ghData;
+      };
+
+      try {
+        let data = null;
+        if (wantGh && wantR2) {
+          const [ghRes, r2Res] = await Promise.allSettled([
+            fetchGitHubSource(),
+            loadFromR2(r2Base, settings.r2Key, force),
+          ]);
+          if (seq !== loadSeq) return;
+
+          const ghOk = ghRes.status === "fulfilled" && ghRes.value;
+          const r2Ok = r2Res.status === "fulfilled" && r2Res.value;
+          if (!ghOk && !r2Ok) {
+            throw (r2Res.reason || ghRes.reason || new Error("全部数据源加载失败"));
+          }
+          if (!r2Ok) {
+            if (useCache && !force) return;
+            const errMsg = (r2Res.reason && r2Res.reason.message) || "网络或权限异常";
+            toast("R2 网关暂不可用（" + errMsg + "），当前显示 GitHub 曲库", true);
+            data = ghRes.value;
+          } else if (!ghOk) {
+            const errMsg = (ghRes.reason && ghRes.reason.message) || "加载失败";
+            toast("GitHub 曲库加载失败（" + errMsg + "），已加载 R2 曲库", true);
+            data = r2Res.value;
+          } else {
+            data = mergeLibraryData(ghRes.value, r2Res.value);
+          }
+        } else if (wantR2) {
+          data = await loadFromR2(r2Base, settings.r2Key, force);
+        } else {
+          data = await fetchGitHubSource();
+          if (!data) return;
+        }
+
         if (seq !== loadSeq) return;
 
         const newCovers = toCoverMap(data.covers);
@@ -289,6 +552,9 @@
         const changed = !useCache || nextSig !== cacheSig;
         if (changed || (cache && !cache.sig)) {
           saveCache({
+            sourceMode: mode,
+            r2Url: r2Base,
+            hasR2Key: !!settings.r2Key,
             owner: settings.owner,
             repo: settings.repo,
             branch: settings.branch,
@@ -314,12 +580,14 @@
 
     function bindEvents() {
       els.reloadBtn.addEventListener("click", () => {
-        if (!settings.owner || !settings.repo) { openSettings(els.reloadBtn); return; }
+        const { wantR2, wantGh } = getActiveSourceState();
+        if (!wantR2 && !wantGh) { openSettings(els.reloadBtn); return; }
         loadLibrary(true);
       });
       els.settingsBtn.addEventListener("click", () => openSettings(els.settingsBtn));
       els.bannerCta.addEventListener("click", () => {
-        if (settings.owner && settings.repo) loadLibrary(true);
+        const { wantR2, wantGh } = getActiveSourceState();
+        if (wantR2 || wantGh) loadLibrary(true);
         else openSettings(els.bannerCta);
       });
       els.closeModalBtn.addEventListener("click", closeSettings);
@@ -327,13 +595,61 @@
         if (e.target === els.settingsModal) closeSettings();
       });
 
+      getModeRadios().forEach((radio) => {
+        radio.addEventListener("change", () => {
+          syncSourceModeUI(getSelectedSourceMode());
+          els.formError.textContent = "";
+        });
+      });
+
+      [els.setR2Url, els.setOwner, els.setRepo].forEach((field) => {
+        if (!field) return;
+        field.addEventListener("blur", () => syncFieldAria(field));
+        field.addEventListener("input", () => {
+          els.formError.textContent = "";
+          if (field.getAttribute("aria-invalid") === "true") {
+            syncFieldAria(field);
+          } else {
+            field.setCustomValidity("");
+          }
+        });
+      });
+
       els.settingsForm.addEventListener("submit", (e) => {
         e.preventDefault();
-        settings.owner = els.setOwner.value.trim();
-        settings.repo = els.setRepo.value.trim();
+        const mode = getSelectedSourceMode();
+        const validated = [els.setR2Url, els.setOwner, els.setRepo];
+        let firstInvalid = null;
+        validated.forEach((field) => {
+          if (!syncFieldAria(field) && !firstInvalid) {
+            firstInvalid = field;
+          }
+        });
+        if (firstInvalid) {
+          els.formError.textContent = "请修正标红的必填或格式有误字段";
+          firstInvalid.focus();
+          return;
+        }
+
+        const nextR2Url = normalizeR2BaseUrl(els.setR2Url ? els.setR2Url.value : "");
+        const nextR2Key = els.setR2Key ? els.setR2Key.value.trim() : "";
+        const nextOwner = els.setOwner.value.trim();
+        const nextRepo = els.setRepo.value.trim();
+        if (mode === "hybrid" && !nextR2Url && (!nextOwner || !nextRepo)) {
+          els.formError.textContent = "混排模式下请至少填写 GitHub 仓库或 Cloudflare R2 网关地址";
+          if (els.setR2Url) els.setR2Url.focus();
+          return;
+        }
+
+        settings.sourceMode = mode;
+        settings.r2Url = nextR2Url;
+        settings.r2Key = nextR2Key;
+        settings.owner = nextOwner;
+        settings.repo = nextRepo;
         settings.branch = els.setBranch.value.trim();
         settings.path = els.setPath.value.trim().replace(/^\/+|\/+$/g, "");
         settings.token = els.setToken.value.trim();
+        notifyExternalLyricsSource();
         if (onSettingsResetFilter) onSettingsResetFilter();
         saveSettings();
         closeSettings();
@@ -343,6 +659,7 @@
       if (els.resetSettingsBtn) {
         els.resetSettingsBtn.addEventListener("click", () => {
           settings = Object.assign({}, DEFAULT_SETTINGS);
+          notifyExternalLyricsSource();
           if (onSettingsResetFilter) onSettingsResetFilter();
           saveSettings();
           fillSettingsForm();

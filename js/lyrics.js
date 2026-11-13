@@ -149,6 +149,9 @@
     let lyricsCatalog = {};
     let lyricsCatalogLoaded = false;
     let lyricsCatalogPromise = null;
+    let externalLyricsUrl = "";
+    let externalLyricsKey = "";
+    let externalSourceMode = "hybrid";
     let lyricsReqSeq = 0;
     let liveLyricsCache = {};
     let liveCacheLoaded = false;
@@ -240,7 +243,37 @@
       } catch (e) { /* ignore quota */ }
     }
 
-    // 真正按需延迟拉取 lyrics.json（不再阻碍首屏渲染与冷启动带宽，并允许 304 协商缓存）
+    function lookupTrackLyrics(track) {
+      if (!track) return null;
+      const keys = [];
+      if (track.url) keys.push(track.url);
+      if (track.path && track.path !== track.url) keys.push(track.path);
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        if (lyricsCatalog[k]) return lyricsCatalog[k];
+        if (liveLyricsCache[k]) return liveLyricsCache[k];
+      }
+      return null;
+    }
+
+    function setExternalLyricsSource(r2BaseUrl, r2Key, sourceMode) {
+      const nextUrl = ns.catalog.normalizeR2BaseUrl
+        ? ns.catalog.normalizeR2BaseUrl(r2BaseUrl)
+        : String(r2BaseUrl || "").trim().replace(/\/+$/, "");
+      const nextKey = String(r2Key || "").trim();
+      const nextMode = sourceMode || "hybrid";
+      if (nextUrl === externalLyricsUrl && nextKey === externalLyricsKey && nextMode === externalSourceMode) {
+        return;
+      }
+      externalLyricsUrl = nextUrl;
+      externalLyricsKey = nextKey;
+      externalSourceMode = nextMode;
+      lyricsCatalog = {};
+      lyricsCatalogLoaded = false;
+      lyricsCatalogPromise = null;
+    }
+
+    // 真正按需延迟拉取 lyrics.json（不再阻碍首屏渲染与冷启动带宽，并允许 304 协商缓存，同时叠加 R2 /lyrics.json）
     async function loadCatalog(force) {
       loadLiveCache();
       if (force) {
@@ -249,13 +282,37 @@
       }
       if (lyricsCatalogPromise) return lyricsCatalogPromise;
       lyricsCatalogPromise = (async () => {
+        const cacheMode = force ? "no-store" : "no-cache";
+        const tasks = [];
+
+        if (externalSourceMode !== "r2") {
+          tasks.push(
+            fetch("lyrics.json", { cache: cacheMode })
+              .then((res) => (res.ok ? res.json() : null))
+              .catch(() => null)
+          );
+        } else {
+          tasks.push(Promise.resolve(null));
+        }
+
+        if (externalLyricsUrl && externalSourceMode !== "github") {
+          const headers = {};
+          if (externalLyricsKey) headers["X-Music-Key"] = externalLyricsKey;
+          tasks.push(
+            fetch(externalLyricsUrl + "/lyrics.json", { cache: cacheMode, headers })
+              .then((res) => (res.ok ? res.json() : null))
+              .catch(() => null)
+          );
+        } else {
+          tasks.push(Promise.resolve(null));
+        }
+
         try {
-          const res = await fetch("lyrics.json", { cache: force ? "no-store" : "no-cache" });
-          if (!res.ok) return;
-          const data = await res.json();
-          if (data && typeof data === "object") {
-            lyricsCatalog = data;
-          }
+          const [localData, r2Data] = await Promise.all(tasks);
+          const merged = {};
+          if (localData && typeof localData === "object") Object.assign(merged, localData);
+          if (r2Data && typeof r2Data === "object") Object.assign(merged, r2Data);
+          lyricsCatalog = merged;
         } catch (e) { /* 若缺失则走在线兜底 */ } finally {
           lyricsCatalogLoaded = true;
         }
@@ -532,7 +589,7 @@
       els.lyricsTrackName.textContent = track.artist ? (track.title + " · " + track.artist) : track.title;
 
       loadLiveCache();
-      let entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
+      let entry = lookupTrackLyrics(track);
       if (!entry && !lyricsCatalogLoaded) {
         els.lyricsTransBtn.hidden = true;
         if (els.lyricsExportBtn) els.lyricsExportBtn.hidden = true;
@@ -541,7 +598,7 @@
         lyricLineEls = [];
         await loadCatalog(false);
         if (reqSeq !== lyricsReqSeq || getCurrentTrack() !== track) return;
-        entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
+        entry = lookupTrackLyrics(track);
       }
       if (!entry) {
         els.lyricsTransBtn.hidden = true;
@@ -550,7 +607,8 @@
         const fetched = await fetchLiveLyricsFallback(track);
         if (reqSeq !== lyricsReqSeq || getCurrentTrack() !== track) return;
         if (fetched) {
-          liveLyricsCache[track.url] = fetched;
+          const cacheKey = track.path || track.url;
+          liveLyricsCache[cacheKey] = fetched;
           saveLiveCache();
           entry = fetched;
         }
@@ -701,6 +759,7 @@
         updatePanelUI();
       },
       reloadCatalog: () => loadCatalog(true),
+      setExternalLyricsSource,
       loadForTrack,
       syncToTime,
       resetPosition,
