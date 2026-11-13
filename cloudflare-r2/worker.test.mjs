@@ -1,19 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { handleRequest } from "./src/worker.js";
+import { handleRequest, handleScheduled } from "./src/worker.js";
+
+function makeMockKv(initial = {}) {
+  const store = new Map(Object.entries(initial));
+  const stats = { gets: 0, puts: 0 };
+  return {
+    stats,
+    store,
+    async get(key) {
+      stats.gets++;
+      return store.has(key) ? store.get(key) : null;
+    },
+    async put(key, val) {
+      stats.puts++;
+      store.set(key, String(val));
+    },
+  };
+}
 
 function makeMockBucket(objects) {
   const store = new Map(Object.entries(objects || {}));
+  const ops = { heads: 0, gets: 0 };
+
+  function materialize(entry) {
+    return entry.body instanceof Uint8Array
+      ? entry.body
+      : new TextEncoder().encode(
+          typeof entry.body === "string" ? entry.body : JSON.stringify(entry.body)
+        );
+  }
+
   return {
+    ops,
     async head(key) {
+      ops.heads++;
       const entry = store.get(key);
       if (!entry) return null;
-      const bytes =
-        entry.body instanceof Uint8Array
-          ? entry.body
-          : new TextEncoder().encode(
-              typeof entry.body === "string" ? entry.body : JSON.stringify(entry.body)
-            );
+      const bytes = materialize(entry);
       return {
         key,
         size: bytes.byteLength,
@@ -24,20 +48,68 @@ function makeMockBucket(objects) {
       };
     },
     async get(key, opts = {}) {
+      ops.gets++;
       const entry = store.get(key);
       if (!entry) return null;
-      const bytes =
-        entry.body instanceof Uint8Array
-          ? entry.body
-          : new TextEncoder().encode(
-              typeof entry.body === "string" ? entry.body : JSON.stringify(entry.body)
-            );
-      let slice = bytes;
-      if (opts && opts.range && Number.isFinite(opts.range.offset)) {
-        const start = opts.range.offset;
-        const len = Number.isFinite(opts.range.length) ? opts.range.length : bytes.byteLength - start;
-        slice = bytes.subarray(start, start + len);
+      const bytes = materialize(entry);
+      const etag = entry.etag || `"etag-${key}"`;
+
+      // Emulate Cloudflare R2 `onlyIf: Headers`
+      if (opts && opts.onlyIf instanceof Headers) {
+        const ifNoneMatch = opts.onlyIf.get("if-none-match");
+        if (ifNoneMatch && ifNoneMatch === etag) {
+          return {
+            key,
+            size: bytes.byteLength,
+            httpEtag: etag,
+            body: null,
+            writeHttpMetadata(headers) {
+              if (entry.contentType) headers.set("Content-Type", entry.contentType);
+            },
+          };
+        }
       }
+
+      let slice = bytes;
+      let rangeMeta;
+      if (opts && opts.range) {
+        let offset = 0;
+        let length = bytes.byteLength;
+        if (opts.range instanceof Headers) {
+          const rh = opts.range.get("range");
+          if (rh) {
+            const m = /^bytes=(\d*)-(\d*)$/i.exec(rh.trim());
+            if (!m) throw new Error("10039 Invalid range header");
+            if (m[1] === "") {
+              const suffix = Number(m[2]);
+              offset = Math.max(0, bytes.byteLength - suffix);
+              length = bytes.byteLength - offset;
+            } else {
+              offset = Number(m[1]);
+              const end = m[2] === "" ? bytes.byteLength - 1 : Math.min(Number(m[2]), bytes.byteLength - 1);
+              if (offset >= bytes.byteLength) {
+                return {
+                  key,
+                  size: bytes.byteLength,
+                  httpEtag: etag,
+                  range: { offset, length: 0 },
+                  body: null,
+                  writeHttpMetadata(headers) {
+                    if (entry.contentType) headers.set("Content-Type", entry.contentType);
+                  },
+                };
+              }
+              length = end - offset + 1;
+            }
+          }
+        } else if (Number.isFinite(opts.range.offset)) {
+          offset = opts.range.offset;
+          length = Number.isFinite(opts.range.length) ? opts.range.length : bytes.byteLength - offset;
+        }
+        slice = bytes.subarray(offset, offset + length);
+        rangeMeta = { offset, length, end: offset + length - 1 };
+      }
+
       const stream = new ReadableStream({
         start(controller) {
           controller.enqueue(slice);
@@ -47,7 +119,8 @@ function makeMockBucket(objects) {
       return {
         key,
         size: bytes.byteLength,
-        httpEtag: entry.etag || `"etag-${key}"`,
+        httpEtag: etag,
+        range: rangeMeta,
         body: stream,
         async json() {
           return JSON.parse(new TextDecoder().decode(bytes));
@@ -105,6 +178,8 @@ test("/health reports public or protected mode", async () => {
     ok: true,
     service: "music-box-r2-gateway",
     protected: false,
+    shielded: false,
+    reason: null,
   });
 
   const resProt = await handleRequest(
@@ -312,4 +387,124 @@ test("enforces optional ACCESS_KEY and verifies HMAC-SHA256 signed media URLs", 
     env
   );
   assert.equal(unsignedMediaRes.status, 401);
+});
+
+test("single atomic GET halves R2 Class B ops & 80% quota shield trips at limit cleanly", async () => {
+  const originHeaders = { Origin: "https://williamqaqq.github.io" };
+  const kv = makeMockKv();
+  const env = makeEnv({
+    MUSIC_QUOTA_KV: kv,
+    MAX_DAILY_REQUESTS: "3",
+    MAX_MONTHLY_CLASS_B: "8000000",
+    MAX_STORAGE_BYTES: "8589934592",
+    QUOTA_FLUSH_EVERY: "100",
+  });
+  const mediaUrl =
+    "https://worker.example/media/" + encodeURIComponent("民谣诗篇") + "/" + encodeURIComponent("Test Track.mp3");
+
+  // 1st + 2nd + 3rd requests succeed with ONLY 1 R2 .get() per GET and 0 .head() calls
+  for (let i = 0; i < 3; i++) {
+    const res = await handleRequest(new Request(mediaUrl, { headers: originHeaders }), env);
+    assert.equal(res.status, 200);
+  }
+  assert.equal(env.MUSIC_BUCKET.ops.heads, 0, "GET /media/* must not call bucket.head()");
+  assert.equal(env.MUSIC_BUCKET.ops.gets, 3, "Each GET /media/* uses exactly 1 R2 Class B get()");
+
+  // 4th request must hit the 80% circuit breaker (503) BEFORE touching R2!
+  const blockedRes = await handleRequest(new Request(mediaUrl, { headers: originHeaders }), env);
+  assert.equal(blockedRes.status, 503);
+  const blockedBody = await blockedRes.json();
+  assert.equal(blockedBody.shielded, true);
+  assert.equal(blockedBody.reason, "daily_requests");
+  assert.equal(env.MUSIC_BUCKET.ops.gets, 3, "Bucket must NOT be touched after quota shield trips");
+  assert.equal(blockedRes.headers.get("Access-Control-Allow-Origin"), "https://williamqaqq.github.io");
+
+  // /quota endpoint stays accessible and reports 100% of cap reached
+  const quotaRes = await handleRequest(
+    new Request("https://worker.example/quota", { headers: originHeaders }),
+    env
+  );
+  assert.equal(quotaRes.status, 200);
+  const quotaInfo = await quotaRes.json();
+  assert.equal(quotaInfo.shielded, true);
+  assert.equal(quotaInfo.reason, "daily_requests");
+  assert.equal(quotaInfo.usage.dailyReqs, 3);
+});
+
+test("trips 80% shield on storage limit, manual pause, and monthly Class B GraphQL cron sync", async () => {
+  const originHeaders = { Origin: "https://williamqaqq.github.io" };
+
+  // Manual kill-switch blocks immediately with 0 R2 ops
+  const pausedEnv = makeEnv({ GATEWAY_PAUSED: "1" });
+  const pausedRes = await handleRequest(
+    new Request("https://worker.example/manifest.json", { headers: originHeaders }),
+    pausedEnv
+  );
+  assert.equal(pausedRes.status, 503);
+  assert.equal((await pausedRes.json()).reason, "manual_pause");
+  assert.equal(pausedEnv.MUSIC_BUCKET.ops.gets, 0);
+
+  // Storage cap via quota:storage:v1 KV key blocks when >= 8.0 GiB (custom threshold for unit test)
+  const storageKv = makeMockKv({
+    "quota:storage:v1": JSON.stringify({ bytes: 900 }),
+  });
+  const storageEnv = makeEnv({
+    MUSIC_QUOTA_KV: storageKv,
+    MAX_STORAGE_BYTES: "800",
+  });
+  const storageRes = await handleRequest(
+    new Request("https://worker.example/manifest.json", { headers: originHeaders }),
+    storageEnv
+  );
+  assert.equal(storageRes.status, 503);
+  assert.equal((await storageRes.json()).reason, "storage_limit");
+  assert.equal(storageEnv.MUSIC_BUCKET.ops.gets, 0);
+
+  // Scheduled cron sync reconciles Cloudflare GraphQL telemetry & trips monthly Class B >= 80%
+  const cronKv = makeMockKv();
+  const cronEnv = makeEnv({
+    MUSIC_QUOTA_KV: cronKv,
+    CF_ANALYTICS_TOKEN: "dummy-analytics-token",
+    CF_ACCOUNT_ID: "acct-123",
+    MAX_MONTHLY_CLASS_B: "8000000",
+  });
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "https://api.cloudflare.com/client/v4/graphql");
+    return new Response(
+      JSON.stringify({
+        data: {
+          viewer: {
+            accounts: [
+              {
+                r2OperationsAdaptiveGroups: [
+                  { dimensions: { actionType: "GetObject" }, sum: { requests: 8000500 } },
+                  { dimensions: { actionType: "PutObject" }, sum: { requests: 250 } },
+                ],
+                r2StorageAdaptiveGroups: [
+                  { dimensions: { bucketName: "music-box-audio" }, max: { payloadSize: 5000000, metadataSize: 1024 } },
+                ],
+              },
+            ],
+          },
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+  try {
+    await handleScheduled({}, cronEnv, {});
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+
+  const afterCronRes = await handleRequest(
+    new Request("https://worker.example/manifest.json", { headers: originHeaders }),
+    cronEnv
+  );
+  assert.equal(afterCronRes.status, 503);
+  const body = await afterCronRes.json();
+  assert.equal(body.reason, "monthly_class_b");
+  assert.equal(body.usage.monthlyClassB, 8000500);
+  assert.equal(cronEnv.MUSIC_BUCKET.ops.gets, 0);
 });

@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(SCRIPT_DIR)
@@ -193,6 +194,8 @@ def main(argv=None):
     parser.add_argument("--prune", action="store_true", help="Delete remote objects removed from local --dir")
     parser.add_argument("--no-online", action="store_true", help="Skip online LRC API lookups")
     parser.add_argument("--publish-empty", action="store_true", help="Upload empty manifest.json / lyrics.json when dir is empty or absent")
+    parser.add_argument("--max-storage-gb", type=float, default=8.0, help="Hard 80%% free-tier storage cap in GiB (default: 8.0 GiB of 10 GiB)")
+    parser.add_argument("--skip-kv", action="store_true", help="Skip pushing storage byte count to Workers KV quota:storage:v1")
     args = parser.parse_args(argv)
 
     root_dir = os.path.abspath(args.dir)
@@ -207,16 +210,34 @@ def main(argv=None):
     prev_files = prev_state.get("files") if isinstance(prev_state.get("files"), dict) else {}
 
     to_upload = []
+    total_media_bytes = 0
     for rel_key, (abs_path, ext, digest) in sorted(media_files.items()):
+        total_media_bytes += os.path.getsize(abs_path)
         if args.force or prev_files.get(rel_key) != digest:
             to_upload.append((rel_key, abs_path, MEDIA_MIME.get(ext, "application/octet-stream"), digest))
 
     to_prune = sorted(set(prev_files.keys()) - set(media_files.keys())) if args.prune else []
 
+    manifest_bytes = json.dumps(tracks, ensure_ascii=False, indent=2).encode("utf-8")
+    lyrics_bytes = json.dumps(ordered_lyrics, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    total_bytes = total_media_bytes + len(manifest_bytes) + len(lyrics_bytes)
+    max_storage_bytes = int(max(0.1, args.max_storage_gb) * (1024 ** 3))
+    used_mib = total_bytes / (1024 ** 2)
+    cap_gib = max_storage_bytes / (1024 ** 3)
+    pct_of_cap = (total_bytes / max_storage_bytes) * 100.0 if max_storage_bytes else 100.0
+
     print(
         f"Scanned {len(tracks)} track(s), {len(ordered_lyrics)} lyric entry/entries, "
         f"{len(to_upload)} media file(s) to upload, {len(to_prune)} to prune."
     )
+    print(f"Storage budget: {used_mib:.2f} MiB / {cap_gib:.2f} GiB safety cap ({pct_of_cap:.1f}% of 80% free-tier limit)")
+
+    if total_bytes >= max_storage_bytes:
+        print(
+            f"ABORTED: Planned bucket footprint ({used_mib:.2f} MiB) reaches/exceeds "
+            f"{cap_gib:.2f} GiB (80% of 10 GiB R2 Free Tier). No files were uploaded."
+        )
+        return 2
 
     if args.dry_run:
         for rel_key, _, mime, _ in to_upload:
@@ -225,6 +246,8 @@ def main(argv=None):
             print(f"[dry-run] DELETE {args.bucket}/{rel_key}")
         print(f"[dry-run] PUT {args.bucket}/manifest.json ({len(tracks)} tracks)")
         print(f"[dry-run] PUT {args.bucket}/lyrics.json ({len(ordered_lyrics)} entries)")
+        if not args.skip_kv:
+            print(f"[dry-run] KV PUT MUSIC_QUOTA_KV/quota:storage:v1 ({total_bytes} bytes)")
         return 0
 
     wrangler_cmd = resolve_wrangler_cmd()
@@ -263,10 +286,20 @@ def main(argv=None):
     with tempfile.TemporaryDirectory() as tmpdir:
         manifest_tmp = os.path.join(tmpdir, "manifest.json")
         lyrics_tmp = os.path.join(tmpdir, "lyrics.json")
-        with open(manifest_tmp, "w", encoding="utf-8", newline="\n") as mf:
-            json.dump(tracks, mf, ensure_ascii=False, indent=2)
-        with open(lyrics_tmp, "w", encoding="utf-8", newline="\n") as lf:
-            json.dump(ordered_lyrics, lf, ensure_ascii=False, separators=(",", ":"))
+        storage_kv_tmp = os.path.join(tmpdir, "quota-storage.json")
+        with open(manifest_tmp, "wb") as mf:
+            mf.write(manifest_bytes)
+        with open(lyrics_tmp, "wb") as lf:
+            lf.write(lyrics_bytes)
+        with open(storage_kv_tmp, "w", encoding="utf-8", newline="\n") as kf:
+            json.dump(
+                {
+                    "bytes": total_bytes,
+                    "objects": len(media_files) + 2,
+                    "updatedAt": datetime.now(timezone.utc).isoformat(),
+                },
+                kf,
+            )
 
         print("Uploading manifest.json...")
         run_wrangler(
@@ -304,6 +337,24 @@ def main(argv=None):
                 "--remote",
             ],
         )
+
+        if not args.skip_kv:
+            print("Updating MUSIC_QUOTA_KV storage footprint...")
+            run_wrangler(
+                wrangler_cmd,
+                config_flags
+                + [
+                    "kv",
+                    "key",
+                    "put",
+                    "quota:storage:v1",
+                    "--path",
+                    storage_kv_tmp,
+                    "--binding",
+                    "MUSIC_QUOTA_KV",
+                    "--remote",
+                ],
+            )
 
     if os.path.isdir(root_dir):
         with open(state_path, "w", encoding="utf-8", newline="\n") as sf:

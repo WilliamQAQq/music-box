@@ -41,19 +41,19 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v25", () => {
+test("HTML/SW/CSS structural invariants & asset version v26", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=25",
-    "js/user-state.js?v=25",
-    "js/library-loader.js?v=25",
-    "js/audio-fx.js?v=25",
-    "js/lyrics.js?v=25",
-    "js/studio-ui.js?v=25",
-    "app.js?v=25",
+    "js/catalog-data.js?v=26",
+    "js/user-state.js?v=26",
+    "js/library-loader.js?v=26",
+    "js/audio-fx.js?v=26",
+    "js/lyrics.js?v=26",
+    "js/studio-ui.js?v=26",
+    "app.js?v=26",
   ];
 
   let lastPos = -1;
@@ -63,12 +63,12 @@ test("HTML/SW/CSS structural invariants & asset version v25", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=25"'), "index.html missing style.css?v=25");
+  assert.ok(html.includes('href="style.css?v=26"'), "index.html missing style.css?v=26");
   assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'), "index.html missing manifest link");
   assert.ok(html.includes('<dialog id="studioPanel" class="studio-popover" popover="auto"'), "Missing <dialog popover=\"auto\">");
   assert.ok(html.includes('<fieldset class="source-mode-group">'), "Missing sourceMode radio fieldset");
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
-  assert.ok(sw.includes('const VERSION = "v25";'), "sw.js VERSION must match v25");
+  assert.ok(sw.includes('const VERSION = "v26";'), "sw.js VERSION must match v26");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");

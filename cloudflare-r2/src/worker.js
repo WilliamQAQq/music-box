@@ -1,11 +1,19 @@
 /**
- * Music Box Cloudflare R2 Read-Only Gateway Worker
+ * Music Box Cloudflare R2 Read-Only Gateway Worker + 80% Free-Tier Quota Shield
  *
- * Security model:
+ * Security & Zero-Overage model:
  * - Strictly read-only (GET / HEAD / OPTIONS only); never calls bucket.put/delete/list.
  * - Strict Origin / Referer allowlist (no wildcard CORS) to block third-party hotlinking & scraping.
  * - Extension + path whitelist on /media/* prevents traversal, hidden files, or non-media reads.
- * - Full HTTP Byte-Range (206 Partial Content) + ETag support for <audio crossorigin="anonymous"> & Web Audio DSP.
+ * - Single-operation R2 reads (`bucket.get` with `range` + `onlyIf` headers) cut Class B ops by 50%.
+ * - Autonomous 80% Free-Tier Circuit Breaker (`MUSIC_QUOTA_KV` + optional GraphQL billing sync):
+ *   stops ALL R2 access (`503 Quota Shield Active`) before hitting free limits:
+ *   * Daily Worker requests >= 80,000 (80% of 100,000/day Workers Free cap)
+ *   * Monthly R2 Class B reads >= 8,000,000 (80% of 10,000,000/month free tier)
+ *   * Monthly R2 Class A writes >= 800,000 (80% of 1,000,000/month free tier)
+ *   * R2 Storage >= 8.0 GiB (80% of 10 GiB-month free tier)
+ *   * Or manual kill-switch `GATEWAY_PAUSED === "1"`
+ * - KV reads cached in isolate memory (15s) and batched on flush (<= ~550 writes/day) so KV itself stays well inside Free Tier (100k reads / 1k writes per day).
  * - Optional ACCESS_KEY secret mode enables X-Music-Key protection and HMAC-SHA256 expiring media URLs.
  */
 
@@ -27,6 +35,305 @@ const MEDIA_MIME = {
 };
 
 const MAX_SIGNED_TTL_SEC = 6 * 3600;
+const QUOTA_STATE_KEY = "quota:state:v1";
+const QUOTA_STORAGE_KEY = "quota:storage:v1";
+const DEFAULT_QUOTA_CACHE_MS = 15000;
+const DEFAULT_FLUSH_EVERY = 150;
+const DEFAULT_FLUSH_INTERVAL_MS = 60000;
+const MAX_DAILY_KV_WRITES = 850; // Stay safely under KV Free Tier 1,000 writes/day hard limit
+
+const DEFAULT_LIMITS = {
+  maxDailyRequests: 80000,
+  maxMonthlyClassB: 8000000,
+  maxMonthlyClassA: 800000,
+  maxStorageBytes: 8 * 1024 * 1024 * 1024, // 8.0 GiB (80% of 10 GiB)
+};
+
+const R2_CLASS_B_ACTIONS = new Set([
+  "GetObject",
+  "HeadObject",
+  "HeadBucket",
+  "GetBucketEncryption",
+  "GetBucketLocation",
+  "GetBucketCors",
+  "GetBucketLifecycleConfiguration",
+  "GetBucketPolicy",
+  "UsageSummary",
+]);
+
+const isolateTrackers = new WeakMap();
+
+function parsePositiveInt(val, fallback) {
+  const n = Number(val);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+function getQuotaLimits(env) {
+  return {
+    maxDailyRequests: parsePositiveInt(env && env.MAX_DAILY_REQUESTS, DEFAULT_LIMITS.maxDailyRequests),
+    maxMonthlyClassB: parsePositiveInt(env && env.MAX_MONTHLY_CLASS_B, DEFAULT_LIMITS.maxMonthlyClassB),
+    maxMonthlyClassA: parsePositiveInt(env && env.MAX_MONTHLY_CLASS_A, DEFAULT_LIMITS.maxMonthlyClassA),
+    maxStorageBytes: parsePositiveInt(env && env.MAX_STORAGE_BYTES, DEFAULT_LIMITS.maxStorageBytes),
+  };
+}
+
+function currentUtcPeriods(now = new Date()) {
+  const iso = now.toISOString();
+  return { day: iso.slice(0, 10), month: iso.slice(0, 7), iso };
+}
+
+function createEmptyQuotaState(periods) {
+  return {
+    day: periods.day,
+    month: periods.month,
+    dailyReqs: 0,
+    dailyKvWrites: 0,
+    monthlyClassB: 0,
+    monthlyClassA: 0,
+    storageBytes: 0,
+    tripped: false,
+    reason: "",
+    trippedAt: "",
+    updatedAt: periods.iso,
+    analyticsSyncedAt: "",
+  };
+}
+
+function rollQuotaPeriods(state, now = new Date()) {
+  const periods = currentUtcPeriods(now);
+  const next = Object.assign(createEmptyQuotaState(periods), state || {});
+  if (next.day !== periods.day) {
+    next.day = periods.day;
+    next.dailyReqs = 0;
+    next.dailyKvWrites = 0;
+    if (next.tripped && next.reason === "daily_requests") {
+      next.tripped = false;
+      next.reason = "";
+      next.trippedAt = "";
+    }
+  }
+  if (next.month !== periods.month) {
+    next.month = periods.month;
+    next.monthlyClassB = 0;
+    next.monthlyClassA = 0;
+    if (next.tripped && (next.reason === "monthly_class_b" || next.reason === "monthly_class_a")) {
+      next.tripped = false;
+      next.reason = "";
+      next.trippedAt = "";
+    }
+  }
+  return next;
+}
+
+function getIsolateTracker(env) {
+  const key = (env && env.MUSIC_QUOTA_KV) || env;
+  if (!key || typeof key !== "object") {
+    return {
+      loadedAt: 0,
+      state: null,
+      pendingReqs: 0,
+      pendingClassB: 0,
+      dirtySince: 0,
+      flushing: null,
+    };
+  }
+  let tracker = isolateTrackers.get(key);
+  if (!tracker) {
+    tracker = {
+      loadedAt: 0,
+      state: null,
+      pendingReqs: 0,
+      pendingClassB: 0,
+      dirtySince: 0,
+      flushing: null,
+    };
+    isolateTrackers.set(key, tracker);
+  }
+  return tracker;
+}
+
+async function readKvJson(kv, key) {
+  if (!kv || typeof kv.get !== "function") return null;
+  try {
+    const raw = await kv.get(key);
+    if (!raw) return null;
+    if (typeof raw === "string") return JSON.parse(raw);
+    if (typeof raw === "object") return raw;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadQuotaSnapshot(env, now = new Date()) {
+  const tracker = getIsolateTracker(env);
+  const cacheMs = env && env.QUOTA_CACHE_MS !== undefined
+    ? Math.max(0, Number(env.QUOTA_CACHE_MS) || 0)
+    : DEFAULT_QUOTA_CACHE_MS;
+  const nowMs = now.getTime();
+  const kv = env && env.MUSIC_QUOTA_KV;
+
+  if (!tracker.state || nowMs - tracker.loadedAt >= cacheMs) {
+    let base = createEmptyQuotaState(currentUtcPeriods(now));
+    if (kv) {
+      const [remoteState, remoteStorage] = await Promise.all([
+        readKvJson(kv, QUOTA_STATE_KEY),
+        readKvJson(kv, QUOTA_STORAGE_KEY),
+      ]);
+      if (remoteState && typeof remoteState === "object") {
+        base = Object.assign(base, remoteState);
+      }
+      if (remoteStorage && Number.isFinite(Number(remoteStorage.bytes))) {
+        base.storageBytes = Math.max(base.storageBytes || 0, Number(remoteStorage.bytes));
+      }
+    }
+    tracker.state = rollQuotaPeriods(base, now);
+    tracker.loadedAt = nowMs;
+  } else {
+    tracker.state = rollQuotaPeriods(tracker.state, now);
+  }
+  return tracker;
+}
+
+function evaluateQuotaShield(tracker, env) {
+  const limits = getQuotaLimits(env);
+  const s = tracker.state;
+  const effectiveDailyReqs = (s.dailyReqs || 0) + (tracker.pendingReqs || 0);
+  const effectiveClassB = (s.monthlyClassB || 0) + (tracker.pendingClassB || 0);
+  const effectiveClassA = s.monthlyClassA || 0;
+  const storageBytes = s.storageBytes || 0;
+
+  let reason = "";
+  if (String((env && env.GATEWAY_PAUSED) || "0") === "1") {
+    reason = "manual_pause";
+  } else if (s.tripped && s.reason) {
+    reason = s.reason;
+  } else if (storageBytes >= limits.maxStorageBytes) {
+    reason = "storage_limit";
+  } else if (effectiveClassB >= limits.maxMonthlyClassB) {
+    reason = "monthly_class_b";
+  } else if (effectiveClassA >= limits.maxMonthlyClassA) {
+    reason = "monthly_class_a";
+  } else if (effectiveDailyReqs >= limits.maxDailyRequests) {
+    reason = "daily_requests";
+  }
+
+  return {
+    shielded: !!reason,
+    reason,
+    limits,
+    usage: {
+      dailyReqs: effectiveDailyReqs,
+      monthlyClassB: effectiveClassB,
+      monthlyClassA: effectiveClassA,
+      storageBytes,
+    },
+    percent: {
+      dailyRequests: Number(((effectiveDailyReqs / limits.maxDailyRequests) * 100).toFixed(2)),
+      monthlyClassB: Number(((effectiveClassB / limits.maxMonthlyClassB) * 100).toFixed(2)),
+      monthlyClassA: Number(((effectiveClassA / limits.maxMonthlyClassA) * 100).toFixed(2)),
+      storage: Number(((storageBytes / limits.maxStorageBytes) * 100).toFixed(2)),
+    },
+  };
+}
+
+async function flushQuotaTracker(env, tracker, forceTripReason = "", now = new Date()) {
+  const kv = env && env.MUSIC_QUOTA_KV;
+  if (!kv || typeof kv.put !== "function") return;
+  if (tracker.flushing) {
+    await tracker.flushing;
+  }
+
+  const doFlush = async () => {
+    const addReqs = tracker.pendingReqs;
+    const addClassB = tracker.pendingClassB;
+    if (!forceTripReason && addReqs === 0 && addClassB === 0) return;
+
+    const periods = currentUtcPeriods(now);
+    const latestRemote = await readKvJson(kv, QUOTA_STATE_KEY);
+    const merged = rollQuotaPeriods(latestRemote || tracker.state, now);
+
+    merged.dailyReqs += addReqs;
+    merged.monthlyClassB += addClassB;
+    merged.updatedAt = periods.iso;
+    if (forceTripReason) {
+      merged.tripped = true;
+      merged.reason = forceTripReason;
+      merged.trippedAt = merged.trippedAt || periods.iso;
+    }
+
+    tracker.pendingReqs = Math.max(0, tracker.pendingReqs - addReqs);
+    tracker.pendingClassB = Math.max(0, tracker.pendingClassB - addClassB);
+    tracker.dirtySince = tracker.pendingReqs > 0 ? now.getTime() : 0;
+
+    if ((merged.dailyKvWrites || 0) < MAX_DAILY_KV_WRITES) {
+      merged.dailyKvWrites = (merged.dailyKvWrites || 0) + 1;
+      await kv.put(QUOTA_STATE_KEY, JSON.stringify(merged));
+    }
+    tracker.state = merged;
+    tracker.loadedAt = now.getTime();
+  };
+
+  tracker.flushing = doFlush().finally(() => {
+    tracker.flushing = null;
+  });
+  await tracker.flushing;
+}
+
+function scheduleOrAwaitFlush(env, ctx, tracker, reqDelta, classBDelta, now = new Date()) {
+  tracker.pendingReqs += reqDelta;
+  tracker.pendingClassB += classBDelta;
+  if (!tracker.dirtySince && (tracker.pendingReqs > 0 || tracker.pendingClassB > 0)) {
+    tracker.dirtySince = now.getTime();
+  }
+
+  const evaluation = evaluateQuotaShield(tracker, env);
+  const flushEvery = parsePositiveInt(env && env.QUOTA_FLUSH_EVERY, DEFAULT_FLUSH_EVERY);
+  const flushIntervalMs = parsePositiveInt(env && env.QUOTA_FLUSH_INTERVAL_MS, DEFAULT_FLUSH_INTERVAL_MS);
+  const dirtyAge = tracker.dirtySince ? now.getTime() - tracker.dirtySince : 0;
+
+  if (
+    evaluation.shielded ||
+    tracker.pendingReqs >= flushEvery ||
+    (dirtyAge >= flushIntervalMs && tracker.pendingReqs > 0)
+  ) {
+    const tripReason = evaluation.shielded && !tracker.state.tripped && evaluation.reason !== "manual_pause"
+      ? evaluation.reason
+      : "";
+    const p = flushQuotaTracker(env, tracker, tripReason, now);
+    if (ctx && typeof ctx.waitUntil === "function" && !tripReason) {
+      ctx.waitUntil(p);
+      return Promise.resolve();
+    }
+    return p;
+  }
+  return Promise.resolve();
+}
+
+function quotaShieldResponse(evaluation, corsOrigin, now = new Date()) {
+  const nextUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0);
+  const retryAfterSec = evaluation.reason === "daily_requests"
+    ? Math.max(60, Math.ceil((nextUtcMidnight - now.getTime()) / 1000))
+    : 3600;
+  const headers = new Headers({
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Retry-After": String(retryAfterSec),
+  });
+  applySecurityHeaders(headers, corsOrigin);
+  return new Response(
+    JSON.stringify({
+      error: "Quota shield active (>=80% free tier limit reached)",
+      shielded: true,
+      reason: evaluation.reason,
+      usage: evaluation.usage,
+      limits: evaluation.limits,
+      percent: evaluation.percent,
+      retryAfterSec,
+    }),
+    { status: 503, headers }
+  );
+}
 
 function parseAllowedOrigins(env) {
   const raw = String((env && env.ALLOWED_ORIGINS) || "https://williamqaqq.github.io");
@@ -79,7 +386,6 @@ function resolveAllowedOrigin(request, env) {
     }
   }
 
-  // Fallback for missing Origin & Referer (direct curl/hotlink blocked unless explicitly allowed)
   return { allowed: allowMissing, corsOrigin: "" };
 }
 
@@ -136,6 +442,16 @@ function sanitizeMediaKey(rawEncodedPath) {
   return { key: fullKey, mime };
 }
 
+function isRangeHeaderSyntacticallyValid(rangeHeader) {
+  if (!rangeHeader) return true;
+  const m = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+  if (!m) return false;
+  if (m[1] === "" && m[2] === "") return false;
+  if (m[1] !== "" && m[2] !== "" && Number(m[1]) > Number(m[2])) return false;
+  if (m[1] === "" && Number(m[2]) <= 0) return false;
+  return true;
+}
+
 function parseByteRangeHeader(rangeHeader, totalSize) {
   if (!rangeHeader) return { kind: "none" };
   const m = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
@@ -143,7 +459,6 @@ function parseByteRangeHeader(rangeHeader, totalSize) {
   const startRaw = m[1];
   const endRaw = m[2];
   if (startRaw === "" && endRaw === "") return { kind: "invalid" };
-
   if (totalSize <= 0) return { kind: "unsatisfiable" };
 
   let start;
@@ -280,14 +595,23 @@ function jsonResponse(data, status, corsOrigin, cacheControl = "no-store") {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
-export async function handleRequest(request, env) {
+export async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   const originState = resolveAllowedOrigin(request, env);
+  const now = new Date();
 
   if (url.pathname === "/health") {
+    const tracker = await loadQuotaSnapshot(env, now);
+    const evaluation = evaluateQuotaShield(tracker, env);
     return jsonResponse(
-      { ok: true, service: "music-box-r2-gateway", protected: !!(env && env.ACCESS_KEY) },
+      {
+        ok: !evaluation.shielded,
+        service: "music-box-r2-gateway",
+        protected: !!(env && env.ACCESS_KEY),
+        shielded: evaluation.shielded,
+        reason: evaluation.reason || null,
+      },
       200,
       originState.corsOrigin,
       "no-store"
@@ -307,88 +631,167 @@ export async function handleRequest(request, env) {
     return jsonResponse({ error: "Method not allowed" }, 405, originState.corsOrigin);
   }
 
+  const secret = String((env && env.ACCESS_KEY) || "");
+
+  if (url.pathname === "/quota") {
+    if (!originState.allowed) {
+      return jsonResponse({ error: "Forbidden origin" }, 403, originState.corsOrigin);
+    }
+    if (secret && !(await verifyOptionalAccessKey(request, env))) {
+      return jsonResponse({ error: "Unauthorized" }, 401, originState.corsOrigin);
+    }
+    const tracker = await loadQuotaSnapshot(env, now);
+    const evaluation = evaluateQuotaShield(tracker, env);
+    return jsonResponse(
+      {
+        ok: !evaluation.shielded,
+        shielded: evaluation.shielded,
+        reason: evaluation.reason || null,
+        day: tracker.state.day,
+        month: tracker.state.month,
+        limits: evaluation.limits,
+        usage: evaluation.usage,
+        percent: evaluation.percent,
+        analyticsSyncedAt: tracker.state.analyticsSyncedAt || null,
+      },
+      200,
+      originState.corsOrigin,
+      "no-store"
+    );
+  }
+
   if (!env || !env.MUSIC_BUCKET) {
     return jsonResponse({ error: "R2 bucket binding missing" }, 500, originState.corsOrigin);
   }
 
-  const secret = String(env.ACCESS_KEY || "");
+  // Evaluate 80% Free-Tier Quota Shield BEFORE touching MUSIC_BUCKET
+  const tracker = await loadQuotaSnapshot(env, now);
+  const preEval = evaluateQuotaShield(tracker, env);
+  if (preEval.shielded) {
+    if (!tracker.state.tripped && preEval.reason !== "manual_pause") {
+      await flushQuotaTracker(env, tracker, preEval.reason, now);
+    }
+    return quotaShieldResponse(preEval, originState.corsOrigin, now);
+  }
+
   if (url.pathname.startsWith("/media/")) {
     const mediaSpec = sanitizeMediaKey(url.pathname.slice("/media/".length));
     if (!mediaSpec) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
       return jsonResponse({ error: "Invalid media key" }, 400, originState.corsOrigin);
     }
 
     const hasValidSignedToken =
       secret && url.searchParams.has("sig") && (await verifySignedMediaOrKey(request, url, mediaSpec.key, env));
     if (!originState.allowed && !hasValidSignedToken) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
       return jsonResponse({ error: "Forbidden origin" }, 403, originState.corsOrigin);
     }
     if (secret && !hasValidSignedToken && !(await verifyOptionalAccessKey(request, env))) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
       return jsonResponse({ error: "Unauthorized" }, 401, originState.corsOrigin);
     }
 
-    const headObj = await env.MUSIC_BUCKET.head(mediaSpec.key);
-    if (!headObj) {
+    const rangeHeader = request.headers.get("range");
+    if (!isRangeHeaderSyntacticallyValid(rangeHeader)) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
+      const badHeaders = new Headers();
+      applySecurityHeaders(badHeaders, originState.corsOrigin);
+      return new Response(null, { status: 416, headers: badHeaders });
+    }
+
+    if (method === "HEAD") {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
+      const headObj = await env.MUSIC_BUCKET.head(mediaSpec.key);
+      if (!headObj) {
+        return jsonResponse({ error: "Not found" }, 404, originState.corsOrigin);
+      }
+      const headers = new Headers();
+      if (typeof headObj.writeHttpMetadata === "function") headObj.writeHttpMetadata(headers);
+      if (!headers.get("content-type")) headers.set("Content-Type", mediaSpec.mime);
+      if (headObj.httpEtag) headers.set("ETag", headObj.httpEtag);
+      headers.set("Accept-Ranges", "bytes");
+      headers.set("Cache-Control", secret ? "private, max-age=3600" : "public, max-age=86400");
+      applySecurityHeaders(headers, originState.corsOrigin);
+
+      const parsedRange = parseByteRangeHeader(rangeHeader, headObj.size);
+      if (parsedRange.kind === "invalid" || parsedRange.kind === "unsatisfiable") {
+        headers.set("Content-Range", `bytes */${headObj.size}`);
+        return new Response(null, { status: 416, headers });
+      }
+      if (parsedRange.kind === "valid") {
+        headers.set("Content-Range", `bytes ${parsedRange.offset}-${parsedRange.end}/${headObj.size}`);
+        headers.set("Content-Length", String(parsedRange.length));
+        return new Response(null, { status: 206, headers });
+      }
+      headers.set("Content-Length", String(headObj.size));
+      return new Response(null, { status: 200, headers });
+    }
+
+    // Single atomic R2 Class B get() with Range + If-None-Match headers (halves R2 Class B usage!)
+    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
+    let obj;
+    try {
+      const getOpts = { onlyIf: request.headers };
+      if (rangeHeader) getOpts.range = request.headers;
+      obj = await env.MUSIC_BUCKET.get(mediaSpec.key, getOpts);
+    } catch (err) {
+      const errMsg = String((err && err.message) || err || "");
+      if (/10039|range|satisfiable/i.test(errMsg)) {
+        const badHeaders = new Headers();
+        applySecurityHeaders(badHeaders, originState.corsOrigin);
+        return new Response(null, { status: 416, headers: badHeaders });
+      }
+      throw err;
+    }
+
+    if (!obj) {
       return jsonResponse({ error: "Not found" }, 404, originState.corsOrigin);
     }
 
     const headers = new Headers();
-    if (typeof headObj.writeHttpMetadata === "function") {
-      headObj.writeHttpMetadata(headers);
+    if (typeof obj.writeHttpMetadata === "function") {
+      obj.writeHttpMetadata(headers);
     }
     if (!headers.get("content-type")) headers.set("Content-Type", mediaSpec.mime);
-    if (headObj.httpEtag) headers.set("ETag", headObj.httpEtag);
+    if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
     headers.set("Accept-Ranges", "bytes");
     headers.set("Cache-Control", secret ? "private, max-age=3600" : "public, max-age=86400");
     applySecurityHeaders(headers, originState.corsOrigin);
 
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (ifNoneMatch && headObj.httpEtag && ifNoneMatch === headObj.httpEtag) {
-      return new Response(null, { status: 304, headers });
-    }
-
-    const rangeHeader = request.headers.get("range");
-    const parsedRange = parseByteRangeHeader(rangeHeader, headObj.size);
-    if (parsedRange.kind === "invalid" || parsedRange.kind === "unsatisfiable") {
-      headers.set("Content-Range", `bytes */${headObj.size}`);
+    if (rangeHeader && obj.range && (obj.range.offset >= obj.size || obj.range.length <= 0)) {
+      headers.set("Content-Range", `bytes */${obj.size}`);
       return new Response(null, { status: 416, headers });
     }
 
-    if (method === "HEAD") {
-      headers.set("Content-Length", String(parsedRange.kind === "valid" ? parsedRange.length : headObj.size));
-      if (parsedRange.kind === "valid") {
-        headers.set("Content-Range", `bytes ${parsedRange.offset}-${parsedRange.end}/${headObj.size}`);
-        return new Response(null, { status: 206, headers });
-      }
-      return new Response(null, { status: 200, headers });
+    if (!obj.body) {
+      return new Response(null, { status: 304, headers });
     }
 
-    const getOpts = parsedRange.kind === "valid"
-      ? { range: { offset: parsedRange.offset, length: parsedRange.length } }
-      : {};
-    const obj = await env.MUSIC_BUCKET.get(mediaSpec.key, getOpts);
-    if (!obj || !obj.body) {
-      return jsonResponse({ error: "Not found" }, 404, originState.corsOrigin);
-    }
-
-    if (parsedRange.kind === "valid") {
-      headers.set("Content-Range", `bytes ${parsedRange.offset}-${parsedRange.end}/${headObj.size}`);
-      headers.set("Content-Length", String(parsedRange.length));
+    if (rangeHeader && obj.range) {
+      const endByte = obj.range.end !== undefined
+        ? obj.range.end
+        : obj.range.offset + obj.range.length - 1;
+      headers.set("Content-Range", `bytes ${obj.range.offset}-${endByte}/${obj.size}`);
+      headers.set("Content-Length", String(obj.range.length));
       return new Response(obj.body, { status: 206, headers });
     }
 
-    headers.set("Content-Length", String(headObj.size));
+    headers.set("Content-Length", String(obj.size));
     return new Response(obj.body, { status: 200, headers });
   }
 
   if (!originState.allowed) {
+    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
     return jsonResponse({ error: "Forbidden origin" }, 403, originState.corsOrigin);
   }
   if (secret && !(await verifyOptionalAccessKey(request, env))) {
+    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
     return jsonResponse({ error: "Unauthorized" }, 401, originState.corsOrigin);
   }
 
   if (url.pathname === "/manifest.json" || url.pathname === "/music.json") {
+    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
     const obj = await env.MUSIC_BUCKET.get("manifest.json");
     if (!obj) {
       return jsonResponse([], 200, originState.corsOrigin, "public, max-age=30");
@@ -411,6 +814,7 @@ export async function handleRequest(request, env) {
   }
 
   if (url.pathname === "/lyrics.json") {
+    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
     const obj = await env.MUSIC_BUCKET.get("lyrics.json");
     if (!obj || !obj.body) {
       return jsonResponse({}, 200, originState.corsOrigin, "public, max-age=60");
@@ -425,9 +829,114 @@ export async function handleRequest(request, env) {
     return new Response(obj.body, { status: 200, headers });
   }
 
+  await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
   return jsonResponse({ error: "Not found" }, 404, originState.corsOrigin);
+}
+
+async function fetchCloudflareR2Telemetry(env, now = new Date()) {
+  const token = String((env && env.CF_ANALYTICS_TOKEN) || "").trim();
+  const accountId = String((env && env.CF_ACCOUNT_ID) || "").trim();
+  if (!token || !accountId) return null;
+
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)).toISOString();
+  const storageSince = new Date(now.getTime() - 24 * 3600 * 1000).toISOString();
+  const query = `
+    query R2QuotaSync($accountTag: String!, $monthStart: Time!, $storageSince: Time!) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          r2OperationsAdaptiveGroups(
+            filter: { datetime_geq: $monthStart }
+            limit: 1000
+          ) {
+            dimensions { actionType }
+            sum { requests }
+          }
+          r2StorageAdaptiveGroups(
+            filter: { datetime_geq: $storageSince }
+            limit: 100
+          ) {
+            dimensions { bucketName }
+            max { payloadSize metadataSize }
+          }
+        }
+      }
+    }
+  `;
+  const res = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      variables: { accountTag: accountId, monthStart, storageSince },
+    }),
+  });
+  if (!res.ok) return null;
+  const payload = await res.json();
+  const acct = payload && payload.data && payload.data.viewer && payload.data.viewer.accounts && payload.data.viewer.accounts[0];
+  if (!acct) return null;
+
+  let classA = 0;
+  let classB = 0;
+  for (const row of acct.r2OperationsAdaptiveGroups || []) {
+    const action = row && row.dimensions && row.dimensions.actionType;
+    const reqs = Number((row && row.sum && row.sum.requests) || 0);
+    if (!action || !Number.isFinite(reqs)) continue;
+    if (R2_CLASS_B_ACTIONS.has(action)) classB += reqs;
+    else classA += reqs;
+  }
+
+  let storageBytes = 0;
+  const bucketSeen = new Map();
+  for (const row of acct.r2StorageAdaptiveGroups || []) {
+    const bName = (row && row.dimensions && row.dimensions.bucketName) || "_default";
+    const total = Number((row && row.max && row.max.payloadSize) || 0) +
+      Number((row && row.max && row.max.metadataSize) || 0);
+    if (total > (bucketSeen.get(bName) || 0)) bucketSeen.set(bName, total);
+  }
+  for (const val of bucketSeen.values()) storageBytes += val;
+
+  return { classA, classB, storageBytes, syncedAt: now.toISOString() };
+}
+
+export async function handleScheduled(event, env, ctx) {
+  const now = new Date();
+  const kv = env && env.MUSIC_QUOTA_KV;
+  if (!kv || typeof kv.put !== "function") return;
+
+  const tracker = await loadQuotaSnapshot(env, now);
+  tracker.loadedAt = 0; // Force fresh remote read during cron reconciliation
+  await loadQuotaSnapshot(env, now);
+
+  const telemetry = await fetchCloudflareR2Telemetry(env, now);
+  const periods = currentUtcPeriods(now);
+  const next = rollQuotaPeriods(tracker.state, now);
+
+  if (telemetry) {
+    next.monthlyClassB = Math.max(next.monthlyClassB || 0, telemetry.classB);
+    next.monthlyClassA = Math.max(next.monthlyClassA || 0, telemetry.classA);
+    next.storageBytes = Math.max(next.storageBytes || 0, telemetry.storageBytes);
+    next.analyticsSyncedAt = telemetry.syncedAt;
+  }
+  next.updatedAt = periods.iso;
+
+  tracker.state = next;
+  const evalResult = evaluateQuotaShield(tracker, env);
+  if (evalResult.shielded && evalResult.reason !== "manual_pause") {
+    next.tripped = true;
+    next.reason = evalResult.reason;
+    next.trippedAt = next.trippedAt || periods.iso;
+  }
+
+  if ((next.dailyKvWrites || 0) < MAX_DAILY_KV_WRITES + 50) {
+    next.dailyKvWrites = (next.dailyKvWrites || 0) + 1;
+    await kv.put(QUOTA_STATE_KEY, JSON.stringify(next));
+  }
 }
 
 export default {
   fetch: handleRequest,
+  scheduled: handleScheduled,
 };

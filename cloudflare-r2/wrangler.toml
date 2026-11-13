@@ -7,6 +7,19 @@ workers_dev = true
 binding = "MUSIC_BUCKET"
 bucket_name = "music-box-audio"
 
+[[kv_namespaces]]
+binding = "MUSIC_QUOTA_KV"
+id = "7444697db212432e9632cc7cf4e76d13"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
 [vars]
 ALLOWED_ORIGINS = "https://williamqaqq.github.io"
 ALLOW_LOCALHOST = "1"
+GATEWAY_PAUSED = "0"
+# 80% safety thresholds of Cloudflare Free Tier (Workers Free 100k/day; R2 10M Class B/mo, 1M Class A/mo, 10 GiB storage)
+MAX_DAILY_REQUESTS = "80000"
+MAX_MONTHLY_CLASS_B = "8000000"
+MAX_MONTHLY_CLASS_A = "800000"
+MAX_STORAGE_BYTES = "8589934592"

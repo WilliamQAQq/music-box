@@ -127,7 +127,7 @@ git push
 3. 自动提交更新 [`music.json`](music.json) 与 [`lyrics.json`](lyrics.json) 并触发 GitHub Pages 重新发布，刷新网页即可收听。
 
 ### 连接个人 Cloudflare R2 曲库或复刻你自己的仓库
-- **Cloudflare R2 扩容网关**：除 GitHub 仓内基础馆藏外，现支持「**GitHub + R2 混排 / 仅 R2 / 仅 GitHub**」三档音源切换；配套只读网关 Worker（[`cloudflare-r2/src/worker.js`](cloudflare-r2/src/worker.js)）强制 `Origin`/`Referer` 来源白名单、路径扩展名消毒与 HTTP `206 Range` 断点拖动，并通过 [`cloudflare-r2/sync_r2.py`](cloudflare-r2/sync_r2.py) 自动增量上传本地 `r2_music/` 音频、提取 ID3 标签并匹配滚动歌词。
+- **Cloudflare R2 扩容网关（零超额 80% 自动熔断）**：除 GitHub 仓内基础馆藏外，现支持「**GitHub + R2 混排 / 仅 R2 / 仅 GitHub**」三档音源切换；配套只读网关 Worker（[`cloudflare-r2/src/worker.js`](cloudflare-r2/src/worker.js)）强制 `Origin`/`Referer` 来源白名单、路径扩展名消毒、单次原子 R2 读取与 **80% 免费额度硬熔断开关**（单日 8 万请求 / 月度 800 万 Class B 读取 / 8.0 GiB 存储触线即 `503` 零触碰 R2），[`cloudflare-r2/sync_r2.py`](cloudflare-r2/sync_r2.py) 同步前亦自动拦截超 8.0 GiB 上传并更新容量记录。
 - **临时切换音源**：打开播放器右上角 **⚙️ 唱片柜设置**，可切换音源模式、填入自己的 Cloudflare R2 Worker 地址（若 Worker 设了 `ACCESS_KEY` 也可填访问口令），或任意 GitHub `Owner` / `Repo`（所有密钥仅存于本地浏览器 `localStorage`）。
 - **Fork 部署个人站点**：Fork 本仓库 → 替换 [`music/`](music) 中的音频并在 [`js/catalog-data.js`](js/catalog-data.js) / [`js/library-loader.js`](js/library-loader.js) 修改默认仓库或网关 → 在仓库 `Settings → Pages` 开启 `Deploy from a branch (main / root)` 即可拥有同款私人黑胶音乐馆。
 

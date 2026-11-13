@@ -173,16 +173,64 @@ function startMockR2GatewayServer(baseOrigin) {
       async get(key, opts = {}) {
         const o = objects[key];
         if (!o) return null;
+        if (opts && opts.onlyIf instanceof Headers) {
+          const ifNoneMatch = opts.onlyIf.get("if-none-match");
+          if (ifNoneMatch && ifNoneMatch === o.etag) {
+            return {
+              key,
+              size: o.bytes.byteLength,
+              httpEtag: o.etag,
+              body: null,
+              writeHttpMetadata(h) {
+                h.set("Content-Type", o.contentType);
+              },
+            };
+          }
+        }
         let slice = o.bytes;
-        if (opts && opts.range && Number.isFinite(opts.range.offset)) {
-          const start = opts.range.offset;
-          const len = Number.isFinite(opts.range.length) ? opts.range.length : o.bytes.byteLength - start;
-          slice = o.bytes.subarray(start, start + len);
+        let rangeMeta;
+        if (opts && opts.range) {
+          let offset = 0;
+          let length = o.bytes.byteLength;
+          if (opts.range instanceof Headers) {
+            const rh = opts.range.get("range");
+            if (rh) {
+              const m = /^bytes=(\d*)-(\d*)$/i.exec(rh.trim());
+              if (!m) throw new Error("10039 Invalid range");
+              if (m[1] === "") {
+                const suffix = Number(m[2]);
+                offset = Math.max(0, o.bytes.byteLength - suffix);
+                length = o.bytes.byteLength - offset;
+              } else {
+                offset = Number(m[1]);
+                const end = m[2] === "" ? o.bytes.byteLength - 1 : Math.min(Number(m[2]), o.bytes.byteLength - 1);
+                if (offset >= o.bytes.byteLength) {
+                  return {
+                    key,
+                    size: o.bytes.byteLength,
+                    httpEtag: o.etag,
+                    range: { offset, length: 0 },
+                    body: null,
+                    writeHttpMetadata(h) {
+                      h.set("Content-Type", o.contentType);
+                    },
+                  };
+                }
+                length = end - offset + 1;
+              }
+            }
+          } else if (Number.isFinite(opts.range.offset)) {
+            offset = opts.range.offset;
+            length = Number.isFinite(opts.range.length) ? opts.range.length : o.bytes.byteLength - offset;
+          }
+          slice = o.bytes.subarray(offset, offset + length);
+          rangeMeta = { offset, length, end: offset + length - 1 };
         }
         return {
           key,
           size: o.bytes.byteLength,
           httpEtag: o.etag,
+          range: rangeMeta,
           body: new ReadableStream({
             start(controller) {
               controller.enqueue(new Uint8Array(slice));

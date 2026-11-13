@@ -29,10 +29,10 @@
 │   ├── lyrics.js         LRC 时间轴解析、按需延迟加载(叠加 R2 lyrics.json)、唱词检索、双语切换与 .lrc 导出控制器
 │   └── studio-ui.js      留声机调音台浮层(<dialog popover="auto">、黄铜实时 Canvas 频谱、EQ/混合/倍速/Crossfade/分享直链)
 ├── cloudflare-r2/        Cloudflare R2 对象存储只读防盗链网关与本地增量同步工具
-│   ├── wrangler.toml     Wrangler 配置(绑定存储桶 music-box-audio 与 ALLOWED_ORIGINS 白名单)
-│   ├── src/worker.js     只读流媒体网关 Worker(Origin/Referer 防盗链、路径扩展名消毒、206 Range 与可选 HMAC 签名)
-│   ├── worker.test.mjs   Node Worker 网关单测套件
-│   └── sync_r2.py        本地大曲库增量上传同步脚本(复用 gen_music_json 读取 ID3/在线歌词并生成 manifest/lyrics)
+│   ├── wrangler.toml     Wrangler 配置(绑定存储桶 music-box-audio、KV 配额状态 MUSIC_QUOTA_KV、15 分钟 Cron 与 80% 免费额度硬熔断参数)
+│   ├── src/worker.js     只读流媒体网关 Worker(Origin/Referer 防盗链、单次 R2 读取优化、80% 免费额度熔断保护、/quota 监控与可选 HMAC 签名)
+│   ├── worker.test.mjs   Node Worker 网关与配额熔断单测套件
+│   └── sync_r2.py        本地大曲库增量上传同步脚本(强制 8.0 GiB 存储 80% 硬停止、读取 ID3/在线歌词并推送 KV 容量记录)
 ├── tests/
 │   ├── verify.mjs        Node 单元测试套件(清单一致性、工具函数、状态持久化与回归保护)
 │   └── e2e_smoke.mjs     Playwright 无头浏览器端到端验证(桌面、手机、iPad 与 R2 网关/混排实测)
@@ -63,21 +63,23 @@ git pull --rebase; git add .; git commit -m "music: xxx"; git push
 push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/专辑)→ Pages 重新构建 → 刷新页面可见。
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
-### 扩容加歌到 Cloudflare R2（突破 GitHub 1GB 容量上限）
-- 已绑定 R2 存储桶 `music-box-audio` 与只读网关 Worker `https://music-box-r2-gateway.chattsun268.workers.dev`（公开只读白名单模式，限 `https://williamqaqq.github.io` 访问，支持 Range 拖动与防盗链拦截）。
+### 扩容加歌到 Cloudflare R2（突破 GitHub 1GB 容量上限 + 80% 零超额熔断）
+- 已绑定 R2 存储桶 `music-box-audio`、KV 熔断状态库 `MUSIC_QUOTA_KV` 与只读网关 Worker `https://music-box-r2-gateway.chattsun268.workers.dev`（限 `https://williamqaqq.github.io` 访问，内置 80% 免费额度自动熔断：单日 >= 8 万次请求、单月 R2 Class B 读取 >= 800 万次、Class A 写入 >= 80 万次、或存储 >= 8.0 GiB 时自动返回 `503` 并零调用 R2）。
 - 把新音频（可选放封面图与同名 `.lrc`）放入本地 `r2_music/` 目录（已在 `.gitignore` 中排除，不会进 Git）：
 ```
-python cloudflare-r2/sync_r2.py --dir r2_music --dry-run   # 预演增量清单与歌词匹配
-python cloudflare-r2/sync_r2.py --dir r2_music             # 仅上传新增/变更文件及 R2 manifest.json / lyrics.json
+python cloudflare-r2/sync_r2.py --dir r2_music --dry-run   # 预演增量清单、80% 容量检查与歌词匹配
+python cloudflare-r2/sync_r2.py --dir r2_music             # 仅上传新增/变更文件，超 8.0 GiB 自动拒传
 ```
-- 如需升级 Worker 或启用私人口令访问：
+- 紧急手动一键关停网关、查看配额、或绑定 GraphQL 官方账单遥测校准：
 ```
+# 查看当前配额占用与熔断状态：在浏览器或带 Origin 头请求 https://music-box-r2-gateway.chattsun268.workers.dev/quota
 npx.cmd wrangler deploy --config cloudflare-r2/wrangler.toml
-npx.cmd wrangler secret put ACCESS_KEY --config cloudflare-r2/wrangler.toml   # 可选：开启后需在设置填口令
+npx.cmd wrangler secret put ACCESS_KEY --config cloudflare-r2/wrangler.toml          # 可选：私人口令模式
+npx.cmd wrangler secret put CF_ANALYTICS_TOKEN --config cloudflare-r2/wrangler.toml  # 可选：Account Analytics:Read 令牌，用于每 15 分钟 Cron 对账
 ```
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=25` / `VERSION = "v25"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=26` / `VERSION = "v26"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查

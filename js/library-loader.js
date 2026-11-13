@@ -384,6 +384,21 @@
         if (res.status === 401) msg = "R2 访问口令无效或缺失";
         else if (res.status === 403) msg = "R2 来源受限（请检查 Worker 白名单 ALLOWED_ORIGINS）";
         else if (res.status === 404) msg = "R2 未找到 manifest.json";
+        else if (res.status === 503) {
+          let reason = "";
+          try {
+            const body = await res.json();
+            reason = (body && body.reason) || "";
+          } catch (e) { /* ignore */ }
+          const reasonMap = {
+            manual_pause: "管理员已手动暂停网关",
+            storage_limit: "存储已达 80%（8 GiB）上限",
+            monthly_class_b: "本月读取次数已达 80%（800 万次）上限",
+            monthly_class_a: "本月写入操作已达 80%（80 万次）上限",
+            daily_requests: "今日网关请求已达 80%（8 万次）上限",
+          };
+          msg = "已触发 R2 80% 免费额度熔断保护（" + (reasonMap[reason] || "零超额扣费保护生效中") + "）";
+        }
         throw new Error(msg);
       }
       const list = await res.json();

@@ -1,4 +1,4 @@
-const VERSION = "v25";
+const VERSION = "v26";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v1";
@@ -7,14 +7,14 @@ const MAX_CACHED_AUDIO = 18;
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=25",
-  "./js/catalog-data.js?v=25",
-  "./js/user-state.js?v=25",
-  "./js/library-loader.js?v=25",
-  "./js/audio-fx.js?v=25",
-  "./js/lyrics.js?v=25",
-  "./js/studio-ui.js?v=25",
-  "./app.js?v=25",
+  "./style.css?v=26",
+  "./js/catalog-data.js?v=26",
+  "./js/user-state.js?v=26",
+  "./js/library-loader.js?v=26",
+  "./js/audio-fx.js?v=26",
+  "./js/lyrics.js?v=26",
+  "./js/studio-ui.js?v=26",
+  "./app.js?v=26",
   "./manifest.webmanifest",
 ];
 
