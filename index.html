@@ -8,7 +8,7 @@
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 
@@ -247,6 +247,48 @@
           <label for="setR2Key">R2 访问口令（仅在 Worker 设置 ACCESS_KEY 时填写）</label>
           <input type="password" id="setR2Key" name="r2Key" placeholder="公开只读白名单模式请留空" autocomplete="off">
         </div>
+        <details id="r2QuotaDetails" class="r2-quota-panel">
+          <summary class="r2-quota-toggle">
+            <span>80% 零超额熔断监控（站内查询）</span>
+            <span class="r2-quota-pill" id="r2QuotaBadge" data-state="idle">展开查看</span>
+          </summary>
+          <div class="r2-quota-body">
+            <div class="r2-quota-head">
+              <span id="r2QuotaSummary" class="r2-quota-summary" role="status" aria-live="polite">展开后将通过当前页面 Origin 鉴权查询 /quota</span>
+              <button type="button" id="refreshR2QuotaBtn" class="ghost-btn sm-btn">刷新额度</button>
+            </div>
+            <div id="r2QuotaGrid" class="r2-quota-grid" hidden>
+              <div class="r2-quota-row">
+                <div class="r2-quota-meta">
+                  <label for="quotaDailyBar">今日网关请求</label>
+                  <span id="quotaDailyVal" class="r2-quota-val">-</span>
+                </div>
+                <progress id="quotaDailyBar" class="r2-quota-bar" max="100" value="0"></progress>
+              </div>
+              <div class="r2-quota-row">
+                <div class="r2-quota-meta">
+                  <label for="quotaClassBBar">本月 R2 读取 (Class B)</label>
+                  <span id="quotaClassBVal" class="r2-quota-val">-</span>
+                </div>
+                <progress id="quotaClassBBar" class="r2-quota-bar" max="100" value="0"></progress>
+              </div>
+              <div class="r2-quota-row">
+                <div class="r2-quota-meta">
+                  <label for="quotaClassABar">本月 R2 写入 (Class A)</label>
+                  <span id="quotaClassAVal" class="r2-quota-val">-</span>
+                </div>
+                <progress id="quotaClassABar" class="r2-quota-bar" max="100" value="0"></progress>
+              </div>
+              <div class="r2-quota-row">
+                <div class="r2-quota-meta">
+                  <label for="quotaStorageBar">R2 存储容量 (8 GiB 安全线)</label>
+                  <span id="quotaStorageVal" class="r2-quota-val">-</span>
+                </div>
+                <progress id="quotaStorageBar" class="r2-quota-bar" max="100" value="0"></progress>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div id="githubFieldsWrap" class="source-fields">
@@ -442,12 +484,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="js/catalog-data.js?v=26"></script>
-<script defer src="js/user-state.js?v=26"></script>
-<script defer src="js/library-loader.js?v=26"></script>
-<script defer src="js/audio-fx.js?v=26"></script>
-<script defer src="js/lyrics.js?v=26"></script>
-<script defer src="js/studio-ui.js?v=26"></script>
-<script defer src="app.js?v=26"></script>
+<script defer src="js/catalog-data.js?v=27"></script>
+<script defer src="js/user-state.js?v=27"></script>
+<script defer src="js/library-loader.js?v=27"></script>
+<script defer src="js/audio-fx.js?v=27"></script>
+<script defer src="js/lyrics.js?v=27"></script>
+<script defer src="js/studio-ui.js?v=27"></script>
+<script defer src="app.js?v=27"></script>
 </body>
 </html>

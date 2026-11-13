@@ -125,6 +125,37 @@ function rollQuotaPeriods(state, now = new Date()) {
   return next;
 }
 
+function reconcileQuotaState(state, env, now = new Date()) {
+  const next = rollQuotaPeriods(state, now);
+  const limits = getQuotaLimits(env);
+  if (next.tripped) {
+    const stillOver =
+      (next.reason === "storage_limit" && (next.storageBytes || 0) >= limits.maxStorageBytes) ||
+      (next.reason === "daily_requests" && (next.dailyReqs || 0) >= limits.maxDailyRequests) ||
+      (next.reason === "monthly_class_b" && (next.monthlyClassB || 0) >= limits.maxMonthlyClassB) ||
+      (next.reason === "monthly_class_a" && (next.monthlyClassA || 0) >= limits.maxMonthlyClassA);
+    if (!stillOver) {
+      next.tripped = false;
+      next.reason = "";
+      next.trippedAt = "";
+    }
+  }
+  return next;
+}
+
+function applyRemoteStorageRecord(base, remoteStorage) {
+  if (!remoteStorage || !Number.isFinite(Number(remoteStorage.bytes))) return base;
+  const syncBytes = Math.max(0, Number(remoteStorage.bytes));
+  const syncTs = String(remoteStorage.updatedAt || "");
+  const analyticsTs = String(base.analyticsSyncedAt || "");
+  if (!analyticsTs || (syncTs && syncTs >= analyticsTs)) {
+    base.storageBytes = syncBytes;
+  } else {
+    base.storageBytes = Math.max(base.storageBytes || 0, syncBytes);
+  }
+  return base;
+}
+
 function getIsolateTracker(env) {
   const key = (env && env.MUSIC_QUOTA_KV) || env;
   if (!key || typeof key !== "object") {
@@ -183,14 +214,12 @@ async function loadQuotaSnapshot(env, now = new Date()) {
       if (remoteState && typeof remoteState === "object") {
         base = Object.assign(base, remoteState);
       }
-      if (remoteStorage && Number.isFinite(Number(remoteStorage.bytes))) {
-        base.storageBytes = Math.max(base.storageBytes || 0, Number(remoteStorage.bytes));
-      }
+      applyRemoteStorageRecord(base, remoteStorage);
     }
-    tracker.state = rollQuotaPeriods(base, now);
+    tracker.state = reconcileQuotaState(base, env, now);
     tracker.loadedAt = nowMs;
   } else {
-    tracker.state = rollQuotaPeriods(tracker.state, now);
+    tracker.state = reconcileQuotaState(tracker.state, env, now);
   }
   return tracker;
 }
@@ -250,8 +279,13 @@ async function flushQuotaTracker(env, tracker, forceTripReason = "", now = new D
     if (!forceTripReason && addReqs === 0 && addClassB === 0) return;
 
     const periods = currentUtcPeriods(now);
-    const latestRemote = await readKvJson(kv, QUOTA_STATE_KEY);
-    const merged = rollQuotaPeriods(latestRemote || tracker.state, now);
+    const [latestRemote, latestStorage] = await Promise.all([
+      readKvJson(kv, QUOTA_STATE_KEY),
+      readKvJson(kv, QUOTA_STORAGE_KEY),
+    ]);
+    const baseState = Object.assign({}, tracker.state || createEmptyQuotaState(periods), latestRemote || {});
+    applyRemoteStorageRecord(baseState, latestStorage);
+    const merged = reconcileQuotaState(baseState, env, now);
 
     merged.dailyReqs += addReqs;
     merged.monthlyClassB += addClassB;
@@ -268,7 +302,11 @@ async function flushQuotaTracker(env, tracker, forceTripReason = "", now = new D
 
     if ((merged.dailyKvWrites || 0) < MAX_DAILY_KV_WRITES) {
       merged.dailyKvWrites = (merged.dailyKvWrites || 0) + 1;
-      await kv.put(QUOTA_STATE_KEY, JSON.stringify(merged));
+      try {
+        await kv.put(QUOTA_STATE_KEY, JSON.stringify(merged));
+      } catch (err) {
+        console.warn("KV quota write failed:", err);
+      }
     }
     tracker.state = merged;
     tracker.loadedAt = now.getTime();
@@ -635,7 +673,14 @@ export async function handleRequest(request, env, ctx) {
 
   if (url.pathname === "/quota") {
     if (!originState.allowed) {
-      return jsonResponse({ error: "Forbidden origin" }, 403, originState.corsOrigin);
+      const hasOriginContext = !!(request.headers.get("origin") || request.headers.get("referer"));
+      const payload = hasOriginContext
+        ? { error: "Forbidden origin" }
+        : {
+            error: "Forbidden origin",
+            hint: "Direct browser visits send no Origin header. Check live quota inside Music Box Settings or send an allowed Origin header.",
+          };
+      return jsonResponse(payload, 403, originState.corsOrigin);
     }
     if (secret && !(await verifyOptionalAccessKey(request, env))) {
       return jsonResponse({ error: "Unauthorized" }, 401, originState.corsOrigin);
@@ -888,10 +933,12 @@ async function fetchCloudflareR2Telemetry(env, now = new Date()) {
     else classA += reqs;
   }
 
+  const targetBucket = String((env && env.R2_BUCKET_NAME) || "").trim();
   let storageBytes = 0;
   const bucketSeen = new Map();
   for (const row of acct.r2StorageAdaptiveGroups || []) {
     const bName = (row && row.dimensions && row.dimensions.bucketName) || "_default";
+    if (targetBucket && bName !== targetBucket) continue;
     const total = Number((row && row.max && row.max.payloadSize) || 0) +
       Number((row && row.max && row.max.metadataSize) || 0);
     if (total > (bucketSeen.get(bName) || 0)) bucketSeen.set(bName, total);
@@ -910,16 +957,21 @@ export async function handleScheduled(event, env, ctx) {
   tracker.loadedAt = 0; // Force fresh remote read during cron reconciliation
   await loadQuotaSnapshot(env, now);
 
-  const telemetry = await fetchCloudflareR2Telemetry(env, now);
+  const [telemetry, remoteStorage] = await Promise.all([
+    fetchCloudflareR2Telemetry(env, now),
+    readKvJson(kv, QUOTA_STORAGE_KEY),
+  ]);
   const periods = currentUtcPeriods(now);
-  const next = rollQuotaPeriods(tracker.state, now);
+  let next = rollQuotaPeriods(tracker.state, now);
 
   if (telemetry) {
     next.monthlyClassB = Math.max(next.monthlyClassB || 0, telemetry.classB);
     next.monthlyClassA = Math.max(next.monthlyClassA || 0, telemetry.classA);
-    next.storageBytes = Math.max(next.storageBytes || 0, telemetry.storageBytes);
+    next.storageBytes = telemetry.storageBytes;
     next.analyticsSyncedAt = telemetry.syncedAt;
   }
+  applyRemoteStorageRecord(next, remoteStorage);
+  next = reconcileQuotaState(next, env, now);
   next.updatedAt = periods.iso;
 
   tracker.state = next;
@@ -932,7 +984,11 @@ export async function handleScheduled(event, env, ctx) {
 
   if ((next.dailyKvWrites || 0) < MAX_DAILY_KV_WRITES + 50) {
     next.dailyKvWrites = (next.dailyKvWrites || 0) + 1;
-    await kv.put(QUOTA_STATE_KEY, JSON.stringify(next));
+    try {
+      await kv.put(QUOTA_STATE_KEY, JSON.stringify(next));
+    } catch (err) {
+      console.warn("KV cron quota write failed:", err);
+    }
   }
 }
 

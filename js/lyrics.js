@@ -288,11 +288,11 @@
         if (externalSourceMode !== "r2") {
           tasks.push(
             fetch("lyrics.json", { cache: cacheMode })
-              .then((res) => (res.ok ? res.json() : null))
-              .catch(() => null)
+              .then(async (res) => (res.ok ? { ok: true, data: await res.json() } : { ok: false, data: null }))
+              .catch(() => ({ ok: false, data: null }))
           );
         } else {
-          tasks.push(Promise.resolve(null));
+          tasks.push(Promise.resolve({ ok: false, data: null }));
         }
 
         if (externalLyricsUrl && externalSourceMode !== "github") {
@@ -300,21 +300,29 @@
           if (externalLyricsKey) headers["X-Music-Key"] = externalLyricsKey;
           tasks.push(
             fetch(externalLyricsUrl + "/lyrics.json", { cache: cacheMode, headers })
-              .then((res) => (res.ok ? res.json() : null))
-              .catch(() => null)
+              .then(async (res) => (res.ok ? { ok: true, data: await res.json() } : { ok: false, data: null }))
+              .catch(() => ({ ok: false, data: null }))
           );
         } else {
-          tasks.push(Promise.resolve(null));
+          tasks.push(Promise.resolve({ ok: false, data: null }));
         }
 
+        let anyOk = false;
         try {
-          const [localData, r2Data] = await Promise.all(tasks);
+          const [localRes, r2Res] = await Promise.all(tasks);
           const merged = {};
-          if (localData && typeof localData === "object") Object.assign(merged, localData);
-          if (r2Data && typeof r2Data === "object") Object.assign(merged, r2Data);
+          if (localRes && localRes.ok) {
+            anyOk = true;
+            if (localRes.data && typeof localRes.data === "object") Object.assign(merged, localRes.data);
+          }
+          if (r2Res && r2Res.ok) {
+            anyOk = true;
+            if (r2Res.data && typeof r2Res.data === "object") Object.assign(merged, r2Res.data);
+          }
           lyricsCatalog = merged;
         } catch (e) { /* 若缺失则走在线兜底 */ } finally {
-          lyricsCatalogLoaded = true;
+          lyricsCatalogLoaded = anyOk;
+          if (!anyOk) lyricsCatalogPromise = null;
         }
       })();
       return lyricsCatalogPromise;

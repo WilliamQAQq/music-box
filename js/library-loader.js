@@ -61,17 +61,21 @@
     }
 
     function loadSettings() {
+      let hasExplicitR2Url = false;
       try {
         const raw = storageGet(KEYS.STORE, "");
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed && typeof parsed === "object") {
+            hasExplicitR2Url = Object.prototype.hasOwnProperty.call(parsed, "r2Url");
             Object.assign(settings, parsed);
           }
         }
       } catch (e) { /* ignore */ }
       settings.sourceMode = normalizeSourceMode(settings.sourceMode);
-      settings.r2Url = normalizeR2BaseUrl(settings.r2Url || DEFAULT_R2_GATEWAY || "");
+      settings.r2Url = normalizeR2BaseUrl(
+        hasExplicitR2Url ? settings.r2Url : (DEFAULT_R2_GATEWAY || "")
+      );
       settings.r2Key = String(settings.r2Key || "").trim();
       notifyExternalLyricsSource();
     }
@@ -177,6 +181,8 @@
       els.setToken.value = settings.token;
       syncSourceModeUI(mode);
       [els.setR2Url, els.setOwner, els.setRepo].forEach(clearFieldValidation);
+      if (els.r2QuotaDetails) els.r2QuotaDetails.open = false;
+      resetQuotaDisplay();
     }
 
     function setBackgroundInert(isInert) {
@@ -542,9 +548,11 @@
             throw (r2Res.reason || ghRes.reason || new Error("全部数据源加载失败"));
           }
           if (!r2Ok) {
-            if (useCache && !force) return;
             const errMsg = (r2Res.reason && r2Res.reason.message) || "网络或权限异常";
-            toast("R2 网关暂不可用（" + errMsg + "），当前显示 GitHub 曲库", true);
+            const cacheHasR2 = !!(useCache && Array.isArray(cache.tracks) && cache.tracks.some((t) => t && t.source === "r2"));
+            if (!useCache || force || cacheHasR2) {
+              toast("R2 网关暂不可用（" + errMsg + "），当前显示 GitHub 曲库", true);
+            }
             data = ghRes.value;
           } else if (!ghOk) {
             const errMsg = (ghRes.reason && ghRes.reason.message) || "加载失败";
@@ -585,11 +593,156 @@
         }
         onBannerChange(false, settings);
       } catch (err) {
-        if (seq !== loadSeq || useCache) return;
+        if (seq !== loadSeq) return;
+        if (useCache) {
+          const msg = String((err && err.message) || "");
+          if (/熔断|口令|受限/.test(msg)) {
+            toast(msg + "（当前暂播本地缓存曲目）", true);
+          }
+          return;
+        }
         onLoadingChange(false);
         els.trackCount.textContent = "";
         onBannerChange(true, settings);
         toast("加载失败：" + err.message, true);
+      }
+    }
+
+    const SHIELD_REASON_TEXT = {
+      manual_pause: "管理员已手动暂停",
+      storage_limit: "存储已达 80% 上限",
+      monthly_class_b: "本月读取已达 80% 上限",
+      monthly_class_a: "本月写入已达 80% 上限",
+      daily_requests: "今日请求已达 80% 上限",
+    };
+
+    function formatQuotaBytes(bytes) {
+      const n = Math.max(0, Number(bytes) || 0);
+      if (n >= 1024 ** 3) return (n / (1024 ** 3)).toFixed(2) + " GiB";
+      if (n >= 1024 ** 2) return (n / (1024 ** 2)).toFixed(1) + " MiB";
+      if (n >= 1024) return (n / 1024).toFixed(1) + " KiB";
+      return n + " B";
+    }
+
+    function setQuotaBarRow(barEl, valEl, pct, labelText) {
+      if (barEl) {
+        const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
+        barEl.value = clamped;
+        if (clamped >= 95) barEl.setAttribute("data-level", "danger");
+        else if (clamped >= 75) barEl.setAttribute("data-level", "warn");
+        else barEl.removeAttribute("data-level");
+      }
+      if (valEl) valEl.textContent = labelText;
+    }
+
+    function resetQuotaDisplay(message) {
+      if (els.r2QuotaGrid) els.r2QuotaGrid.hidden = true;
+      if (els.r2QuotaBadge) {
+        els.r2QuotaBadge.textContent = "待查询";
+        els.r2QuotaBadge.setAttribute("data-state", "idle");
+      }
+      if (els.r2QuotaSummary) {
+        els.r2QuotaSummary.textContent = message || "展开后将通过当前页面 Origin 鉴权查询 /quota";
+      }
+    }
+
+    async function refreshR2Quota() {
+      const r2Base = normalizeR2BaseUrl(els.setR2Url ? els.setR2Url.value : settings.r2Url);
+      if (!r2Base) {
+        resetQuotaDisplay("请先填写有效的 Cloudflare R2 Worker 网关地址");
+        return;
+      }
+      const r2Key = els.setR2Key ? els.setR2Key.value.trim() : settings.r2Key;
+      const headers = {};
+      if (r2Key) headers["X-Music-Key"] = r2Key;
+      if (els.refreshR2QuotaBtn) els.refreshR2QuotaBtn.disabled = true;
+      if (els.r2QuotaBadge) {
+        els.r2QuotaBadge.textContent = "查询中…";
+        els.r2QuotaBadge.setAttribute("data-state", "idle");
+      }
+      if (els.r2QuotaSummary) els.r2QuotaSummary.textContent = "正在通过当前页面 Origin 向网关请求额度状态…";
+
+      try {
+        const res = await fetch(r2Base + "/quota", { cache: "no-store", headers });
+        if (!res.ok) {
+          let errMsg = "HTTP " + res.status;
+          if (res.status === 401) errMsg = "需要填写正确 R2 访问口令";
+          else if (res.status === 403) errMsg = "当前页面 Origin 不在网关白名单中";
+          throw new Error(errMsg);
+        }
+        const q = await res.json();
+        const usage = q.usage || {};
+        const limits = q.limits || {};
+        const percent = q.percent || {};
+
+        setQuotaBarRow(
+          els.quotaDailyBar,
+          els.quotaDailyVal,
+          percent.dailyRequests,
+          Number(usage.dailyReqs || 0).toLocaleString("zh-CN") +
+            " / " + Number(limits.maxDailyRequests || 80000).toLocaleString("zh-CN") +
+            " 次 (" + (percent.dailyRequests || 0) + "%)"
+        );
+        setQuotaBarRow(
+          els.quotaClassBBar,
+          els.quotaClassBVal,
+          percent.monthlyClassB,
+          Number(usage.monthlyClassB || 0).toLocaleString("zh-CN") +
+            " / " + Number(limits.maxMonthlyClassB || 8000000).toLocaleString("zh-CN") +
+            " 次 (" + (percent.monthlyClassB || 0) + "%)"
+        );
+        setQuotaBarRow(
+          els.quotaClassABar,
+          els.quotaClassAVal,
+          percent.monthlyClassA,
+          Number(usage.monthlyClassA || 0).toLocaleString("zh-CN") +
+            " / " + Number(limits.maxMonthlyClassA || 800000).toLocaleString("zh-CN") +
+            " 次 (" + (percent.monthlyClassA || 0) + "%)"
+        );
+        setQuotaBarRow(
+          els.quotaStorageBar,
+          els.quotaStorageVal,
+          percent.storage,
+          formatQuotaBytes(usage.storageBytes || 0) +
+            " / " + formatQuotaBytes(limits.maxStorageBytes || 8 * 1024 ** 3) +
+            " (" + (percent.storage || 0) + "%)"
+        );
+
+        if (els.r2QuotaGrid) els.r2QuotaGrid.hidden = false;
+        const maxPct = Math.max(
+          Number(percent.dailyRequests) || 0,
+          Number(percent.monthlyClassB) || 0,
+          Number(percent.monthlyClassA) || 0,
+          Number(percent.storage) || 0
+        );
+        if (els.r2QuotaBadge) {
+          if (q.shielded) {
+            els.r2QuotaBadge.textContent = "已熔断";
+            els.r2QuotaBadge.setAttribute("data-state", "shielded");
+          } else if (maxPct >= 75) {
+            els.r2QuotaBadge.textContent = "接近阈值";
+            els.r2QuotaBadge.setAttribute("data-state", "warn");
+          } else {
+            els.r2QuotaBadge.textContent = "安全运行";
+            els.r2QuotaBadge.setAttribute("data-state", "ok");
+          }
+        }
+        if (els.r2QuotaSummary) {
+          els.r2QuotaSummary.textContent = q.shielded
+            ? "已触发 80% 零超额熔断：" + (SHIELD_REASON_TEXT[q.reason] || q.reason || "受保护中")
+            : "当前各项占用均低于 80% 免费安全线 · 周期 " + (q.day || "");
+        }
+      } catch (err) {
+        if (els.r2QuotaGrid) els.r2QuotaGrid.hidden = true;
+        if (els.r2QuotaBadge) {
+          els.r2QuotaBadge.textContent = "查询受限";
+          els.r2QuotaBadge.setAttribute("data-state", "warn");
+        }
+        if (els.r2QuotaSummary) {
+          els.r2QuotaSummary.textContent = "额度查询失败：" + ((err && err.message) || "网络异常");
+        }
+      } finally {
+        if (els.refreshR2QuotaBtn) els.refreshR2QuotaBtn.disabled = false;
       }
     }
 
@@ -616,6 +769,23 @@
           els.formError.textContent = "";
         });
       });
+
+      if (els.r2QuotaDetails) {
+        els.r2QuotaDetails.addEventListener("toggle", () => {
+          if (els.r2QuotaDetails.open) refreshR2Quota();
+        });
+      }
+      if (els.refreshR2QuotaBtn) {
+        els.refreshR2QuotaBtn.addEventListener("click", () => {
+          if (els.r2QuotaDetails && !els.r2QuotaDetails.open) els.r2QuotaDetails.open = true;
+          refreshR2Quota();
+        });
+      }
+      if (els.setR2Url) {
+        els.setR2Url.addEventListener("input", () => {
+          resetQuotaDisplay("地址已修改，请点击「刷新额度」或先保存设置");
+        });
+      }
 
       [els.setR2Url, els.setOwner, els.setRepo].forEach((field) => {
         if (!field) return;

@@ -143,6 +143,19 @@
     githubFieldsWrap: $("githubFieldsWrap"),
     setR2Url: $("setR2Url"),
     setR2Key: $("setR2Key"),
+    r2QuotaDetails: $("r2QuotaDetails"),
+    r2QuotaBadge: $("r2QuotaBadge"),
+    r2QuotaSummary: $("r2QuotaSummary"),
+    refreshR2QuotaBtn: $("refreshR2QuotaBtn"),
+    r2QuotaGrid: $("r2QuotaGrid"),
+    quotaDailyBar: $("quotaDailyBar"),
+    quotaDailyVal: $("quotaDailyVal"),
+    quotaClassBBar: $("quotaClassBBar"),
+    quotaClassBVal: $("quotaClassBVal"),
+    quotaClassABar: $("quotaClassABar"),
+    quotaClassAVal: $("quotaClassAVal"),
+    quotaStorageBar: $("quotaStorageBar"),
+    quotaStorageVal: $("quotaStorageVal"),
     setOwner: $("setOwner"),
     setRepo: $("setRepo"),
     setBranch: $("setBranch"),
@@ -329,11 +342,10 @@
     covers = data.covers instanceof Map ? data.covers : new Map(data.covers || []);
     trackIdxByUrl = new Map(tracks.map((t, i) => [t.url, i]));
 
-    // 清理已下线曲目的 DOM 缓存，同时保留现存节点的 DOM 引用
+    // 清理已下线曲目的 DOM 缓存，同时保留现存节点的 DOM 引用与用户持久化收藏/历史（避免切源或网关暂退时误删）
     playlistRowCache.forEach((_, url) => {
       if (!trackIdxByUrl.has(url)) playlistRowCache.delete(url);
     });
-    userState.pruneByAvailableUrls(trackIdxByUrl);
 
     const remap = (i) => {
       const t = oldTracks[i];
@@ -372,6 +384,14 @@
     }
   }
 
+  function getReachablePersonalCounts() {
+    let favCnt = 0;
+    let recCnt = 0;
+    userState.getFavoriteUrls().forEach((u) => { if (trackIdxByUrl.has(u)) favCnt++; });
+    userState.getRecentUrls().forEach((u) => { if (trackIdxByUrl.has(u)) recCnt++; });
+    return { favCnt, recCnt };
+  }
+
   function updateShelfTabCounts(counts) {
     if (!els.genreShelfTabs) return;
     let salonGenres = 0;
@@ -387,8 +407,7 @@
       if (cnt > 0 && !GENRE_META.has(id)) extraGenres++;
     });
     const totalGenres = salonGenres + militaryGenres + extraGenres;
-    const favCnt = userState.getFavoritesCount();
-    const recCnt = userState.getRecentCount();
+    const { favCnt, recCnt } = getReachablePersonalCounts();
     els.genreShelfTabs.hidden = totalGenres === 0;
     els.genreShelfTabs.querySelectorAll(".shelf-tab").forEach((btn) => {
       const catId = btn.dataset.category;
@@ -400,8 +419,7 @@
   }
 
   function updatePersonalShelfCountsInPlace() {
-    const favCnt = userState.getFavoritesCount();
-    const recCnt = userState.getRecentCount();
+    const { favCnt, recCnt } = getReachablePersonalCounts();
     if (els.genreShelfTabs) {
       const pTab = els.genreShelfTabs.querySelector('.shelf-tab[data-category="personal"]');
       if (pTab) pTab.textContent = "\u2665 我的雅集 (" + favCnt + (recCnt ? "+" + recCnt : "") + ")";
@@ -427,6 +445,7 @@
     updateShelfTabCounts(counts);
     if (!hasAnyGenre && shelfCategory !== "personal") return [];
 
+    const { favCnt, recCnt } = getReachablePersonalCounts();
     const favItem = {
       id: COLLECTION_FAVORITES,
       category: "personal",
@@ -435,7 +454,7 @@
       sub: "私人收藏黑胶歌单 (快捷键 F)",
       seal: "#9f1239",
       desc: "随手加心收藏的心水曲目，自动持久化于本地唱片柜。",
-      count: userState.getFavoritesCount(),
+      count: favCnt,
     };
     const recItem = {
       id: COLLECTION_RECENT,
@@ -445,7 +464,7 @@
       sub: "近 45 首留声落针足迹",
       seal: "#b45309",
       desc: "按最近一次完整落针顺序排列，方便迅速寻回方才的旋律。",
-      count: userState.getRecentCount(),
+      count: recCnt,
     };
 
     if (shelfCategory === "personal") {
@@ -1961,8 +1980,8 @@
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: t.title,
-        artist: t.artist || s.owner,
-        album: (t.album && t.album.toLowerCase() !== "unknown album" ? t.album : "") || t.genre || s.repo,
+        artist: t.artist || (t.source === "r2" ? "Cloudflare R2" : s.owner),
+        album: (t.album && t.album.toLowerCase() !== "unknown album" ? t.album : "") || t.genre || (t.source === "r2" ? "R2 云端私藏" : s.repo),
         artwork: cover ? [{ src: cover, sizes: "512x512" }] : [],
       });
     } catch (e) { /* ignore */ }

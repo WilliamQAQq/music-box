@@ -72,14 +72,14 @@ python cloudflare-r2/sync_r2.py --dir r2_music             # 仅上传新增/变
 ```
 - 紧急手动一键关停网关、查看配额、或绑定 GraphQL 官方账单遥测校准：
 ```
-# 查看当前配额占用与熔断状态：在浏览器或带 Origin 头请求 https://music-box-r2-gateway.chattsun268.workers.dev/quota
+# 查看当前配额占用与熔断状态：在前端右上角「设置」弹窗展开「80% 零超额熔断监控（站内查询）」；或带 Origin 头请求 https://music-box-r2-gateway.chattsun268.workers.dev/quota（浏览器地址栏直接访问无 Origin 头会被防盗链拒绝返回 403）
 npx.cmd wrangler deploy --config cloudflare-r2/wrangler.toml
 npx.cmd wrangler secret put ACCESS_KEY --config cloudflare-r2/wrangler.toml          # 可选：私人口令模式
 npx.cmd wrangler secret put CF_ANALYTICS_TOKEN --config cloudflare-r2/wrangler.toml  # 可选：Account Analytics:Read 令牌，用于每 15 分钟 Cron 对账
 ```
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=26` / `VERSION = "v26"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=27` / `VERSION = "v27"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查

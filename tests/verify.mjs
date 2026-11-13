@@ -41,19 +41,19 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v26", () => {
+test("HTML/SW/CSS structural invariants & asset version v27", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=26",
-    "js/user-state.js?v=26",
-    "js/library-loader.js?v=26",
-    "js/audio-fx.js?v=26",
-    "js/lyrics.js?v=26",
-    "js/studio-ui.js?v=26",
-    "app.js?v=26",
+    "js/catalog-data.js?v=27",
+    "js/user-state.js?v=27",
+    "js/library-loader.js?v=27",
+    "js/audio-fx.js?v=27",
+    "js/lyrics.js?v=27",
+    "js/studio-ui.js?v=27",
+    "app.js?v=27",
   ];
 
   let lastPos = -1;
@@ -63,17 +63,28 @@ test("HTML/SW/CSS structural invariants & asset version v26", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=26"'), "index.html missing style.css?v=26");
+  assert.ok(html.includes('href="style.css?v=27"'), "index.html missing style.css?v=27");
   assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'), "index.html missing manifest link");
   assert.ok(html.includes('<dialog id="studioPanel" class="studio-popover" popover="auto"'), "Missing <dialog popover=\"auto\">");
   assert.ok(html.includes('<fieldset class="source-mode-group">'), "Missing sourceMode radio fieldset");
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
-  assert.ok(sw.includes('const VERSION = "v26";'), "sw.js VERSION must match v26");
+  assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
+  assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
+  assert.ok(sw.includes('const VERSION = "v27";'), "sw.js VERSION must match v27");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
   assert.ok(css.includes('[aria-invalid="true"]'), "style.css must style aria-invalid form inputs");
+  assert.ok(
+    css.includes(".r2-quota-bar::-webkit-progress-value") && css.includes(".r2-quota-bar::-moz-progress-bar"),
+    "style.css must define separate WebKit and Firefox progress bar rules"
+  );
+  assert.equal(
+    /::-webkit-progress-value\s*,\s*[^\n]*::-moz-progress-bar/.test(css),
+    false,
+    "style.css must NOT group -webkit- and -moz- progress pseudo-elements"
+  );
 });
 
 test("catalog-data: share hash, LRC export, signature, search matching", () => {

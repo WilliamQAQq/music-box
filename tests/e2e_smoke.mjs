@@ -701,13 +701,28 @@ async function run() {
     assert.equal(validationState.errorVisible, true);
     assert.equal(validationState.focused, true);
 
-    // Save valid local Worker R2 URL in R2-only mode
+    // Save valid local Worker R2 URL and inspect live in-app R2 /quota telemetry before submitting
     await r2Page.fill("#setR2Url", r2Gateway.url);
+    await r2Page.click("#r2QuotaDetails .r2-quota-toggle");
+    await r2Page.waitForFunction(() => {
+      const badge = document.getElementById("r2QuotaBadge");
+      const grid = document.getElementById("r2QuotaGrid");
+      return badge && badge.textContent === "安全运行" && grid && !grid.hidden;
+    }, { timeout: 6000 });
+    const quotaWidget = await r2Page.evaluate(() => ({
+      summary: document.getElementById("r2QuotaSummary").textContent,
+      daily: document.getElementById("quotaDailyVal").textContent,
+      storage: document.getElementById("quotaStorageVal").textContent,
+    }));
+    assert.ok(quotaWidget.daily.includes("/ 80,000 次"), "Quota widget must render daily req limit");
+    assert.ok(quotaWidget.storage.includes("/ 8.00 GiB"), "Quota widget must render 8.00 GiB storage cap");
+
     await r2Page.click('#settingsForm button[type="submit"]');
     await r2Page.waitForFunction(() => document.getElementById("settingsModal").hidden);
     await r2Page.waitForFunction(() => document.querySelectorAll(".playlist-item").length === 1);
 
-    // Play the R2 track and verify audio playback + R2 /lyrics.json timed lyrics
+    // Favorite the R2 track, play it + verify R2 /lyrics.json timed lyrics
+    await r2Page.click(".playlist-item .playlist-fav-btn");
     await r2Page.click(".playlist-item");
     await r2Page.waitForFunction(() => {
       const a = document.getElementById("audio");
@@ -716,7 +731,16 @@ async function run() {
     }, { timeout: 6000 });
     await r2Page.evaluate(() => document.getElementById("audio").pause());
 
-    // Switch to Hybrid mode and verify merged GitHub + R2 library
+    // Temporarily switch to GitHub-only mode, then back to Hybrid: R2 favorite must survive source switching!
+    await r2Page.click("#settingsBtn");
+    await r2Page.click('input[name="sourceMode"][value="github"]');
+    await r2Page.click('#settingsForm button[type="submit"]');
+    await r2Page.waitForFunction(
+      (expectedGhCount) => document.querySelectorAll(".playlist-item").length === expectedGhCount,
+      r2Gateway.sampleCount
+    );
+
+    // Switch back to Hybrid mode and verify merged GitHub + R2 library & preserved R2 favorite
     await r2Page.click("#settingsBtn");
     await r2Page.click('input[name="sourceMode"][value="hybrid"]');
     await r2Page.click('#settingsForm button[type="submit"]');
@@ -724,6 +748,12 @@ async function run() {
       (expectedTotal) => document.querySelectorAll(".playlist-item").length === expectedTotal,
       r2Gateway.sampleCount + 1
     );
+    const favPreserved = await r2Page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll(".playlist-item"));
+      const r2Row = rows.find((el) => el.textContent.includes("R2 Streamed Sonata"));
+      return !!(r2Row && r2Row.querySelector(".playlist-fav-btn.is-fav"));
+    });
+    assert.equal(favPreserved, true, "R2 favorite must remain preserved across temporary GitHub-only source switch");
 
     assert.deepEqual(r2Errors, [], `R2 E2E hit unexpected errors: ${r2Errors.join(" | ")}`);
     await r2Ctx.close();

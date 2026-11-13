@@ -254,34 +254,39 @@ def main(argv=None):
     config_flags = ["--config", args.config] if os.path.isfile(args.config) else []
 
     next_files = dict(prev_files)
-    for idx, (rel_key, abs_path, mime, digest) in enumerate(to_upload, start=1):
-        print(f"[{idx}/{len(to_upload)}] Uploading {rel_key} ({mime})...")
-        run_wrangler(
-            wrangler_cmd,
-            config_flags
-            + [
-                "r2",
-                "object",
-                "put",
-                f"{args.bucket}/{rel_key}",
-                "--file",
-                abs_path,
-                "--ct",
-                mime,
-                "--cc",
-                "public, max-age=86400",
-                "--remote",
-            ],
-        )
-        next_files[rel_key] = digest
+    try:
+        for idx, (rel_key, abs_path, mime, digest) in enumerate(to_upload, start=1):
+            print(f"[{idx}/{len(to_upload)}] Uploading {rel_key} ({mime})...")
+            run_wrangler(
+                wrangler_cmd,
+                config_flags
+                + [
+                    "r2",
+                    "object",
+                    "put",
+                    f"{args.bucket}/{rel_key}",
+                    "--file",
+                    abs_path,
+                    "--ct",
+                    mime,
+                    "--cc",
+                    "public, max-age=86400",
+                    "--remote",
+                ],
+            )
+            next_files[rel_key] = digest
 
-    for rel_key in to_prune:
-        print(f"Pruning remote object {rel_key}...")
-        run_wrangler(
-            wrangler_cmd,
-            config_flags + ["r2", "object", "delete", f"{args.bucket}/{rel_key}", "--remote"],
-        )
-        next_files.pop(rel_key, None)
+        for rel_key in to_prune:
+            print(f"Pruning remote object {rel_key}...")
+            run_wrangler(
+                wrangler_cmd,
+                config_flags + ["r2", "object", "delete", f"{args.bucket}/{rel_key}", "--remote"],
+            )
+            next_files.pop(rel_key, None)
+    finally:
+        if os.path.isdir(root_dir) and next_files != prev_files:
+            with open(state_path, "w", encoding="utf-8", newline="\n") as sf:
+                json.dump({"files": next_files}, sf, ensure_ascii=False, indent=2)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         manifest_tmp = os.path.join(tmpdir, "manifest.json")

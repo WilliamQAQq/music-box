@@ -1208,6 +1208,128 @@ input[type="range"].range.vol { flex: 0 0 100px; max-width: 120px; }
   background: rgba(10, 6, 4, 0.28);
 }
 
+.r2-quota-panel {
+  margin: 4px 0 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(212, 166, 74, 0.24);
+  background: rgba(16, 9, 6, 0.65);
+}
+.r2-quota-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--brass-hi);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.r2-quota-toggle::-webkit-details-marker {
+  display: none;
+}
+.r2-quota-toggle:focus-visible {
+  outline: 2px solid var(--brass-hi);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+.r2-quota-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: #1a0f0a;
+  color: var(--muted);
+}
+.r2-quota-pill[data-state="ok"] {
+  border-color: rgba(110, 178, 122, 0.55);
+  background: rgba(45, 92, 54, 0.28);
+  color: #a7e4b1;
+}
+.r2-quota-pill[data-state="warn"] {
+  border-color: rgba(212, 166, 74, 0.65);
+  background: rgba(180, 122, 28, 0.25);
+  color: #f6d58e;
+}
+.r2-quota-pill[data-state="shielded"] {
+  border-color: rgba(217, 93, 93, 0.7);
+  background: rgba(159, 34, 34, 0.3);
+  color: #f9b5b5;
+}
+.r2-quota-body {
+  padding: 0 11px 11px;
+  border-top: 1px solid rgba(212, 166, 74, 0.14);
+}
+.r2-quota-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+}
+.r2-quota-summary {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.r2-quota-grid {
+  display: grid;
+  gap: 8px;
+}
+.r2-quota-row {
+  display: grid;
+  gap: 4px;
+}
+.r2-quota-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+}
+.r2-quota-meta label {
+  margin: 0 !important;
+  color: var(--text) !important;
+  font-size: 11.5px !important;
+}
+.r2-quota-val {
+  color: var(--brass-hi);
+  font-variant-numeric: tabular-nums;
+}
+.r2-quota-bar {
+  appearance: none;
+  border: 0 solid;
+  inline-size: 100%;
+  block-size: 7px;
+  border-radius: 1e5px;
+  overflow: clip;
+  background: #23150e;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55);
+  --progress-bar-fill: linear-gradient(90deg, var(--brass-dim), var(--brass-hi));
+}
+.r2-quota-bar[data-level="warn"] {
+  --progress-bar-fill: linear-gradient(90deg, #b87a1c, #efc15e);
+}
+.r2-quota-bar[data-level="danger"] {
+  --progress-bar-fill: linear-gradient(90deg, #a62c30, #ea6f6f);
+}
+.r2-quota-bar::-webkit-progress-bar {
+  background: transparent;
+}
+.r2-quota-bar::-webkit-progress-value {
+  background: var(--progress-bar-fill);
+  border-radius: 1e5px;
+  transition: inline-size 0.25s ease;
+}
+.r2-quota-bar::-moz-progress-bar {
+  background: var(--progress-bar-fill);
+  border-radius: 1e5px;
+  transition: inline-size 0.25s ease;
+}
+
 .modal form .field-block {
   display: block;
   margin-bottom: 12px;

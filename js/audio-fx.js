@@ -986,7 +986,8 @@
         baseGraph.masterGain.gain.linearRampToValueAtTime(target, t + ms / 1000);
       } else if (typeof options.onFallbackGainChange === "function") {
         options.onFallbackGainChange(0.18);
-        setTimeout(() => {
+        fadeOutRestoreTimer = setTimeout(() => {
+          fadeOutRestoreTimer = null;
           if (typeof options.onFallbackGainChange === "function") options.onFallbackGainChange(target);
         }, Math.min(260, ms * 0.45));
       }

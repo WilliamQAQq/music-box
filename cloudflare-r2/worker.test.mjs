@@ -508,3 +508,63 @@ test("trips 80% shield on storage limit, manual pause, and monthly Class B Graph
   assert.equal(body.usage.monthlyClassB, 8000500);
   assert.equal(cronEnv.MUSIC_BUCKET.ops.gets, 0);
 });
+
+test("auto-clears storage_limit trip after pruning and survives transient KV write errors", async () => {
+  const originHeaders = { Origin: "https://williamqaqq.github.io" };
+
+  // Start with latched storage_limit trip from prior overload, then simulate --prune reducing bytes below cap
+  const kv = makeMockKv({
+    "quota:state:v1": JSON.stringify({
+      day: new Date().toISOString().slice(0, 10),
+      month: new Date().toISOString().slice(0, 7),
+      dailyReqs: 5,
+      dailyKvWrites: 1,
+      monthlyClassB: 5,
+      monthlyClassA: 0,
+      storageBytes: 950,
+      analyticsSyncedAt: "2026-11-01T00:00:00.000Z",
+      tripped: true,
+      reason: "storage_limit",
+      trippedAt: "2026-11-01T00:00:00.000Z",
+    }),
+    "quota:storage:v1": JSON.stringify({
+      bytes: 400,
+      updatedAt: "2026-11-10T00:00:00.000Z",
+    }),
+  });
+  const env = makeEnv({
+    MUSIC_QUOTA_KV: kv,
+    MAX_STORAGE_BYTES: "800",
+    QUOTA_CACHE_MS: "0",
+  });
+
+  const healedRes = await handleRequest(
+    new Request("https://worker.example/manifest.json", { headers: originHeaders }),
+    env
+  );
+  assert.equal(healedRes.status, 200, "Pruning storage below 80% cap must auto-clear tripped storage_limit");
+
+  // Transient KV put failure must NOT crash media playback with 500
+  const flakyKv = makeMockKv();
+  flakyKv.put = async () => {
+    throw new Error("KV temporary unavailable");
+  };
+  const flakyEnv = makeEnv({
+    MUSIC_QUOTA_KV: flakyKv,
+    QUOTA_FLUSH_EVERY: "1",
+  });
+  const playRes = await handleRequest(
+    new Request("https://worker.example/media/%E6%B0%91%E8%B0%A3%E8%AF%97%E7%AF%87/Test%20Track.mp3", {
+      headers: originHeaders,
+    }),
+    flakyEnv
+  );
+  assert.equal(playRes.status, 200);
+
+  // Direct /quota visit without Origin returns 403 with helpful hint
+  const directQuotaRes = await handleRequest(new Request("https://worker.example/quota"), makeEnv());
+  assert.equal(directQuotaRes.status, 403);
+  const directBody = await directQuotaRes.json();
+  assert.equal(directBody.error, "Forbidden origin");
+  assert.ok(typeof directBody.hint === "string" && directBody.hint.length > 0);
+});
