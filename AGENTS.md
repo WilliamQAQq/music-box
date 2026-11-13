@@ -7,7 +7,7 @@
 一个以 **GitHub 仓库为存储**的在线音乐播放器,部署在 GitHub Pages。
 
 - 在线地址:https://williamqaqq.github.io/music-box/
-- 仓库:https://github.com/WilliamQAQq/music-box (公开,约 475MB)
+- 仓库:https://github.com/WilliamQAQq/music-box (公开,约 894MB)
 - 纯前端静态项目,无框架、无构建步骤,按 `defer` 顺序加载模块化脚本(`window.__MusicBox`)。
 
 ## 文件结构
@@ -33,7 +33,7 @@
 │   └── e2e_smoke.mjs     Playwright 无头浏览器端到端验证(桌面与 375px 移动端实测)
 ├── music.json            音乐清单(前端主数据源:标题/歌手/专辑/风格/相对路径)
 ├── lyrics.json           全馆时间轴滚动歌词库(LRC 原文/双语译文/纯器乐标记)
-├── music/                音乐文件(mp3 等,目前 166 首)
+├── music/                音乐文件(mp3 等,目前 197 首)
 └── .github/
     ├── assets/           README 实机预览图
     ├── gen_music_json.py 清单生成脚本(扫描 music/ 并读取 ID3 标签与在线歌词)
@@ -44,7 +44,7 @@
 
 1. 前端 `app.js` 启动后 `fetch("music.json")`(同源相对路径,`cache: no-store`)得到曲目列表并渲染。
    老访客有 localStorage 缓存时先秒开缓存,同时后台拉最新 `music.json`,有变化自动刷新列表(加歌后刷新页面即见)。
-2. 顶部展示十五大「风格歌单与国歌军乐」唱片集卡片(含「全部专区 / 🎷 沙龙流派 / 🎺 国歌军乐」分组切换，可一键整张播放或筛选进入歌单),列表支持「按风格 / 按作者 / 全部」三种视图切换(默认"按风格")。
+2. 顶部展示十八大「风格歌单与国歌军乐」唱片集卡片(含「全部专区 / 🎷 沙龙流派 / 🎺 国歌军乐」分组切换,可一键整张播放或筛选进入歌单),列表支持「按风格 / 按作者 / 全部」三种视图切换(默认"按风格")。
 3. 点击播放时,`<audio>` 的 src 直接用 music.json 里的相对 URL(浏览器自动按页面域名解析)。
 4. 若 `music.json` 缺失或为空,前端自动回退到 GitHub API(`git/trees`)列文件(有 60 次/小时/IP 限流,仅作兜底)。
 
@@ -59,7 +59,7 @@ push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/�
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=22` / `VERSION = "v22"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=23` / `VERSION = "v23"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查

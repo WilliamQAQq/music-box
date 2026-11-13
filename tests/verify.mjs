@@ -41,19 +41,19 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v22", () => {
+test("HTML/SW/CSS structural invariants & asset version v23", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=22",
-    "js/user-state.js?v=22",
-    "js/library-loader.js?v=22",
-    "js/audio-fx.js?v=22",
-    "js/lyrics.js?v=22",
-    "js/studio-ui.js?v=22",
-    "app.js?v=22",
+    "js/catalog-data.js?v=23",
+    "js/user-state.js?v=23",
+    "js/library-loader.js?v=23",
+    "js/audio-fx.js?v=23",
+    "js/lyrics.js?v=23",
+    "js/studio-ui.js?v=23",
+    "app.js?v=23",
   ];
 
   let lastPos = -1;
@@ -63,10 +63,10 @@ test("HTML/SW/CSS structural invariants & asset version v22", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=22"'), "index.html missing style.css?v=22");
+  assert.ok(html.includes('href="style.css?v=23"'), "index.html missing style.css?v=23");
   assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'), "index.html missing manifest link");
   assert.ok(html.includes('<dialog id="studioPanel" class="studio-popover" popover="auto"'), "Missing <dialog popover=\"auto\">");
-  assert.ok(sw.includes('const VERSION = "v22";'), "sw.js VERSION must match v22");
+  assert.ok(sw.includes('const VERSION = "v23";'), "sw.js VERSION must match v23");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
@@ -166,13 +166,13 @@ test("user-state: favorites, recent deduplication/cap, resume & A-B loop", () =>
 
 test("music.json & lyrics.json integrity on disk", () => {
   const musicList = JSON.parse(fs.readFileSync(path.join(ROOT, "music.json"), "utf8"));
-  assert.ok(Array.isArray(musicList) && musicList.length >= 160, "music.json should contain 160+ tracks");
+  assert.ok(Array.isArray(musicList) && musicList.length >= 190, "music.json should contain 190+ tracks");
   let missingAudio = 0;
-  for (const item of musicList.slice(0, 30)) {
+  for (const item of musicList) {
     assert.ok(item.url && item.title, "Track must have url and title");
     if (!fs.existsSync(path.join(ROOT, item.url))) missingAudio++;
   }
-  assert.equal(missingAudio, 0, "Sampled music.json audio files must exist under repo root");
+  assert.equal(missingAudio, 0, "All music.json audio files must exist under repo root");
 
   const lyricsMap = JSON.parse(fs.readFileSync(path.join(ROOT, "lyrics.json"), "utf8"));
   assert.equal(typeof lyricsMap, "object");
