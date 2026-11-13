@@ -717,6 +717,18 @@ async function run() {
     assert.ok(quotaWidget.daily.includes("/ 80,000 次"), "Quota widget must render daily req limit");
     assert.ok(quotaWidget.storage.includes("/ 8.00 GiB"), "Quota widget must render 8.00 GiB storage cap");
 
+    await r2Page.focus("#refreshR2QuotaBtn");
+    await r2Page.click("#refreshR2QuotaBtn");
+    const refreshBtnState = await r2Page.evaluate(() => {
+      const btn = document.getElementById("refreshR2QuotaBtn");
+      return {
+        disabled: btn.disabled,
+        focused: document.activeElement === btn,
+      };
+    });
+    assert.equal(refreshBtnState.disabled, false, "#refreshR2QuotaBtn must not set disabled=true");
+    assert.equal(refreshBtnState.focused, true, "#refreshR2QuotaBtn must preserve keyboard focus on click");
+
     await r2Page.click('#settingsForm button[type="submit"]');
     await r2Page.waitForFunction(() => document.getElementById("settingsModal").hidden);
     await r2Page.waitForFunction(() => document.querySelectorAll(".playlist-item").length === 1);

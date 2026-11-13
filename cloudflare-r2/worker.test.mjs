@@ -568,3 +568,54 @@ test("auto-clears storage_limit trip after pruning and survives transient KV wri
   assert.equal(directBody.error, "Forbidden origin");
   assert.ok(typeof directBody.hint === "string" && directBody.hint.length > 0);
 });
+
+test("monotonic quota merge prevents lagging KV from rolling counters backward and shields 403 before 503", async () => {
+  const originHeaders = { Origin: "https://williamqaqq.github.io" };
+  const today = new Date().toISOString().slice(0, 10);
+  const month = new Date().toISOString().slice(0, 7);
+
+  // Simulate KV capped at MAX_DAILY_KV_WRITES so subsequent flushes read an older KV state (dailyReqs: 2)
+  const kv = makeMockKv({
+    "quota:state:v1": JSON.stringify({
+      day: today,
+      month,
+      dailyReqs: 2,
+      dailyKvWrites: 850,
+      monthlyClassB: 2,
+      monthlyClassA: 0,
+      storageBytes: 100,
+      tripped: false,
+      reason: "",
+    }),
+  });
+  const env = makeEnv({
+    MUSIC_QUOTA_KV: kv,
+    MAX_DAILY_REQUESTS: "5",
+    QUOTA_FLUSH_EVERY: "1",
+    QUOTA_CACHE_MS: "0",
+  });
+
+  // Requests 3, 4, 5 succeed; even though KV writes are capped at 850 and KV still returns dailyReqs=2,
+  // in-memory monotonic merge must keep advancing (3 -> 4 -> 5) and trip at request 6!
+  for (let i = 0; i < 3; i++) {
+    const okRes = await handleRequest(
+      new Request("https://worker.example/manifest.json", { headers: originHeaders }),
+      env
+    );
+    assert.equal(okRes.status, 200);
+    assert.ok(okRes.headers.get("etag"), "/manifest.json should include ETag header in public mode");
+  }
+
+  const shieldRes = await handleRequest(
+    new Request("https://worker.example/manifest.json", { headers: originHeaders }),
+    env
+  );
+  assert.equal(shieldRes.status, 503, "Monotonic counter merge must trip 503 even when KV reads lag behind");
+
+  // Unauthenticated caller without allowed Origin must still receive 403 Forbidden origin (no 503 telemetry leak)
+  const unauthDuringShield = await handleRequest(
+    new Request("https://worker.example/manifest.json", { headers: { Origin: "https://evil.example" } }),
+    env
+  );
+  assert.equal(unauthDuringShield.status, 403, "Disallowed origin must receive 403 even while quota shield is active");
+});

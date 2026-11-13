@@ -196,6 +196,44 @@ async function readKvJson(kv, key) {
   }
 }
 
+function mergeQuotaStates(localState, remoteState, remoteStorage, env, now = new Date()) {
+  const periods = currentUtcPeriods(now);
+  const localRec = reconcileQuotaState(localState || createEmptyQuotaState(periods), env, now);
+  let remoteBase = createEmptyQuotaState(periods);
+  const hasRemoteState = !!(remoteState && typeof remoteState === "object");
+  const hasRemoteStorage = !!(remoteStorage && typeof remoteStorage === "object");
+  if (hasRemoteState) {
+    remoteBase = Object.assign(remoteBase, remoteState);
+  }
+  applyRemoteStorageRecord(remoteBase, remoteStorage);
+  const remoteRec = reconcileQuotaState(remoteBase, env, now);
+
+  const hasRemoteStorageMetric =
+    hasRemoteStorage ||
+    (hasRemoteState && remoteState.storageBytes !== undefined);
+
+  const localUpdated = String(localRec.updatedAt || "");
+  const remoteUpdated = String(remoteRec.updatedAt || "");
+  const localSynced = String(localRec.analyticsSyncedAt || "");
+  const remoteSynced = String(remoteRec.analyticsSyncedAt || "");
+
+  const merged = Object.assign({}, remoteRec, {
+    day: periods.day,
+    month: periods.month,
+    dailyReqs: Math.max(localRec.dailyReqs, remoteRec.dailyReqs),
+    dailyKvWrites: Math.max(localRec.dailyKvWrites, remoteRec.dailyKvWrites),
+    monthlyClassB: Math.max(localRec.monthlyClassB, remoteRec.monthlyClassB),
+    monthlyClassA: Math.max(localRec.monthlyClassA, remoteRec.monthlyClassA),
+    storageBytes: hasRemoteStorageMetric ? remoteRec.storageBytes : localRec.storageBytes,
+    tripped: Boolean(localRec.tripped || remoteRec.tripped),
+    reason: remoteRec.reason || localRec.reason || "",
+    trippedAt: remoteRec.trippedAt || localRec.trippedAt || "",
+    updatedAt: remoteUpdated >= localUpdated ? remoteUpdated || periods.iso : localUpdated,
+    analyticsSyncedAt: remoteSynced >= localSynced ? remoteSynced : localSynced,
+  });
+  return reconcileQuotaState(merged, env, now);
+}
+
 async function loadQuotaSnapshot(env, now = new Date()) {
   const tracker = getIsolateTracker(env);
   const cacheMs = env && env.QUOTA_CACHE_MS !== undefined
@@ -205,18 +243,15 @@ async function loadQuotaSnapshot(env, now = new Date()) {
   const kv = env && env.MUSIC_QUOTA_KV;
 
   if (!tracker.state || nowMs - tracker.loadedAt >= cacheMs) {
-    let base = createEmptyQuotaState(currentUtcPeriods(now));
+    let remoteState = null;
+    let remoteStorage = null;
     if (kv) {
-      const [remoteState, remoteStorage] = await Promise.all([
+      [remoteState, remoteStorage] = await Promise.all([
         readKvJson(kv, QUOTA_STATE_KEY),
         readKvJson(kv, QUOTA_STORAGE_KEY),
       ]);
-      if (remoteState && typeof remoteState === "object") {
-        base = Object.assign(base, remoteState);
-      }
-      applyRemoteStorageRecord(base, remoteStorage);
     }
-    tracker.state = reconcileQuotaState(base, env, now);
+    tracker.state = mergeQuotaStates(tracker.state, remoteState, remoteStorage, env, now);
     tracker.loadedAt = nowMs;
   } else {
     tracker.state = reconcileQuotaState(tracker.state, env, now);
@@ -283,9 +318,7 @@ async function flushQuotaTracker(env, tracker, forceTripReason = "", now = new D
       readKvJson(kv, QUOTA_STATE_KEY),
       readKvJson(kv, QUOTA_STORAGE_KEY),
     ]);
-    const baseState = Object.assign({}, tracker.state || createEmptyQuotaState(periods), latestRemote || {});
-    applyRemoteStorageRecord(baseState, latestStorage);
-    const merged = reconcileQuotaState(baseState, env, now);
+    const merged = mergeQuotaStates(tracker.state, latestRemote, latestStorage, env, now);
 
     merged.dailyReqs += addReqs;
     merged.monthlyClassB += addClassB;
@@ -716,6 +749,28 @@ export async function handleRequest(request, env, ctx) {
     if (!tracker.state.tripped && preEval.reason !== "manual_pause") {
       await flushQuotaTracker(env, tracker, preEval.reason, now);
     }
+    if (url.pathname.startsWith("/media/")) {
+      const mediaSpec = sanitizeMediaKey(url.pathname.slice("/media/".length));
+      const hasValidSignedToken = Boolean(
+        mediaSpec &&
+        secret &&
+        url.searchParams.has("sig") &&
+        (await verifySignedMediaOrKey(request, url, mediaSpec.key, env))
+      );
+      if (!originState.allowed && !hasValidSignedToken) {
+        return jsonResponse({ error: "Forbidden origin" }, 403, originState.corsOrigin);
+      }
+      if (secret && !hasValidSignedToken && !(await verifyOptionalAccessKey(request, env))) {
+        return jsonResponse({ error: "Unauthorized" }, 401, originState.corsOrigin);
+      }
+    } else {
+      if (!originState.allowed) {
+        return jsonResponse({ error: "Forbidden origin" }, 403, originState.corsOrigin);
+      }
+      if (secret && !(await verifyOptionalAccessKey(request, env))) {
+        return jsonResponse({ error: "Unauthorized" }, 401, originState.corsOrigin);
+      }
+    }
     return quotaShieldResponse(preEval, originState.corsOrigin, now);
   }
 
@@ -850,12 +905,23 @@ export async function handleRequest(request, env, ctx) {
       applySecurityHeaders(headers, originState.corsOrigin);
       return new Response(null, { status: 200, headers });
     }
-    const data = await obj.json();
+    let data;
+    try {
+      data = await obj.json();
+    } catch {
+      return jsonResponse({ error: "Invalid manifest JSON in bucket" }, 502, originState.corsOrigin, "no-store");
+    }
     if (secret && Array.isArray(data)) {
       const signed = await attachSignedUrlsToManifest(data, url.origin, secret);
       return jsonResponse(signed, 200, originState.corsOrigin, "private, no-store");
     }
-    return jsonResponse(data, 200, originState.corsOrigin, "public, max-age=60");
+    const headers = new Headers({
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "public, max-age=60",
+    });
+    if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
+    applySecurityHeaders(headers, originState.corsOrigin);
+    return new Response(JSON.stringify(data), { status: 200, headers });
   }
 
   if (url.pathname === "/lyrics.json") {

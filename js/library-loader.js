@@ -535,6 +535,8 @@
 
       try {
         let data = null;
+        let partialWarning = "";
+        let isPartialDegraded = false;
         if (wantGh && wantR2) {
           const [ghRes, r2Res] = await Promise.allSettled([
             fetchGitHubSource(),
@@ -548,15 +550,23 @@
             throw (r2Res.reason || ghRes.reason || new Error("全部数据源加载失败"));
           }
           if (!r2Ok) {
+            isPartialDegraded = true;
             const errMsg = (r2Res.reason && r2Res.reason.message) || "网络或权限异常";
             const cacheHasR2 = !!(useCache && Array.isArray(cache.tracks) && cache.tracks.some((t) => t && t.source === "r2"));
             if (!useCache || force || cacheHasR2) {
-              toast("R2 网关暂不可用（" + errMsg + "），当前显示 GitHub 曲库", true);
+              partialWarning = "R2 网关暂不可用（" + errMsg + "），当前显示 GitHub 曲库";
             }
             data = ghRes.value;
           } else if (!ghOk) {
+            isPartialDegraded = true;
             const errMsg = (ghRes.reason && ghRes.reason.message) || "加载失败";
-            toast("GitHub 曲库加载失败（" + errMsg + "），已加载 R2 曲库", true);
+            const r2Tracks = (r2Res.value && Array.isArray(r2Res.value.tracks)) ? r2Res.value.tracks : [];
+            if (useCache && r2Tracks.length === 0) {
+              toast("GitHub 曲库刷新失败（" + errMsg + "），当前显示缓存歌单", true);
+              onBannerChange(false, settings);
+              return;
+            }
+            partialWarning = "GitHub 曲库加载失败（" + errMsg + "），已加载 R2 曲库";
             data = r2Res.value;
           } else {
             data = mergeLibraryData(ghRes.value, r2Res.value);
@@ -573,7 +583,7 @@
         const newCovers = toCoverMap(data.covers);
         const nextSig = hashLibrarySignature(data.tracks, newCovers);
         const changed = !useCache || nextSig !== cacheSig;
-        if (changed || (cache && !cache.sig)) {
+        if (!isPartialDegraded && (changed || (cache && !cache.sig))) {
           saveCache({
             sourceMode: mode,
             r2Url: r2Base,
@@ -589,7 +599,12 @@
         }
         if (changed) {
           onApplyLibrary({ tracks: data.tracks, covers: newCovers });
-          toast((useCache ? "歌单已更新，共 " : "已加载 ") + data.tracks.length + " 首音乐");
+          if (!partialWarning) {
+            toast((useCache ? "歌单已更新，共 " : "已加载 ") + data.tracks.length + " 首音乐");
+          }
+        }
+        if (partialWarning) {
+          toast(partialWarning, true);
         }
         onBannerChange(false, settings);
       } catch (err) {
@@ -646,7 +661,12 @@
       }
     }
 
+    let quotaReqSeq = 0;
+    let lastQuotaFetchStartMs = 0;
+
     async function refreshR2Quota() {
+      const reqSeq = ++quotaReqSeq;
+      lastQuotaFetchStartMs = Date.now();
       const r2Base = normalizeR2BaseUrl(els.setR2Url ? els.setR2Url.value : settings.r2Url);
       if (!r2Base) {
         resetQuotaDisplay("请先填写有效的 Cloudflare R2 Worker 网关地址");
@@ -655,7 +675,7 @@
       const r2Key = els.setR2Key ? els.setR2Key.value.trim() : settings.r2Key;
       const headers = {};
       if (r2Key) headers["X-Music-Key"] = r2Key;
-      if (els.refreshR2QuotaBtn) els.refreshR2QuotaBtn.disabled = true;
+      if (els.refreshR2QuotaBtn) els.refreshR2QuotaBtn.setAttribute("aria-busy", "true");
       if (els.r2QuotaBadge) {
         els.r2QuotaBadge.textContent = "查询中…";
         els.r2QuotaBadge.setAttribute("data-state", "idle");
@@ -664,6 +684,7 @@
 
       try {
         const res = await fetch(r2Base + "/quota", { cache: "no-store", headers });
+        if (reqSeq !== quotaReqSeq) return;
         if (!res.ok) {
           let errMsg = "HTTP " + res.status;
           if (res.status === 401) errMsg = "需要填写正确 R2 访问口令";
@@ -671,6 +692,7 @@
           throw new Error(errMsg);
         }
         const q = await res.json();
+        if (reqSeq !== quotaReqSeq) return;
         const usage = q.usage || {};
         const limits = q.limits || {};
         const percent = q.percent || {};
@@ -733,6 +755,7 @@
             : "当前各项占用均低于 80% 免费安全线 · 周期 " + (q.day || "");
         }
       } catch (err) {
+        if (reqSeq !== quotaReqSeq) return;
         if (els.r2QuotaGrid) els.r2QuotaGrid.hidden = true;
         if (els.r2QuotaBadge) {
           els.r2QuotaBadge.textContent = "查询受限";
@@ -742,7 +765,9 @@
           els.r2QuotaSummary.textContent = "额度查询失败：" + ((err && err.message) || "网络异常");
         }
       } finally {
-        if (els.refreshR2QuotaBtn) els.refreshR2QuotaBtn.disabled = false;
+        if (reqSeq === quotaReqSeq && els.refreshR2QuotaBtn) {
+          els.refreshR2QuotaBtn.removeAttribute("aria-busy");
+        }
       }
     }
 
@@ -772,7 +797,9 @@
 
       if (els.r2QuotaDetails) {
         els.r2QuotaDetails.addEventListener("toggle", () => {
-          if (els.r2QuotaDetails.open) refreshR2Quota();
+          if (els.r2QuotaDetails.open && Date.now() - lastQuotaFetchStartMs > 80) {
+            refreshR2Quota();
+          }
         });
       }
       if (els.refreshR2QuotaBtn) {
