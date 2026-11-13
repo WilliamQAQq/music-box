@@ -2,7 +2,7 @@
   "use strict";
 
   const ns = global.__MusicBox || (global.__MusicBox = {});
-  const { KEYS, fmtTime, storageGet, storageSet, setPressedButtonState } = ns.catalog;
+  const { KEYS, fmtTime, storageGet, storageSet, setPressedButtonState, formatLrcExport, debounce } = ns.catalog;
 
   const USER_SCROLL_RESUME_MS = 5500;
 
@@ -139,6 +139,7 @@
     const getCurrentTrack = options.getCurrentTrack;
     const defaultTrackSub = options.defaultTrackSub;
     const safePlay = options.safePlay;
+    const toast = options.toast;
     const onBeforeMobileOpen = options.onBeforeMobileOpen;
 
     let desktopLyricsOpen = storageGet(KEYS.LYRICS_OPEN, "1") !== "0";
@@ -150,9 +151,13 @@
     let lyricsCatalogPromise = null;
     let lyricsReqSeq = 0;
     let liveLyricsCache = {};
+    let liveCacheLoaded = false;
     let currentLyricState = null;
     let lyricLineEls = [];
     let activeLyricIndex = -1;
+    let lastStyledActive = -1;
+    let lastStyledPastEnd = 0;
+    let lyricSearchQuery = "";
 
     let userScrolling = false;
     let isPointerTouchingLyrics = false;
@@ -221,6 +226,8 @@
     }
 
     function loadLiveCache() {
+      if (liveCacheLoaded) return;
+      liveCacheLoaded = true;
       try {
         const raw = storageGet(KEYS.LIVE_LYRICS, "");
         if (raw) liveLyricsCache = JSON.parse(raw) || {};
@@ -233,18 +240,21 @@
       } catch (e) { /* ignore quota */ }
     }
 
-    async function loadCatalog() {
+    // 真正按需延迟拉取 lyrics.json（不再阻碍首屏渲染与冷启动带宽，并允许 304 协商缓存）
+    async function loadCatalog(force) {
       loadLiveCache();
+      if (force) {
+        lyricsCatalogPromise = null;
+        lyricsCatalogLoaded = false;
+      }
       if (lyricsCatalogPromise) return lyricsCatalogPromise;
       lyricsCatalogPromise = (async () => {
         try {
-          const res = await fetch("lyrics.json", { cache: "no-store" });
+          const res = await fetch("lyrics.json", { cache: force ? "no-store" : "no-cache" });
           if (!res.ok) return;
           const data = await res.json();
           if (data && typeof data === "object") {
             lyricsCatalog = data;
-            const cur = getCurrentTrack();
-            if (cur) loadForTrack(cur);
           }
         } catch (e) { /* 若缺失则走在线兜底 */ } finally {
           lyricsCatalogLoaded = true;
@@ -253,12 +263,95 @@
       return lyricsCatalogPromise;
     }
 
+    function applyLyricSearchFilter() {
+      const q = String(lyricSearchQuery || "").trim().toLowerCase();
+      if (!els.lyricsSearchCount) return;
+      if (!lyricLineEls.length || !currentLyricState || !currentLyricState.lines) {
+        els.lyricsSearchCount.textContent = "";
+        return;
+      }
+      if (!q) {
+        for (let i = 0; i < lyricLineEls.length; i++) {
+          lyricLineEls[i].classList.remove("lyric-match", "lyric-dim");
+        }
+        els.lyricsSearchCount.textContent = "";
+        return;
+      }
+      let firstMatchIdx = -1;
+      let matchCount = 0;
+      for (let i = 0; i < lyricLineEls.length; i++) {
+        const ln = currentLyricState.lines[i];
+        const hay = ((ln ? ln.text : "") + "\n" + (ln && ln.trans ? ln.trans : "")).toLowerCase();
+        const hit = hay.indexOf(q) !== -1;
+        lyricLineEls[i].classList.toggle("lyric-match", hit);
+        lyricLineEls[i].classList.toggle("lyric-dim", !hit);
+        if (hit) {
+          matchCount++;
+          if (firstMatchIdx === -1) firstMatchIdx = i;
+        }
+      }
+      els.lyricsSearchCount.textContent = matchCount ? matchCount + " 处匹配" : "无匹配";
+      if (firstMatchIdx !== -1 && lyricLineEls[firstMatchIdx]) {
+        enterUserScrollMode();
+        lyricLineEls[firstMatchIdx].scrollIntoView({ block: "center", behavior: "auto" });
+      }
+    }
+
+    const debouncedLyricSearch = debounce(applyLyricSearchFilter, 80);
+
+    function toggleLyricSearchBar(forceOpen) {
+      if (!els.lyricsSearchBar || !els.lyricsSearchBtn) return;
+      const open = typeof forceOpen === "boolean" ? forceOpen : els.lyricsSearchBar.hidden;
+      els.lyricsSearchBar.hidden = !open;
+      setPressedButtonState(els.lyricsSearchBtn, open);
+      if (open && els.lyricsSearchInput) {
+        els.lyricsSearchInput.focus();
+      } else if (!open && els.lyricsSearchInput) {
+        els.lyricsSearchInput.value = "";
+        lyricSearchQuery = "";
+        applyLyricSearchFilter();
+      }
+    }
+
+    function exportCurrentLrc() {
+      const track = getCurrentTrack();
+      if (!track || !currentLyricState || !currentLyricState.lines || !currentLyricState.lines.length) {
+        if (toast) toast("当前曲目暂无可导出的唱词文本", true);
+        return false;
+      }
+      const lrcText = formatLrcExport(track, currentLyricState, showTrans && currentLyricState.hasTrans);
+      if (!lrcText) return false;
+      const safeName = (track.title || "lyrics").replace(/[\\/:*?"<>|]/g, "_") + ".lrc";
+      const blob = new Blob([lrcText], { type: "text/plain;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = safeName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+      if (toast) toast("已导出唱词文件：" + safeName);
+      return true;
+    }
+
     function renderLyricsView() {
       const st = currentLyricState;
       els.lyricsList.innerHTML = "";
       lyricLineEls = [];
+      lastStyledActive = -1;
+      lastStyledPastEnd = 0;
       programmaticScrollGuardUntil = Date.now() + 180;
       els.lyricsScroll.scrollTop = 0;
+
+      const hasLines = !!(st && st.lines && st.lines.length);
+      if (els.lyricsExportBtn) els.lyricsExportBtn.hidden = !hasLines;
+      if (els.lyricsSearchBtn) {
+        els.lyricsSearchBtn.hidden = !hasLines;
+        if (!hasLines && els.lyricsSearchBar && !els.lyricsSearchBar.hidden) {
+          toggleLyricSearchBar(false);
+        }
+      }
 
       if (!st || st.type === "none") {
         els.lyricsTransBtn.hidden = true;
@@ -315,6 +408,7 @@
       });
 
       els.lyricsList.appendChild(frag);
+      if (lyricSearchQuery) applyLyricSearchFilter();
     }
 
     function findActiveIndex(timeSec) {
@@ -402,13 +496,26 @@
       if (nextIdx === prevIdx && !immediate) return;
       activeLyricIndex = nextIdx;
 
-      if (prevIdx >= 0 && prevIdx < lyricLineEls.length && prevIdx !== nextIdx) {
-        lyricLineEls[prevIdx].classList.remove("active");
+      const len = lyricLineEls.length;
+      if (lastStyledActive >= 0 && lastStyledActive < len && lastStyledActive !== nextIdx) {
+        lyricLineEls[lastStyledActive].classList.remove("active");
       }
-      for (let i = 0; i < lyricLineEls.length; i++) {
-        lyricLineEls[i].classList.toggle("active", i === nextIdx);
-        lyricLineEls[i].classList.toggle("past", nextIdx > i);
+      const nextPastEnd = Math.max(0, Math.min(len, nextIdx));
+      if (nextPastEnd > lastStyledPastEnd) {
+        for (let i = lastStyledPastEnd; i < nextPastEnd; i++) {
+          lyricLineEls[i].classList.add("past");
+        }
+      } else if (nextPastEnd < lastStyledPastEnd) {
+        for (let i = nextPastEnd; i < lastStyledPastEnd; i++) {
+          lyricLineEls[i].classList.remove("past");
+        }
       }
+      lastStyledPastEnd = nextPastEnd;
+      if (nextIdx >= 0 && nextIdx < len) {
+        lyricLineEls[nextIdx].classList.add("active");
+        lyricLineEls[nextIdx].classList.remove("past");
+      }
+      lastStyledActive = nextIdx;
 
       updateCollapsedSubtitle();
 
@@ -424,12 +531,15 @@
       activeLyricIndex = -1;
       els.lyricsTrackName.textContent = track.artist ? (track.title + " · " + track.artist) : track.title;
 
+      loadLiveCache();
       let entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
-      if (!entry && !lyricsCatalogLoaded && lyricsCatalogPromise) {
+      if (!entry && !lyricsCatalogLoaded) {
         els.lyricsTransBtn.hidden = true;
+        if (els.lyricsExportBtn) els.lyricsExportBtn.hidden = true;
+        if (els.lyricsSearchBtn) els.lyricsSearchBtn.hidden = true;
         els.lyricsList.innerHTML = '<li class="lyric-empty">正在加载唱词库…</li>';
         lyricLineEls = [];
-        await lyricsCatalogPromise;
+        await loadCatalog(false);
         if (reqSeq !== lyricsReqSeq || getCurrentTrack() !== track) return;
         entry = lyricsCatalog[track.url] || liveLyricsCache[track.url] || null;
       }
@@ -477,6 +587,40 @@
         updatePanelUI();
         centerActiveLyric(false);
       });
+
+      if (els.lyricsSearchBtn) {
+        els.lyricsSearchBtn.addEventListener("click", () => toggleLyricSearchBar());
+      }
+      if (els.lyricsSearchInput) {
+        els.lyricsSearchInput.addEventListener("input", () => {
+          lyricSearchQuery = els.lyricsSearchInput.value;
+          debouncedLyricSearch();
+        });
+        els.lyricsSearchInput.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            if (els.lyricsSearchInput.value) {
+              els.lyricsSearchInput.value = "";
+              lyricSearchQuery = "";
+              applyLyricSearchFilter();
+            } else {
+              toggleLyricSearchBar(false);
+            }
+          }
+        });
+      }
+      if (els.lyricsSearchClearBtn) {
+        els.lyricsSearchClearBtn.addEventListener("click", () => {
+          if (!els.lyricsSearchInput) return;
+          els.lyricsSearchInput.value = "";
+          lyricSearchQuery = "";
+          applyLyricSearchFilter();
+          els.lyricsSearchInput.focus();
+        });
+      }
+      if (els.lyricsExportBtn) {
+        els.lyricsExportBtn.addEventListener("click", exportCurrentLrc);
+      }
 
       if (els.playerTrack) {
         els.playerTrack.addEventListener("click", () => {
@@ -555,13 +699,14 @@
       init() {
         bindEvents();
         updatePanelUI();
-        return loadCatalog();
       },
+      reloadCatalog: () => loadCatalog(true),
       loadForTrack,
       syncToTime,
       resetPosition,
       togglePanel,
       closeMobile,
+      exportCurrentLrc,
       isMobileOpen: () => mobileLyricsOpen,
       isVisible,
       updatePanelUI,

@@ -16,13 +16,21 @@
 / (仓库根目录,即 GitHub Pages 站点根)
 ├── README.md             GitHub 仓库中文展示主页
 ├── README_EN.md          GitHub 仓库英文展示主页
-├── index.html            页面结构(维多利亚双栏沙龙、唱词卷轴与播放队列浮层)
+├── index.html            页面结构(维多利亚双栏沙龙、唱词卷轴、调音台浮层与队列抽屉)
 ├── style.css             样式(维多利亚黑胶留声机复古主题,响应式与触控适配)
-├── app.js                主控逻辑(配置弹窗、缓存签名加载、筛选、队列管理、预加载与快捷键)
+├── manifest.webmanifest  PWA 应用清单(可安装桌面应用图标与元信息)
+├── sw.js                 Service Worker(应用外壳 SWR 缓存、Range 音频离线缓存与 LRU 淘汰)
+├── app.js                主控编排(视图筛选、Keyed DOM 队列/列表、播放调度、预加载与快捷键)
 ├── js/
-│   ├── catalog-data.js   常量、流派/文件名映射、FNV-1a 指纹签名、分词检索与通用工具
-│   ├── audio-fx.js       Web Audio DSP 引擎(异步双 LFO 合成器重合成与无缝循环黑胶模拟，关闭即断开旁路)
-│   └── lyrics.js         LRC 时间轴解析、双语译文切换与自由滚动歌词控制器
+│   ├── catalog-data.js   常量、流派映射、FNV-1a 指纹签名、分享哈希编解码、LRC 导出与检索工具
+│   ├── user-state.js     用户个人状态管理(我的珍藏、最近聆听、断点续播、睡眠定时与 A-B 复读)
+│   ├── library-loader.js 曲库清单加载器(music.json / localStorage 指纹缓存 / GitHub API 兜底 / 设置弹窗)
+│   ├── audio-fx.js       Web Audio DSP 引擎(黑胶/合成器分支、3 段 EQ、频谱 analyser 节点与 Crossfade/睡眠淡出总线)
+│   ├── lyrics.js         LRC 时间轴解析、按需延迟加载、唱词检索、双语切换与 .lrc 导出控制器
+│   └── studio-ui.js      留声机调音台浮层(<dialog popover="auto">、黄铜实时 Canvas 频谱、EQ/混合/倍速/Crossfade/分享直链)
+├── tests/
+│   ├── verify.mjs        Node 单元测试套件(清单一致性、工具函数、状态持久化与回归保护)
+│   └── e2e_smoke.mjs     Playwright 无头浏览器端到端验证(桌面与 375px 移动端实测)
 ├── music.json            音乐清单(前端主数据源:标题/歌手/专辑/风格/相对路径)
 ├── lyrics.json           全馆时间轴滚动歌词库(LRC 原文/双语译文/纯器乐标记)
 ├── music/                音乐文件(mp3 等,目前 166 首)
@@ -51,8 +59,14 @@ push 触发 GitHub Actions → 重新生成 `music.json`(自动读 ID3 歌手/�
 先 `git pull --rebase` 是因为 Actions 机器人可能已往远端提交过 `music.json`,不拉取会导致 push 被拒。
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须把 index.html 里的版本号 `?v=21` 递增(如 `?v=22`)**。
-否则访问者浏览器用缓存旧 JS,看不到更新(本项目踩过这个坑)。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=22` / `VERSION = "v22"`)**。
+否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
+
+### 运行本地测试与静态检查
+```
+node --test tests/verify.mjs
+node tests/e2e_smoke.mjs
+```
 
 ### 手动重新生成清单(本地)
 ```
@@ -70,18 +84,19 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 
 ## 技术要点(app.js)
 
-- 分组渲染:按 `genre` / `artist` 在列表中插入 `playlist-header` 吸顶标题;清单变更比对使用 64-bit FNV-1a 指纹签名(`sig`),避免每次启动全量 `JSON.stringify` 比较和无效磁盘写入。
+- 分组渲染与 Keyed DOM 复用:按 `genre` / `artist` 在列表中插入 `playlist-header` 吸顶标题,列表行按 URL、队列行按 URL+出现序号复用 DOM 节点 (`replaceChildren`),避免筛选、收藏与队列调序重建整棵 DOM 树;清单变更比对使用 64-bit FNV-1a 指纹签名(`sig`)。
+- 性能与离线优化:`lyrics.json` 采用真正按需延迟加载(首屏冷启动 0 歌词字节请求),`timeupdate` 仅在跨整秒边界时更新 `#curTime`;频谱 Canvas 基于 `contentvisibilityautostatechange` / 页面可见性 / 暂停状态自动停帧节能;通过 `sw.js` 提供仅限 `http:`/`https:` 的 Range 安全离线音轨缓存(兼容本地 `file://` 直接打开)。
+- 个人雅集与留声机调音台:支持个人收藏(`♥` / `F` 键)、最近 45 首聆听历史、上次断点续播横幅、URL 分享直链(`#track=...&t=...`),以及 `<dialog popover="auto">` 顶层调音台(`E` 键):实时频谱、3 段 EQ + 预设、黑胶/合成器浓淡比例、0.75x–1.5x 保调倍速、0/2/4/6s Crossfade 曲间淡入淡出、睡眠定时(播完本曲/15/30/60 分钟渐弱停播)与 A-B 区间精听复读(`[ / ] / \`)。
 - 循环三档:`none → all → one`;`repeat-one` 类给按钮加"1"角标。
-- 播放顺序与队列抽屉(`order[]`/`pos`/`#queueDrawer`):点歌时以当前可见列表为上下文,随机模式使用 Fisher-Yates 洗牌;列表每行附 `+` 下一首按钮,队列抽屉支持跳播、顶置下一首、移除、重洗与清空后续。
+- 播放顺序与队列抽屉(`order[]`/`pos`/`#queueDrawer`):点歌时以当前可见列表为上下文,随机模式使用 Fisher-Yates 洗牌;列表每行附 `♥` 与 `+` 下一首按钮,队列抽屉支持跳播、顶置下一首、移除、重洗与清空后续。
 - 下一首智能预加载:起播稳定 1.4 秒后检查 `navigator.connection`(`saveData` / `2g` 跳过),利用离屏 `Audio` 预热下一首并自动释放解码器。
 - 自然播完到列表末尾:列表循环则从头(随机模式重新洗牌),否则停止;手动点"下一首"在末尾回到开头。单曲循环只影响自然播完,手动切歌照常切。
 - 播放出错自动跳下一首,连续 3 首失败即停止(防止断网时无限跳歌);`play()` 的 AbortError(切歌打断)不提示。
-- 系统媒体键:Media Session API(初始化时注册一次,play/pause 分开处理);键盘:空格/方向键/N/P/M/L/V/S/Q,带 Ctrl/Alt/⌘ 时不拦截,设置弹窗打开时只响应 Esc。
+- 系统媒体键:Media Session API(初始化时注册一次,play/pause 分开处理);键盘:空格/方向键/N/P/M/L/V/S/Q/E/F/`[`/`]`/`\`,带 Ctrl/Alt/⌘ 时不拦截,设置弹窗打开时只响应 Esc。
 - 搜索匹配标题/歌手/专辑/风格/路径,支持空格分隔多关键词 AND 防抖检索与一键清空/定位当前曲目。
 - 生成脚本用 `mutagen.File(..., easy=True)`,mp3/m4a/flac/ogg 都能读歌手与风格标签。
-- 模拟黑胶音效: Web Audio API (高低通/中频峰化滤波、偶次+tanh 软饱和且 DC 归零、33.3 RPM 抖晃延迟调制与 6 秒余弦交叉淡化无缝粉红噪声/炒豆爆音;关闭后 140ms 自动断开节点零空转开销)。
-- 模拟合成器音效: Web Audio API (奇偶双异步 LFO 驱动六级高谐振全通 PWM 相位梳状矩阵、双共振峰雕刻与空气感高架、24dB/oct 双级联 Moog 阶梯低通滤波器 VCF、三声部 Juno 正交复音合唱与带限空间回声;关闭后 140ms 自动断开节点与停振 LFO)。
-- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`、`gh-lyrics-open`、`gh-lyrics-trans`、`gh-lyrics-live-v1`、`gh-vinyl-fx`、`gh-synth-fx`。
+- 模拟黑胶/合成器/均衡 DSP: Web Audio API 延迟创建上下文与节点,关闭后 140ms 自动断开节点与停振 LFO,零空转开销;并通过 `masterGain` 实现 Crossfade 与睡眠定时 10 秒柔顺渐弱。
+- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`、`gh-lyrics-open`、`gh-lyrics-trans`、`gh-lyrics-live-v1`、`gh-vinyl-fx`、`gh-synth-fx`、`gh-favorites-v1`、`gh-recent-v1`、`gh-resume-v1`、`gh-eq-v1`、`gh-fx-mix-v1`、`gh-playback-speed-v1`、`gh-crossfade-v1`、`gh-spectrum-v1`。
 
 ## 交接对象
 

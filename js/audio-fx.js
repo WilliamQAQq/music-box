@@ -143,6 +143,29 @@
     return curve;
   }
 
+  const EQ_PRESETS = {
+    flat: { label: "原声平直", bass: 0, mid: 0, treble: 0 },
+    warm: { label: "维多利亚暖声", bass: 4.5, mid: 1.5, treble: -2.5 },
+    jazz: { label: "沙龙爵士厅", bass: 3, mid: 2, treble: 2.5 },
+    rock: { label: "炽焰摇滚夜", bass: 5, mid: -1.5, treble: 4 },
+    vocal: { label: "丝绒人声", bass: -2, mid: 4.5, treble: 2 },
+  };
+
+  function safeParseJson(raw, fallback) {
+    if (!raw) return fallback;
+    try {
+      const p = JSON.parse(raw);
+      return p == null ? fallback : p;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function clampNum(v, min, max, fallback) {
+    const n = Number(v);
+    return isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+  }
+
   function createAudioFxController(options) {
     const audio = options.audio;
     const vinylBtn = options.vinylBtn;
@@ -152,17 +175,47 @@
     let vinylFxEnabled = storageGet(KEYS.VINYL_FX, "0") === "1";
     let synthFxEnabled = storageGet(KEYS.SYNTH_FX, "0") === "1";
 
+    const savedEq = safeParseJson(storageGet(KEYS.EQ, ""), {});
+    const eqState = {
+      bass: clampNum(savedEq.bass, -12, 12, 0),
+      mid: clampNum(savedEq.mid, -12, 12, 0),
+      treble: clampNum(savedEq.treble, -12, 12, 0),
+    };
+
+    const savedMix = safeParseJson(storageGet(KEYS.FX_MIX, ""), {});
+    const mixState = {
+      vinyl: clampNum(savedMix.vinyl, 0.2, 1.5, 1.0),
+      synth: clampNum(savedMix.synth, 0.2, 1.5, 1.0),
+    };
+
     let audioCtx = null;
     let baseGraph = null;
     let synthNodes = null;
     let vinylNodes = null;
+    let eqNodes = null;
+    let analyserNode = null;
     let vinylNoiseBuffer = null;
 
     let synthConnected = false;
     let vinylConnected = false;
+    let eqConnected = false;
+    let analyserWanted = false;
+    let analyserConnected = false;
     let synthDisconnectTimer = null;
     let vinylDisconnectTimer = null;
     let audioSuspendTimer = null;
+
+    let sleepFadeFactor = 1;
+    let transitionFadeFactor = 1;
+    let fadeOutRestoreTimer = null;
+
+    function isEqActive() {
+      return Math.abs(eqState.bass) >= 0.05 || Math.abs(eqState.mid) >= 0.05 || Math.abs(eqState.treble) >= 0.05;
+    }
+
+    function needsAudioGraph() {
+      return !!(vinylFxEnabled || synthFxEnabled || isEqActive() || analyserWanted);
+    }
 
     function ensureBaseGraph() {
       if (baseGraph) return true;
@@ -184,14 +237,29 @@
         // 第二级总线(第一级输出 vs 黑胶留声机)
         const stage2DryGain = audioCtx.createGain();
         stage2DryGain.gain.value = 1;
+        const postStage2Bus = audioCtx.createGain();
+        postStage2Bus.gain.value = 1;
         stage1Bus.connect(stage2DryGain);
-        stage2DryGain.connect(audioCtx.destination);
+        stage2DryGain.connect(postStage2Bus);
+
+        // EQ 旁路直通增益与主淡入淡出保护增益
+        const eqDryGain = audioCtx.createGain();
+        eqDryGain.gain.value = 1;
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.value = 1;
+
+        postStage2Bus.connect(eqDryGain);
+        eqDryGain.connect(masterGain);
+        masterGain.connect(audioCtx.destination);
 
         baseGraph = {
           source,
           stage1DryGain,
           stage1Bus,
           stage2DryGain,
+          postStage2Bus,
+          eqDryGain,
+          masterGain,
         };
         return true;
       } catch (e) {
@@ -579,8 +647,8 @@
         if (!vinylNoiseBuffer) vinylNoiseBuffer = createVinylNoiseBuffer(audioCtx);
 
         baseGraph.stage1Bus.connect(vinylNodes.hp);
-        vinylNodes.wetGain.connect(audioCtx.destination);
-        vinylNodes.noiseGain.connect(audioCtx.destination);
+        vinylNodes.wetGain.connect(baseGraph.postStage2Bus);
+        vinylNodes.noiseGain.connect(baseGraph.postStage2Bus);
 
         const wowOsc = audioCtx.createOscillator();
         wowOsc.frequency.value = 0.555;
@@ -610,8 +678,8 @@
     function disconnectVinylBranchImmediate() {
       if (!vinylNodes || !vinylConnected) return;
       safeDisconnect(baseGraph.stage1Bus, vinylNodes.hp);
-      safeDisconnect(vinylNodes.wetGain, audioCtx.destination);
-      safeDisconnect(vinylNodes.noiseGain, audioCtx.destination);
+      safeDisconnect(vinylNodes.wetGain, baseGraph.postStage2Bus);
+      safeDisconnect(vinylNodes.noiseGain, baseGraph.postStage2Bus);
       safeStopSource(vinylNodes.noiseSource);
       vinylNodes.lfos.forEach(safeStopSource);
       vinylNodes.noiseSource = null;
@@ -628,23 +696,121 @@
       }, BYPASS_DISCONNECT_DELAY_MS);
     }
 
+    function buildEqNodes() {
+      if (eqNodes) return true;
+      if (!ensureBaseGraph()) return false;
+      try {
+        const low = audioCtx.createBiquadFilter();
+        low.type = "lowshelf";
+        low.frequency.value = 115;
+        low.gain.value = eqState.bass;
+
+        const mid = audioCtx.createBiquadFilter();
+        mid.type = "peaking";
+        mid.frequency.value = 1000;
+        mid.Q.value = 0.85;
+        mid.gain.value = eqState.mid;
+
+        const high = audioCtx.createBiquadFilter();
+        high.type = "highshelf";
+        high.frequency.value = 6000;
+        high.gain.value = eqState.treble;
+
+        const wetGain = audioCtx.createGain();
+        wetGain.gain.value = 0;
+
+        low.connect(mid);
+        mid.connect(high);
+        high.connect(wetGain);
+
+        eqNodes = { low, mid, treble: high, wetGain };
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function syncEqBranch() {
+      const wantEq = isEqActive();
+      if (wantEq && !audio.paused) {
+        if (buildEqNodes() && !eqConnected) {
+          baseGraph.postStage2Bus.connect(eqNodes.low);
+          eqNodes.wetGain.connect(baseGraph.masterGain);
+          eqConnected = true;
+        }
+      }
+      if (!baseGraph || !audioCtx) return;
+      const time = audioCtx.currentTime;
+      const useEq = !!(wantEq && eqConnected && eqNodes);
+      baseGraph.eqDryGain.gain.setTargetAtTime(useEq ? 0 : 1, time, 0.02);
+      if (eqNodes) {
+        eqNodes.low.gain.setTargetAtTime(eqState.bass, time, 0.02);
+        eqNodes.mid.gain.setTargetAtTime(eqState.mid, time, 0.02);
+        eqNodes.treble.gain.setTargetAtTime(eqState.treble, time, 0.02);
+        eqNodes.wetGain.gain.setTargetAtTime(useEq ? 1 : 0, time, 0.02);
+        if (!wantEq && eqConnected) {
+          safeDisconnect(baseGraph.postStage2Bus, eqNodes.low);
+          safeDisconnect(eqNodes.wetGain, baseGraph.masterGain);
+          eqConnected = false;
+        }
+      }
+    }
+
+    function syncAnalyserBranch() {
+      if (analyserWanted && !audio.paused) {
+        if (!ensureBaseGraph()) return false;
+        if (!analyserNode) {
+          analyserNode = audioCtx.createAnalyser();
+          analyserNode.fftSize = 128;
+          analyserNode.smoothingTimeConstant = 0.78;
+        }
+        if (!analyserConnected) {
+          baseGraph.masterGain.connect(analyserNode);
+          analyserConnected = true;
+        }
+      } else if (analyserConnected && baseGraph && analyserNode) {
+        safeDisconnect(baseGraph.masterGain, analyserNode);
+        analyserConnected = false;
+      }
+      return analyserConnected;
+    }
+
     function getTargetNoiseGain() {
       if (!vinylFxEnabled || audio.paused || audio.volume <= 0) return 0;
-      return BASE_VINYL_NOISE_GAIN * Math.min(1, Math.max(0, audio.volume));
+      const baseVol = typeof options.getBaseVolume === "function" ? options.getBaseVolume() : audio.volume;
+      return BASE_VINYL_NOISE_GAIN * Math.min(1, Math.max(0, baseVol)) * mixState.vinyl;
+    }
+
+    function applyMasterFade(immediate) {
+      const target = Math.max(0.015, Math.min(1, sleepFadeFactor * transitionFadeFactor));
+      if (baseGraph && audioCtx) {
+        const time = audioCtx.currentTime;
+        baseGraph.masterGain.gain.setTargetAtTime(target, time, immediate ? 0.008 : 0.035);
+      } else if (typeof options.onFallbackGainChange === "function") {
+        options.onFallbackGainChange(target);
+      }
     }
 
     function updateGraph(immediate) {
       if (synthFxEnabled && !audio.paused) connectSynthBranch();
       if (vinylFxEnabled && !audio.paused) connectVinylBranch();
+      syncEqBranch();
+      syncAnalyserBranch();
 
-      if (!baseGraph || !audioCtx) return;
+      if (!baseGraph || !audioCtx) {
+        applyMasterFade(immediate);
+        return;
+      }
       const time = audioCtx.currentTime;
       const rampTime = immediate ? 0.005 : 0.035;
 
       const useSynth = !!(synthFxEnabled && synthConnected && synthNodes);
-      baseGraph.stage1DryGain.gain.setTargetAtTime(useSynth ? 0 : 1, time, rampTime);
+      const sMix = Math.max(0.2, Math.min(1.5, mixState.synth));
+      const synthDry = useSynth ? Math.max(0, 1 - sMix) : 1;
+      const synthWet = useSynth ? Math.min(1.18, sMix) : 0;
+      baseGraph.stage1DryGain.gain.setTargetAtTime(synthDry, time, rampTime);
       if (synthNodes) {
-        synthNodes.wetGain.gain.setTargetAtTime(useSynth ? 1 : 0, time, rampTime);
+        synthNodes.wetGain.gain.setTargetAtTime(synthWet, time, rampTime);
         if (!synthFxEnabled && synthConnected) scheduleSynthDisconnect();
       }
 
@@ -653,8 +819,12 @@
       if (vinylNodes) {
         vinylNodes.wetGain.gain.setTargetAtTime(useVinyl ? 1 : 0, time, rampTime);
         vinylNodes.noiseGain.gain.setTargetAtTime(getTargetNoiseGain(), time, rampTime);
+        vinylNodes.wowGain.gain.setTargetAtTime(0.00028 * mixState.vinyl, time, rampTime);
+        vinylNodes.flutterGain.gain.setTargetAtTime(0.00006 * mixState.vinyl, time, rampTime);
         if (!vinylFxEnabled && vinylConnected) scheduleVinylDisconnect();
       }
+
+      applyMasterFade(immediate);
     }
 
     function ensureResumed() {
@@ -715,15 +885,124 @@
       }
     }
 
+    function setEqBand(band, db) {
+      if (band !== "bass" && band !== "mid" && band !== "treble") return;
+      eqState[band] = clampNum(db, -12, 12, 0);
+      storageSet(KEYS.EQ, JSON.stringify(eqState));
+      if (!audio.paused && isEqActive()) ensureResumed();
+      updateGraph(false);
+    }
+
+    function applyEqPreset(presetId) {
+      const p = EQ_PRESETS[presetId] || EQ_PRESETS.flat;
+      eqState.bass = p.bass;
+      eqState.mid = p.mid;
+      eqState.treble = p.treble;
+      storageSet(KEYS.EQ, JSON.stringify(eqState));
+      if (!audio.paused && isEqActive()) ensureResumed();
+      updateGraph(false);
+      return getEqState();
+    }
+
+    function getEqState() {
+      return { bass: eqState.bass, mid: eqState.mid, treble: eqState.treble, active: isEqActive() };
+    }
+
+    function setFxMix(kind, value) {
+      if (kind !== "vinyl" && kind !== "synth") return;
+      mixState[kind] = clampNum(value, 0.2, 1.5, 1.0);
+      storageSet(KEYS.FX_MIX, JSON.stringify(mixState));
+      updateGraph(false);
+    }
+
+    function getFxMix() {
+      return { vinyl: mixState.vinyl, synth: mixState.synth };
+    }
+
+    function setAnalyserActive(on) {
+      analyserWanted = !!on;
+      if (analyserWanted && !audio.paused) ensureResumed();
+      syncAnalyserBranch();
+    }
+
+    function readFrequencyData(outArr) {
+      if (!analyserConnected || !analyserNode || !outArr) return false;
+      analyserNode.getByteFrequencyData(outArr);
+      return true;
+    }
+
+    function getFrequencyBinCount() {
+      return analyserNode ? analyserNode.frequencyBinCount : 64;
+    }
+
+    function setSleepFadeFactor(factor) {
+      sleepFadeFactor = clampNum(factor, 0.02, 1, 1);
+      applyMasterFade(false);
+    }
+
+    function setTransitionFadeFactor(factor, immediate) {
+      clearTimeout(fadeOutRestoreTimer);
+      fadeOutRestoreTimer = null;
+      transitionFadeFactor = clampNum(factor, 0.02, 1, 1);
+      applyMasterFade(!!immediate);
+    }
+
+    function fadeOutThenRun(durationMs, callback) {
+      clearTimeout(fadeOutRestoreTimer);
+      const ms = Math.max(0, Number(durationMs) || 0);
+      if (ms <= 20 || audio.paused) {
+        if (callback) callback();
+        return;
+      }
+      transitionFadeFactor = 0.05;
+      if (baseGraph && audioCtx) {
+        const t = audioCtx.currentTime;
+        baseGraph.masterGain.gain.cancelScheduledValues(t);
+        baseGraph.masterGain.gain.setValueAtTime(Math.max(0.05, baseGraph.masterGain.gain.value), t);
+        baseGraph.masterGain.gain.linearRampToValueAtTime(0.03, t + ms / 1000);
+      } else if (typeof options.onFallbackGainChange === "function") {
+        options.onFallbackGainChange(0.15);
+      }
+      fadeOutRestoreTimer = setTimeout(() => {
+        fadeOutRestoreTimer = null;
+        if (callback) callback();
+      }, ms);
+    }
+
+    function fadeInOver(durationMs) {
+      clearTimeout(fadeOutRestoreTimer);
+      const ms = Math.max(0, Number(durationMs) || 0);
+      if (ms <= 30) {
+        transitionFadeFactor = 1;
+        applyMasterFade(true);
+        return;
+      }
+      transitionFadeFactor = 1;
+      const target = Math.max(0.02, Math.min(1, sleepFadeFactor));
+      if (baseGraph && audioCtx) {
+        const t = audioCtx.currentTime;
+        baseGraph.masterGain.gain.cancelScheduledValues(t);
+        baseGraph.masterGain.gain.setValueAtTime(0.05, t);
+        baseGraph.masterGain.gain.linearRampToValueAtTime(target, t + ms / 1000);
+      } else if (typeof options.onFallbackGainChange === "function") {
+        options.onFallbackGainChange(0.18);
+        setTimeout(() => {
+          if (typeof options.onFallbackGainChange === "function") options.onFallbackGainChange(target);
+        }, Math.min(260, ms * 0.45));
+      }
+    }
+
     function onPlay() {
-      if (synthFxEnabled) connectSynthBranch();
-      if (vinylFxEnabled) connectVinylBranch();
-      ensureResumed();
+      if (needsAudioGraph()) {
+        if (synthFxEnabled) connectSynthBranch();
+        if (vinylFxEnabled) connectVinylBranch();
+        ensureResumed();
+      }
       updateGraph(false);
     }
 
     function onPlaying() {
-      ensureResumed();
+      if (needsAudioGraph() || baseGraph) ensureResumed();
       updateGraph(false);
     }
 
@@ -733,10 +1012,26 @@
     }
 
     return {
+      EQ_PRESETS,
       isVinylEnabled: () => vinylFxEnabled,
       isSynthEnabled: () => synthFxEnabled,
       isSynthConnected: () => synthConnected,
       isVinylConnected: () => vinylConnected,
+      isEqActive,
+      isEqConnected: () => eqConnected,
+      isAnalyserConnected: () => analyserConnected,
+      getEqState,
+      setEqBand,
+      applyEqPreset,
+      getFxMix,
+      setFxMix,
+      setAnalyserActive,
+      readFrequencyData,
+      getFrequencyBinCount,
+      setSleepFadeFactor,
+      setTransitionFadeFactor,
+      fadeOutThenRun,
+      fadeInOver,
       updateGraph,
       ensureResumed,
       scheduleSuspend,

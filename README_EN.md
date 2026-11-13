@@ -42,7 +42,14 @@
   - **129 tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 89 foreign-language vocal tracks include bilingual Chinese translations**, toggleable via the `译` button), while **37 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
-- **Zero API Rate Limits · Instant Boot & Smart Next-Track Preload**: Reads same-origin static manifests ([`music.json`](music.json) and [`lyrics.json`](lyrics.json)) paired with `localStorage` caching backed by lightweight 64-bit FNV-1a library signatures (zero redundant storage writes on unchanged visits). Automatically preloads the upcoming track once playback stabilizes, while respecting `Save-Data` and slow `2G` connections. Also supports connecting any public or private GitHub repository via **⚙️ Cabinet Settings**.
+- **Zero API Limits · Lazy Lyrics · PWA Offline Cache & Smart Preload**: Instant boot from same-origin [`music.json`](music.json) paired with 64-bit FNV-1a library signatures; [`lyrics.json`](lyrics.json) now loads strictly on demand upon track playback (zero cold-boot lyric transfer); [`sw.js`](sw.js) and [`manifest.webmanifest`](manifest.webmanifest) deliver Range-safe offline track caching, while **⚙️ Cabinet Settings** connects any public/private GitHub repo.
+- **Personal Collections, Resume Bar & Timestamped Deep Links**:
+  - Dedicated **♥ Personal Collections** (`Favorites` + 45-track `Recent History`) synced with heart buttons (`F` shortcut), using Keyed DOM reuse across both the playlist and Queue Drawer for flicker-free updates;
+  - Automatic **Resume Playback Bar** on return visits, plus one-click copy of `#track=...&t=...` share deep links opening directly to the current timestamp.
+- **Phonograph Studio Popover (`E` shortcut / `调` Console Button)**:
+  - **Live Brass Spectrum & 3-Band EQ**: Real-time Canvas spectrum analyzer (automatically pauses frame loops when hidden, scrolled offscreen, or paused), paired with a bypassable 3-band vintage EQ (110Hz / 1.1kHz / 7.5kHz) + 5 presets (`Flat / Warm / Jazz / Rock / Vocal`) and independent Vinyl/Synth mix sliders;
+  - **Pitch-Preserving Speed, Crossfade, Sleep Timer & A-B Loop**: `0.75x–1.5x` turntable speed, `0/2/4/6s` track Crossfade, A-B loop practice (`[` / `]` / `\`), and `End of Track / 15 / 30 / 60m` Sleep Timer with 10-second gentle fadeout.
+- **In-Panel Lyric Search & `.lrc` Export**: Libretto panel adds live keyword filtering (`搜`) and single-click `.lrc` file export (`导`, optionally including bilingual lines).
 - **Interactive Play Queue & Multi-Token Search**: Enqueue any track as **Play Next (`+`)** right from the list or manage the live order (jump, promote to next, remove, reshuffle, clear upcoming) in the slide-over **Queue Drawer (`Q`)**. Toolbar search supports space-separated multi-keyword `AND` filtering with debounced input, one-click clear (`×`), and a quick **Locate Current Track (`定位`)** button.
 - **Realistic Vinyl Record Emulation (Web Audio DSP)**: Toggle via shortcut `V` or the **"胶"** button (dynamically fades out and disconnects bypassed DSP branches & surface noise generators when turned off for zero idle CPU overhead):
   - **Vintage Frequency Shaping**: High-pass low-end cleanup, +2.2dB warm low-shelf richness, and a 6.8kHz smooth roll-off eliminating digital sibilance;
@@ -94,7 +101,9 @@
 | `←` / `→` | Seek backward / forward 5s | `M` | Mute / Unmute |
 | `↑` / `↓` | Volume +5% / -5% | `L` | Toggle scrolling lyrics panel |
 | `V` | Toggle vinyl record emulation | `S` | Toggle synthesizer resynthesis |
-| `Q` | Toggle play queue drawer | `Esc` | Close active overlay / modal |
+| `E` | Toggle Phonograph Studio popover | `F` | Favorite / Unfavorite track |
+| `Q` | Toggle play queue drawer | `[` / `]` / `\` | Set A-B loop A / B / Clear |
+| `Esc` | Close active overlay / modal | | |
 
 ---
 
@@ -126,13 +135,19 @@ Once pushed, the GitHub Actions workflow [`.github/workflows/update-music.yml`](
 music-box/
 ├── README.md                       # Chinese repository showcase homepage
 ├── README_EN.md                    # English repository showcase homepage
-├── index.html                      # Player markup (Victorian 2-column salon, Libretto & Queue drawer)
+├── index.html                      # Player markup (Victorian 2-column salon, Studio popover & Queue drawer)
 ├── style.css                       # Victorian theme, safe-area padding & coarse-pointer responsiveness
-├── app.js                          # Playback coordinator, queue management, search & next-track preloader
+├── manifest.webmanifest            # PWA installable web app manifest
+├── sw.js                           # Service Worker (SWR app shell & Range-safe audio caching)
+├── app.js                          # Main orchestrator (Keyed DOM list/queue, preloader, Crossfade & hotkeys)
 ├── js/
-│   ├── catalog-data.js             # Genre/filename mappings, FNV-1a signature, tokenizer & helpers
-│   ├── audio-fx.js                 # Web Audio DSP (Vinyl & Poly-Synth engines with dynamic bypass)
-│   └── lyrics.js                   # LRC parser, bilingual switcher & bi-directional scroll engine
+│   ├── catalog-data.js             # Genre mappings, FNV-1a signature, deep links, LRC export & search
+│   ├── user-state.js               # Personal state controller (Favorites, Recent, Resume, Sleep, A-B Loop)
+│   ├── library-loader.js           # Library loader & settings modal (music.json / GitHub API fallback)
+│   ├── audio-fx.js                 # Web Audio DSP (Vinyl, Poly-Synth, 3-band EQ, Analyser & Fade bus)
+│   ├── lyrics.js                   # Lazy-loaded LRC parser, in-panel search & .lrc export engine
+│   └── studio-ui.js                # Studio popover controller (Canvas spectrum, EQ, speed, timer, share)
+├── tests/                          # Node unit tests & Playwright headless Chromium E2E test suite
 ├── music.json                      # Track manifest (title / artist / album / genre / relative path)
 ├── lyrics.json                     # Synced LRC lyrics catalog (lyrics / translations / instrumental flags)
 ├── music/                          # Audio files directory (currently 166 tracks)

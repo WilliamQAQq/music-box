@@ -15,7 +15,18 @@
     SHUFFLE: "gh-shuffle",
     REPEAT: "gh-repeat",
     VOLUME: "gh-volume",
+    FAVORITES: "gh-favorites-v1",
+    RECENT: "gh-recent-v1",
+    RESUME: "gh-resume-v1",
+    EQ: "gh-eq-v1",
+    FX_MIX: "gh-fx-mix-v1",
+    SPEED: "gh-speed-v1",
+    CROSSFADE: "gh-crossfade-v1",
+    SPECTRUM: "gh-spectrum-v1",
   };
+
+  const COLLECTION_FAVORITES = "__favorites__";
+  const COLLECTION_RECENT = "__recent__";
 
   const AUDIO_EXTS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "webm"];
   const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif"];
@@ -484,8 +495,103 @@
     return debounced;
   }
 
+  /**
+   * 解析浏览器 URL Hash 中的曲目分享直链参数 (#track=...&t=...)。
+   */
+  function parseTrackShareHash(hashStr) {
+    const raw = String(hashStr || "").replace(/^#/, "");
+    if (!raw || raw.indexOf("track=") === -1) return null;
+    try {
+      const params = new URLSearchParams(raw);
+      const trackUrl = params.get("track");
+      if (!trackUrl) return null;
+      const tVal = parseFloat(params.get("t") || "0");
+      return {
+        url: trackUrl,
+        time: isFinite(tVal) && tVal > 0 ? Math.floor(tVal) : 0,
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * 构建分享用的当前曲目链接（携带时间戳）。
+   */
+  function buildTrackShareUrl(trackUrl, timeSec) {
+    const base = global.location ? (global.location.href.split("#")[0]) : "";
+    const params = new URLSearchParams();
+    params.set("track", String(trackUrl || ""));
+    const sec = Math.max(0, Math.floor(Number(timeSec) || 0));
+    if (sec > 0) params.set("t", String(sec));
+    return base + "#" + params.toString();
+  }
+
+  function legacyCopyText(text) {
+    const doc = global.document;
+    if (!doc || !doc.body) return false;
+    const field = doc.createElement("textarea");
+    field.value = text;
+    field.setAttribute("readonly", "");
+    field.style.cssText = "position:fixed;inset-block-start:0;opacity:0;pointer-events:none;";
+    doc.body.appendChild(field);
+    field.select();
+    try {
+      return !!doc.execCommand("copy");
+    } catch (e) {
+      return false;
+    } finally {
+      field.remove();
+    }
+  }
+
+  /**
+   * 安全写入剪贴板：优先使用 Async Clipboard API，失败时回退同步 textarea 复制。
+   */
+  async function copyTextToClipboard(text) {
+    if (!text) return false;
+    try {
+      if (global.navigator && global.navigator.clipboard && typeof global.navigator.clipboard.writeText === "function") {
+        await global.navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e) { /* 回退到 legacyCopyText */ }
+    return legacyCopyText(text);
+  }
+
+  /**
+   * 格式化导出标准 LRC 歌词文本（可选合并双语译文）。
+   */
+  function formatLrcTag(sec) {
+    const safe = Math.max(0, Number(sec) || 0);
+    const m = Math.floor(safe / 60);
+    const s = Math.floor(safe % 60);
+    const cs = Math.min(99, Math.round((safe - Math.floor(safe)) * 100));
+    return "[" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s + "." + (cs < 10 ? "0" : "") + cs + "]";
+  }
+
+  function formatLrcExport(track, state, includeTrans) {
+    if (!track || !state || !state.lines || !state.lines.length) return "";
+    const out = [];
+    if (track.title) out.push("[ti:" + track.title + "]");
+    if (track.artist) out.push("[ar:" + track.artist + "]");
+    if (track.album && track.album.toLowerCase() !== "unknown album") out.push("[al:" + track.album + "]");
+    state.lines.forEach((ln) => {
+      const prefix = ln.time !== null ? formatLrcTag(ln.time) : "";
+      const txt = ln.text || "";
+      if (includeTrans && ln.trans) {
+        out.push(prefix + txt + " / " + ln.trans);
+      } else {
+        out.push(prefix + txt);
+      }
+    });
+    return out.join("\n") + "\n";
+  }
+
   ns.catalog = {
     KEYS,
+    COLLECTION_FAVORITES,
+    COLLECTION_RECENT,
     AUDIO_EXTS,
     IMAGE_EXTS,
     COVER_NAMES,
@@ -504,5 +610,9 @@
     storageSet,
     setPressedButtonState,
     debounce,
+    parseTrackShareHash,
+    buildTrackShareUrl,
+    copyTextToClipboard,
+    formatLrcExport,
   };
 })(window);

@@ -4,9 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#190f0a">
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 
@@ -58,7 +60,8 @@
       </div>
 
       <div class="genre-shelf-tabs" id="genreShelfTabs" role="tablist" aria-label="唱片专区分类">
-        <button type="button" class="shelf-tab on" data-category="all" role="tab" aria-selected="true">全部专区 (15)</button>
+        <button type="button" class="shelf-tab on" data-category="all" role="tab" aria-selected="true">全部专区 (17)</button>
+        <button type="button" class="shelf-tab" data-category="personal" role="tab" aria-selected="false">&#9829; 我的雅集 (0)</button>
         <button type="button" class="shelf-tab" data-category="salon" role="tab" aria-selected="false">&#127927; 沙龙流派 (8)</button>
         <button type="button" class="shelf-tab" data-category="military" role="tab" aria-selected="false">&#127930; 国歌军乐 (7)</button>
       </div>
@@ -94,6 +97,17 @@
         </div>
       </section>
 
+      <div class="resume-bar" id="resumeBar" role="region" aria-label="断点续播提示" hidden>
+        <div class="resume-bar-info">
+          <span class="resume-kicker">&#9209; 上次聆听</span>
+          <span class="resume-text" id="resumeText">继续上次未听完的旋律</span>
+        </div>
+        <div class="resume-bar-actions">
+          <button type="button" class="btn-primary resume-play-btn" id="resumePlayBtn">续播</button>
+          <button type="button" class="btn-ghost resume-dismiss-btn" id="resumeDismissBtn" aria-label="关闭断点续播提示" title="忽略">&times;</button>
+        </div>
+      </div>
+
       <ul class="playlist" id="playlist" aria-label="播放列表"></ul>
       <div class="empty" id="emptyState" hidden>
         <p>唱片柜中暂无匹配的曲目</p>
@@ -108,10 +122,17 @@
           <h2 class="lyrics-track-name" id="lyricsTrackName">轻触曲目，落针展卷</h2>
         </div>
         <div class="lyrics-actions">
+          <button type="button" id="lyricsSearchBtn" class="lyrics-pill-btn" title="检索唱词关键词" aria-label="检索唱词关键词" aria-pressed="false" hidden>搜</button>
+          <button type="button" id="lyricsExportBtn" class="lyrics-pill-btn" title="导出 .lrc 歌词文件" aria-label="导出 .lrc 歌词文件" hidden>导</button>
           <button type="button" id="lyricsTransBtn" class="lyrics-pill-btn on" title="切换双语译文" aria-pressed="true" hidden>译</button>
           <button type="button" id="lyricsCloseBtn" class="icon-btn sm-icon-btn" title="收起唱词面板" aria-label="收起唱词面板">&times;</button>
         </div>
       </header>
+      <div class="lyrics-search-bar" id="lyricsSearchBar" hidden>
+        <input type="search" id="lyricsSearchInput" placeholder="搜当前歌词…" aria-label="搜当前歌词" autocomplete="off">
+        <span class="lyrics-search-count" id="lyricsSearchCount"></span>
+        <button type="button" id="lyricsSearchClearBtn" class="icon-btn xs-icon-btn" title="清除歌词检索" aria-label="清除歌词检索">&times;</button>
+      </div>
       <div class="lyrics-body">
         <div class="lyrics-scroll" id="lyricsScroll" tabindex="0" aria-label="滚动歌词，可上下自由滚动或点击句子跳转">
           <ul class="lyrics-list" id="lyricsList">
@@ -177,6 +198,7 @@
   <div class="player-right">
     <button type="button" id="vinylFxBtn" class="ctrl-btn vinyl-fx-btn" title="模拟黑胶唱片音效 (快捷键 V)" aria-label="模拟黑胶唱片音效" aria-pressed="false">胶</button>
     <button type="button" id="synthFxBtn" class="ctrl-btn synth-fx-btn" title="模拟合成器音效 (快捷键 S)" aria-label="模拟合成器音效" aria-pressed="false">合</button>
+    <button type="button" id="studioBtn" class="ctrl-btn studio-btn" title="留声机调音台与工具 (快捷键 E)" aria-label="打开留声机调音台与工具" aria-pressed="false" aria-controls="studioPanel">调<span class="studio-dot" id="studioBadgeDot" aria-hidden="true" hidden></span></button>
     <button type="button" id="lyricsToggleBtn" class="ctrl-btn lyrics-toggle-btn" title="展开/收起滚动歌词 (L)" aria-label="展开或收起滚动歌词" aria-pressed="true">词</button>
     <button type="button" id="queueToggleBtn" class="ctrl-btn queue-toggle-btn" title="展开/收起播放队列 (快捷键 Q)" aria-label="展开或收起播放队列" aria-pressed="false" aria-controls="queueDrawer">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 6h14v2H3V6zm0 5h14v2H3v-2zm0 5h10v2H3v-2zm16-1v5l4-2.5L19 15z"/></svg>
@@ -249,11 +271,149 @@
   </div>
 </aside>
 
+<dialog id="studioPanel" class="studio-popover" popover="auto" aria-labelledby="studioTitle">
+  <div class="studio-head">
+    <div class="studio-head-text">
+      <span class="lyrics-kicker">&#10086; GRAMOPHONE STUDIO · 留声机调音台</span>
+      <h2 class="studio-title" id="studioTitle">声学调音与演奏工具</h2>
+    </div>
+    <button type="button" id="studioCloseBtn" class="icon-btn sm-icon-btn" title="收起调音台" aria-label="收起调音台">&times;</button>
+  </div>
+
+  <div class="studio-scroll">
+    <section class="studio-section">
+      <div class="studio-sec-head">
+        <span>实时黄铜频谱分析</span>
+        <button type="button" id="spectrumToggleBtn" class="studio-pill-btn on" aria-pressed="true">频谱开启</button>
+      </div>
+      <div class="spectrum-box" id="spectrumBox">
+        <canvas id="spectrumCanvas" class="spectrum-canvas" aria-label="实时音频频谱"></canvas>
+      </div>
+    </section>
+
+    <section class="studio-section">
+      <div class="studio-sec-head">
+        <span>三段经典均衡器 (EQ)</span>
+        <div class="studio-pills">
+          <button type="button" class="studio-pill-btn eq-preset-btn on" data-preset="flat" aria-pressed="true">原声</button>
+          <button type="button" class="studio-pill-btn eq-preset-btn" data-preset="warm" aria-pressed="false">暖箱</button>
+          <button type="button" class="studio-pill-btn eq-preset-btn" data-preset="jazz" aria-pressed="false">爵士</button>
+          <button type="button" class="studio-pill-btn eq-preset-btn" data-preset="rock" aria-pressed="false">摇滚</button>
+          <button type="button" class="studio-pill-btn eq-preset-btn" data-preset="vocal" aria-pressed="false">人声</button>
+        </div>
+      </div>
+      <div class="studio-sliders">
+        <label class="studio-slider-row">
+          <span class="studio-slider-lbl">低频 110Hz</span>
+          <input type="range" id="eqBass" class="range studio-range" min="-12" max="12" step="0.5" value="0" aria-label="低频均衡增益">
+          <span class="studio-slider-val" id="eqBassVal">0 dB</span>
+        </label>
+        <label class="studio-slider-row">
+          <span class="studio-slider-lbl">中频 1.1kHz</span>
+          <input type="range" id="eqMid" class="range studio-range" min="-12" max="12" step="0.5" value="0" aria-label="中频均衡增益">
+          <span class="studio-slider-val" id="eqMidVal">0 dB</span>
+        </label>
+        <label class="studio-slider-row">
+          <span class="studio-slider-lbl">高频 7.5kHz</span>
+          <input type="range" id="eqTreble" class="range studio-range" min="-12" max="12" step="0.5" value="0" aria-label="高频均衡增益">
+          <span class="studio-slider-val" id="eqTrebleVal">0 dB</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="studio-section">
+      <div class="studio-sec-head">
+        <span>模拟机芯混合比例</span>
+      </div>
+      <div class="studio-sliders">
+        <label class="studio-slider-row">
+          <span class="studio-slider-lbl">黑胶氛围度</span>
+          <input type="range" id="vinylMixRange" class="range studio-range" min="20" max="150" step="5" value="100" aria-label="黑胶音效混合比例">
+          <span class="studio-slider-val" id="vinylMixVal">100%</span>
+        </label>
+        <label class="studio-slider-row">
+          <span class="studio-slider-lbl">合成器浓淡</span>
+          <input type="range" id="synthMixRange" class="range studio-range" min="20" max="150" step="5" value="100" aria-label="合成器音效混合比例">
+          <span class="studio-slider-val" id="synthMixVal">100%</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="studio-section studio-two-col">
+      <div>
+        <div class="studio-sec-head"><span>唱盘倍速</span></div>
+        <div class="studio-pills">
+          <button type="button" class="studio-pill-btn" data-speed="0.75" aria-pressed="false">0.75x</button>
+          <button type="button" class="studio-pill-btn" data-speed="0.9" aria-pressed="false">0.9x</button>
+          <button type="button" class="studio-pill-btn on" data-speed="1" aria-pressed="true">1.0x</button>
+          <button type="button" class="studio-pill-btn" data-speed="1.15" aria-pressed="false">1.15x</button>
+          <button type="button" class="studio-pill-btn" data-speed="1.25" aria-pressed="false">1.25x</button>
+          <button type="button" class="studio-pill-btn" data-speed="1.5" aria-pressed="false">1.5x</button>
+        </div>
+      </div>
+      <div>
+        <div class="studio-sec-head"><span>曲间过渡 (Crossfade)</span></div>
+        <div class="studio-pills">
+          <button type="button" class="studio-pill-btn on" data-xfade="0" aria-pressed="true">关</button>
+          <button type="button" class="studio-pill-btn" data-xfade="2" aria-pressed="false">2s</button>
+          <button type="button" class="studio-pill-btn" data-xfade="4" aria-pressed="false">4s</button>
+          <button type="button" class="studio-pill-btn" data-xfade="6" aria-pressed="false">6s</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="studio-section">
+      <div class="studio-sec-head">
+        <span>睡眠定时停播</span>
+        <span class="studio-meta" id="sleepStatusText">未开启</span>
+      </div>
+      <div class="studio-pills">
+        <button type="button" class="studio-pill-btn on" data-sleep="off" aria-pressed="true">关闭</button>
+        <button type="button" class="studio-pill-btn" data-sleep="track_end" aria-pressed="false">播完本曲</button>
+        <button type="button" class="studio-pill-btn" data-sleep="15" aria-pressed="false">15 分钟</button>
+        <button type="button" class="studio-pill-btn" data-sleep="30" aria-pressed="false">30 分钟</button>
+        <button type="button" class="studio-pill-btn" data-sleep="60" aria-pressed="false">60 分钟</button>
+      </div>
+    </section>
+
+    <section class="studio-section">
+      <div class="studio-sec-head">
+        <span>A-B 区间精听复读 (快捷键 [ / ] / \)</span>
+        <span class="studio-meta" id="abReadout">未设定区间</span>
+      </div>
+      <div class="studio-pills">
+        <button type="button" id="abSetABtn" class="studio-pill-btn">设起点 A</button>
+        <button type="button" id="abSetBBtn" class="studio-pill-btn">设终点 B</button>
+        <button type="button" id="abToggleBtn" class="studio-pill-btn" disabled aria-pressed="false">复读开关</button>
+        <button type="button" id="abClearBtn" class="studio-pill-btn" disabled>清除</button>
+      </div>
+    </section>
+
+    <section class="studio-section studio-foot-actions">
+      <div class="studio-share-wrap">
+        <button type="button" id="shareTrackBtn" class="ghost-btn sm-btn share-copy-btn">
+          <span class="label-idle">&#128279; 复制当前进度直链</span>
+          <span class="label-copied">&#10003; 已复制分享直链</span>
+          <span class="label-failed">复制受限</span>
+        </button>
+        <span id="shareStatus" class="share-status-bubble" role="status" aria-live="polite"></span>
+      </div>
+      <div class="studio-cache-wrap">
+        <span class="studio-meta" id="swCacheInfo">缓存就绪</span>
+        <button type="button" id="clearAudioCacheBtn" class="ghost-btn sm-btn">清理离线缓存</button>
+      </div>
+    </section>
+  </div>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="js/catalog-data.js?v=21"></script>
-<script defer src="js/audio-fx.js?v=21"></script>
-<script defer src="js/lyrics.js?v=21"></script>
-<script defer src="app.js?v=21"></script>
+<script defer src="js/catalog-data.js?v=22"></script>
+<script defer src="js/user-state.js?v=22"></script>
+<script defer src="js/library-loader.js?v=22"></script>
+<script defer src="js/audio-fx.js?v=22"></script>
+<script defer src="js/lyrics.js?v=22"></script>
+<script defer src="js/studio-ui.js?v=22"></script>
+<script defer src="app.js?v=22"></script>
 </body>
 </html>
