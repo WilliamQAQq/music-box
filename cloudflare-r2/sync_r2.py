@@ -92,45 +92,82 @@ def load_json_safe(path, default):
         return default
 
 
-def scan_library(root_dir, no_online=False):
+def scan_library(root_dir, no_online=False, prev_meta=None, force_rehash=False):
     existing_lyrics = load_json_safe(os.path.join(root_dir, LYRICS_CACHE_FILENAME), {})
+    cached_meta = prev_meta if isinstance(prev_meta, dict) else {}
+    next_meta = {}
     tracks = []
     covers = {}
     new_lyrics = {}
     media_files = {}  # key -> (abs_path, ext, sha256)
 
     if not os.path.isdir(root_dir):
-        return tracks, new_lyrics, media_files
+        return tracks, new_lyrics, media_files, next_meta
 
+    real_root = os.path.realpath(root_dir)
     for current_root, dirs, files in os.walk(root_dir):
-        # Skip hidden folders (.git, .wrangler, etc.)
-        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        # Skip hidden folders (.git, .wrangler, etc.) and symlinked directories
+        dirs[:] = sorted(
+            d for d in dirs
+            if not d.startswith(".") and not os.path.islink(os.path.join(current_root, d))
+        )
         for fname in sorted(files):
             if fname.startswith("."):
                 continue
             ext = os.path.splitext(fname)[1].lower()
             full_path = os.path.join(current_root, fname)
+            if os.path.islink(full_path):
+                continue
+            real_file = os.path.realpath(full_path)
+            if os.path.commonpath([real_root, real_file]) != real_root:
+                continue
             rel_key = os.path.relpath(full_path, root_dir).replace("\\", "/")
             rel_dir = os.path.dirname(rel_key)
 
+            try:
+                st = os.stat(full_path)
+                file_size = st.st_size
+                file_mtime_ns = getattr(st, "st_mtime_ns", int(st.st_mtime * 1e9))
+            except OSError:
+                continue
+
+            prev_entry = cached_meta.get(rel_key) if not force_rehash else None
+            stat_hit = (
+                isinstance(prev_entry, dict)
+                and prev_entry.get("size") == file_size
+                and prev_entry.get("mtime_ns") == file_mtime_ns
+                and isinstance(prev_entry.get("sha256"), str)
+            )
+
             if ext in gen_music.AUDIO_EXTS:
-                artist, album, title, raw_genre, dur, embedded_lrc = gen_music.read_tags_and_info(full_path)
-                if not artist:
-                    artist = gen_music.MANUAL_ARTIST.get(fname, "")
-                if not title:
-                    title = os.path.splitext(fname)[0].replace("_", " ").replace("-", " ").strip()
-                    title = " ".join(title.split())
-                for suffix in (" spotdown.org", " (SPOTISAVER)"):
-                    if title.endswith(suffix):
-                        title = title[: -len(suffix)].strip()
+                embedded_lrc = ""
+                dur = 0
+                if stat_hit and isinstance(prev_entry.get("track"), dict):
+                    saved_track = prev_entry["track"]
+                    artist = str(saved_track.get("artist", ""))
+                    album = str(saved_track.get("album", ""))
+                    title = str(saved_track.get("title", ""))
+                    genre = str(saved_track.get("genre", ""))
+                    digest = prev_entry["sha256"]
+                else:
+                    artist, album, title, raw_genre, dur, embedded_lrc = gen_music.read_tags_and_info(full_path)
+                    if not artist:
+                        artist = gen_music.MANUAL_ARTIST.get(fname, "")
+                    if not title:
+                        title = os.path.splitext(fname)[0].replace("_", " ").replace("-", " ").strip()
+                        title = " ".join(title.split())
+                    for suffix in (" spotdown.org", " (SPOTISAVER)"):
+                        if title.endswith(suffix):
+                            title = title[: -len(suffix)].strip()
 
-                genre = gen_music.resolve_genre(fname, artist, raw_genre)
-                if genre == "其他典藏" and rel_dir:
-                    top_folder = rel_dir.split("/")[0]
-                    if top_folder in KNOWN_CURATED_GENRES:
-                        genre = top_folder
+                    genre = gen_music.resolve_genre(fname, artist, raw_genre)
+                    if genre == "其他典藏" and rel_dir:
+                        top_folder = rel_dir.split("/")[0]
+                        if top_folder in KNOWN_CURATED_GENRES:
+                            genre = top_folder
+                    digest = sha256_file(full_path)
 
-                tracks.append({
+                track_obj = {
                     "name": fname,
                     "title": title,
                     "artist": artist,
@@ -139,8 +176,20 @@ def scan_library(root_dir, no_online=False):
                     "path": rel_key,
                     "url": rel_key,
                     "dir": rel_dir,
-                })
-                media_files[rel_key] = (full_path, ext, sha256_file(full_path))
+                }
+                tracks.append(track_obj)
+                media_files[rel_key] = (full_path, ext, digest)
+                next_meta[rel_key] = {
+                    "size": file_size,
+                    "mtime_ns": file_mtime_ns,
+                    "sha256": digest,
+                    "track": {
+                        "artist": artist,
+                        "album": album,
+                        "title": title,
+                        "genre": genre,
+                    },
+                }
 
                 sidecar = os.path.splitext(full_path)[0] + ".lrc"
                 if os.path.isfile(sidecar):
@@ -151,14 +200,25 @@ def scan_library(root_dir, no_online=False):
                 elif embedded_lrc:
                     new_lyrics[rel_key] = {"type": "synced", "lrc": gen_music.clean_lrc_text(embedded_lrc)}
                 elif not no_online:
-                    fetched = gen_music.fetch_online_lyrics(artist, title, album, dur)
-                    if fetched:
-                        new_lyrics[rel_key] = fetched
+                    if not dur and stat_hit:
+                        _, _, _, _, dur, embedded_lrc = gen_music.read_tags_and_info(full_path)
+                    if embedded_lrc:
+                        new_lyrics[rel_key] = {"type": "synced", "lrc": gen_music.clean_lrc_text(embedded_lrc)}
+                    else:
+                        fetched = gen_music.fetch_online_lyrics(artist, title, album, dur)
+                        if fetched:
+                            new_lyrics[rel_key] = fetched
             elif ext in gen_music.IMG_EXTS:
                 base = os.path.splitext(fname)[0].lower()
                 if base in gen_music.COVER_NAMES or rel_dir not in covers:
                     covers[rel_dir] = rel_key
-                media_files[rel_key] = (full_path, ext, sha256_file(full_path))
+                digest = prev_entry["sha256"] if stat_hit else sha256_file(full_path)
+                media_files[rel_key] = (full_path, ext, digest)
+                next_meta[rel_key] = {
+                    "size": file_size,
+                    "mtime_ns": file_mtime_ns,
+                    "sha256": digest,
+                }
 
     referenced_covers = set()
     for t in tracks:
@@ -181,7 +241,7 @@ def scan_library(root_dir, no_online=False):
 
     tracks.sort(key=lambda t: (t["artist"].lower(), t["artist"], t["title"].lower()))
     ordered_lyrics = {t["path"]: new_lyrics[t["path"]] for t in tracks if t["path"] in new_lyrics}
-    return tracks, ordered_lyrics, media_files
+    return tracks, ordered_lyrics, media_files, next_meta
 
 
 def main(argv=None):
@@ -204,10 +264,13 @@ def main(argv=None):
         print("Create it and place audio files inside, or pass --publish-empty to initialize empty R2 manifests.")
         return 1
 
-    tracks, ordered_lyrics, media_files = scan_library(root_dir, no_online=args.no_online)
     state_path = os.path.join(root_dir, STATE_FILENAME)
-    prev_state = load_json_safe(state_path, {"files": {}})
+    prev_state = load_json_safe(state_path, {"files": {}, "meta": {}})
     prev_files = prev_state.get("files") if isinstance(prev_state.get("files"), dict) else {}
+    prev_meta = prev_state.get("meta") if isinstance(prev_state.get("meta"), dict) else {}
+    tracks, ordered_lyrics, media_files, next_meta = scan_library(
+        root_dir, no_online=args.no_online, prev_meta=prev_meta, force_rehash=args.force
+    )
 
     to_upload = []
     total_media_bytes = 0
@@ -284,9 +347,9 @@ def main(argv=None):
             )
             next_files.pop(rel_key, None)
     finally:
-        if os.path.isdir(root_dir) and next_files != prev_files:
+        if os.path.isdir(root_dir) and (next_files != prev_files or next_meta != prev_meta):
             with open(state_path, "w", encoding="utf-8", newline="\n") as sf:
-                json.dump({"files": next_files}, sf, ensure_ascii=False, indent=2)
+                json.dump({"files": next_files, "meta": next_meta}, sf, ensure_ascii=False, indent=2)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         manifest_tmp = os.path.join(tmpdir, "manifest.json")
@@ -363,7 +426,7 @@ def main(argv=None):
 
     if os.path.isdir(root_dir):
         with open(state_path, "w", encoding="utf-8", newline="\n") as sf:
-            json.dump({"files": next_files}, sf, ensure_ascii=False, indent=2)
+            json.dump({"files": next_files, "meta": next_meta}, sf, ensure_ascii=False, indent=2)
         with open(os.path.join(root_dir, LYRICS_CACHE_FILENAME), "w", encoding="utf-8", newline="\n") as lcf:
             json.dump(ordered_lyrics, lcf, ensure_ascii=False, separators=(",", ":"))
 

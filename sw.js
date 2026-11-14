@@ -1,4 +1,4 @@
-const VERSION = "v30";
+const VERSION = "v31";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v1";
@@ -7,14 +7,14 @@ const MAX_CACHED_AUDIO = 18;
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=30",
-  "./js/catalog-data.js?v=30",
-  "./js/user-state.js?v=30",
-  "./js/library-loader.js?v=30",
-  "./js/audio-fx.js?v=30",
-  "./js/lyrics.js?v=30",
-  "./js/studio-ui.js?v=30",
-  "./app.js?v=30",
+  "./style.css?v=31",
+  "./js/catalog-data.js?v=31",
+  "./js/user-state.js?v=31",
+  "./js/library-loader.js?v=31",
+  "./js/audio-fx.js?v=31",
+  "./js/lyrics.js?v=31",
+  "./js/studio-ui.js?v=31",
+  "./app.js?v=31",
   "./manifest.webmanifest",
 ];
 
@@ -68,7 +68,8 @@ async function staleWhileRevalidate(request, cacheName) {
   }
   const net = await netPromise;
   if (net) return net;
-  return caches.match("./index.html");
+  const fallback = await cache.match(request, { ignoreSearch: true });
+  return fallback || Response.error();
 }
 
 function buildRangeResponse(fullRes, rangeHeader) {
@@ -115,6 +116,11 @@ async function handleAudioRequest(request) {
   const cleanReq = new Request(request.url, { method: "GET" });
   const cache = await caches.open(AUDIO_CACHE);
 
+  const cached = await cache.match(cleanReq);
+  if (cached && cached.status === 200) {
+    return rangeHeader ? buildRangeResponse(cached, rangeHeader) : cached;
+  }
+
   try {
     const netRes = await fetch(request);
     if (!rangeHeader && netRes && netRes.status === 200 && netRes.type === "basic") {
@@ -122,7 +128,6 @@ async function handleAudioRequest(request) {
     }
     return netRes;
   } catch (err) {
-    const cached = await cache.match(cleanReq);
     if (!cached) throw err;
     return rangeHeader ? buildRangeResponse(cached, rangeHeader) : cached;
   }

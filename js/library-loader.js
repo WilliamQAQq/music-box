@@ -12,6 +12,7 @@
     hashLibrarySignature,
     storageGet,
     storageSet,
+    isSafeMediaUrl,
     normalizeR2BaseUrl,
     resolveR2Track,
   } = ns.catalog;
@@ -66,9 +67,15 @@
         const raw = storageGet(KEYS.STORE, "");
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === "object") {
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
             hasExplicitR2Url = Object.prototype.hasOwnProperty.call(parsed, "r2Url");
-            Object.assign(settings, parsed);
+            const allowedKeys = ["sourceMode", "r2Url", "r2Key", "owner", "repo", "branch", "path", "token"];
+            for (let i = 0; i < allowedKeys.length; i++) {
+              const k = allowedKeys[i];
+              if (Object.prototype.hasOwnProperty.call(parsed, k) && parsed[k] !== null && parsed[k] !== undefined) {
+                settings[k] = String(parsed[k]);
+              }
+            }
           }
         }
       } catch (e) { /* ignore */ }
@@ -77,6 +84,11 @@
         hasExplicitR2Url ? settings.r2Url : (DEFAULT_R2_GATEWAY || "")
       );
       settings.r2Key = String(settings.r2Key || "").trim();
+      settings.owner = String(settings.owner || "").trim();
+      settings.repo = String(settings.repo || "").trim();
+      settings.branch = String(settings.branch || "").trim();
+      settings.path = String(settings.path || "").trim().replace(/^\/+|\/+$/g, "");
+      settings.token = String(settings.token || "").trim();
       notifyExternalLyricsSource();
     }
 
@@ -320,20 +332,22 @@
       const c = new Map();
       list.forEach((item) => {
         if (!item || !item.url) return;
-        const url = String(item.url);
-        const dir = item.dir || (url.indexOf("/") !== -1 ? url.slice(0, url.lastIndexOf("/")) : "");
+        const url = String(item.url).trim();
+        if (!isSafeMediaUrl(url)) return;
+        const dir = item.dir ? String(item.dir) : (url.indexOf("/") !== -1 ? url.slice(0, url.lastIndexOf("/")) : "");
         const artist = item.artist ? String(item.artist) : "";
+        const safeCover = item.cover && isSafeMediaUrl(item.cover) ? String(item.cover).trim() : "";
         t.push({
           title: String(item.title || url.slice(url.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")),
           artist: artist,
           album: item.album ? String(item.album) : "",
           genre: inferGenre(artist, item.genre, url),
-          cover: item.cover ? String(item.cover) : "",
+          cover: safeCover,
           url: url,
           path: url,
           dir: dir,
         });
-        if (item.cover && !c.has(dir)) c.set(dir, String(item.cover));
+        if (safeCover && !c.has(dir)) c.set(dir, safeCover);
       });
       return { tracks: t, covers: c };
     }

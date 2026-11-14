@@ -176,6 +176,7 @@
   let pos = -1;
   let currentIndex = -1;
   let activePlaylistEl = null;
+  let rovingPlaylistEntry = null;
 
   let shuffle = storageGet(KEYS.SHUFFLE, "0") === "1";
   let repeat = storageGet(KEYS.REPEAT, "none");
@@ -257,6 +258,16 @@
     defaultTrackSub,
     safePlay,
     toast,
+    onSeekToTime: (sec) => {
+      const target = Math.max(0, Number(sec) || 0);
+      if (isFinite(audio.duration) || audio.readyState >= 1) {
+        audio.currentTime = target;
+      } else {
+        pendingSeekSec = target;
+        els.curTime.textContent = fmtTime(target);
+        lastShownCurSec = Math.floor(target);
+      }
+    },
     onBeforeMobileOpen: () => {
       closeQueueDrawer(false);
       if (studioCtrl && studioCtrl.isOpen()) studioCtrl.closeStudio(false);
@@ -272,6 +283,7 @@
     syncSlider,
     toast,
     onBeforeOpen: () => closeQueueDrawer(false),
+    onClearAudioCache: () => swCachedUrls.clear(),
     onCrossfadeChange: (sec) => {
       if (sec <= 0 && inTailFade) {
         inTailFade = false;
@@ -856,11 +868,13 @@
     }
 
     entry.li.dataset.index = String(tIndex);
+    entry.li.dataset.posK = String(k);
     entry.li.tabIndex = isRovingTarget ? 0 : -1;
     const isActive = tIndex === currentIndex;
     entry.li.classList.toggle("active", isActive);
     entry.li.classList.toggle("playing", isActive && !audio.paused);
     if (isActive) activePlaylistEl = entry.li;
+    if (isRovingTarget) rovingPlaylistEntry = entry;
 
     if (entry.idxEl.textContent !== String(k + 1)) entry.idxEl.textContent = String(k + 1);
     if (entry.nameEl.textContent !== t.title) entry.nameEl.textContent = t.title;
@@ -874,19 +888,34 @@
 
   function setPlaylistRovingTabIndex(activeLi) {
     if (!activeLi) return;
-    els.playlist.querySelectorAll('.playlist-item[tabindex="0"], .playlist-fav-btn[tabindex="0"], .playlist-enqueue-btn[tabindex="0"]').forEach((el) => {
-      if (el !== activeLi && el.parentElement !== activeLi) el.tabIndex = -1;
-    });
-    activeLi.tabIndex = 0;
-    const favBtn = activeLi.querySelector(".playlist-fav-btn");
-    const enqBtn = activeLi.querySelector(".playlist-enqueue-btn");
-    if (favBtn) favBtn.tabIndex = 0;
-    if (enqBtn) enqBtn.tabIndex = 0;
+    if (rovingPlaylistEntry && rovingPlaylistEntry.li !== activeLi) {
+      rovingPlaylistEntry.li.tabIndex = -1;
+      rovingPlaylistEntry.favBtn.tabIndex = -1;
+      rovingPlaylistEntry.enqueueBtn.tabIndex = -1;
+    }
+    const tIndex = Number(activeLi.dataset.index);
+    const nextEntry = (!isNaN(tIndex) && tracks[tIndex])
+      ? playlistRowCache.get(canonicalTrackKey(tracks[tIndex].url))
+      : null;
+    if (nextEntry && nextEntry.li === activeLi) {
+      nextEntry.li.tabIndex = 0;
+      nextEntry.favBtn.tabIndex = 0;
+      nextEntry.enqueueBtn.tabIndex = 0;
+      rovingPlaylistEntry = nextEntry;
+    } else {
+      activeLi.tabIndex = 0;
+      const favBtn = activeLi.querySelector(".playlist-fav-btn");
+      const enqBtn = activeLi.querySelector(".playlist-enqueue-btn");
+      if (favBtn) favBtn.tabIndex = 0;
+      if (enqBtn) enqBtn.tabIndex = 0;
+      rovingPlaylistEntry = { li: activeLi, favBtn: favBtn || {}, enqueueBtn: enqBtn || {} };
+    }
   }
 
   function renderPlaylist(scrollToActive) {
     renderCount();
     activePlaylistEl = null;
+    rovingPlaylistEntry = null;
     const frag = document.createDocumentFragment();
     const activeK = currentIndex !== -1 ? filteredTracks.indexOf(currentIndex) : -1;
     const tabTargetK = activeK !== -1 ? activeK : 0;
@@ -990,16 +1019,18 @@
     } else if (e.key === " ") {
       e.preventDefault();
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
-      const items = Array.from(els.playlist.querySelectorAll(".playlist-item"));
-      const curIdx = items.indexOf(li);
-      if (curIdx === -1 || !items.length) return;
+      const len = filteredTracks.length;
+      const curIdx = Number(li.dataset.posK);
+      if (isNaN(curIdx) || curIdx < 0 || curIdx >= len || !len) return;
       e.preventDefault();
       let nextIdx = curIdx;
-      if (e.key === "ArrowDown") nextIdx = Math.min(items.length - 1, curIdx + 1);
+      if (e.key === "ArrowDown") nextIdx = Math.min(len - 1, curIdx + 1);
       else if (e.key === "ArrowUp") nextIdx = Math.max(0, curIdx - 1);
       else if (e.key === "Home") nextIdx = 0;
-      else if (e.key === "End") nextIdx = items.length - 1;
-      const targetLi = items[nextIdx];
+      else if (e.key === "End") nextIdx = len - 1;
+      const nextTrack = tracks[filteredTracks[nextIdx]];
+      const targetEntry = nextTrack ? playlistRowCache.get(canonicalTrackKey(nextTrack.url)) : null;
+      const targetLi = targetEntry && targetEntry.li.isConnected ? targetEntry.li : null;
       if (targetLi) {
         setPlaylistRovingTabIndex(targetLi);
         targetLi.focus();

@@ -710,6 +710,47 @@ test("monotonic quota merge prevents lagging KV from rolling counters backward a
     assert.equal(suffixRes.status, 206);
     assert.equal(suffixRes.headers.get("Content-Range"), "bytes 6-9/10");
     assert.equal(suffixRes.headers.get("Content-Length"), "4");
+
+    // Sec-Fetch-Site: cross-site blocks third-party no-referrer hotlinks even when ALLOW_DIRECT_MEDIA="1"
+    const directMediaEnv = makeEnv({ ALLOW_DIRECT_MEDIA: "1" });
+    const crossSiteHotlink = await handleRequest(
+      new Request("https://worker.example/media/%E6%B0%91%E8%B0%A3%E8%AF%97%E7%AF%87/Test%20Track.mp3", {
+        headers: { "Sec-Fetch-Site": "cross-site" },
+      }),
+      directMediaEnv
+    );
+    assert.equal(crossSiteHotlink.status, 403, "Sec-Fetch-Site: cross-site without allowed Origin/Referer must be blocked");
+
+    // 304 Not Modified on /manifest.json and /lyrics.json when If-None-Match matches ETag
+    const manifest200 = await handleRequest(
+      new Request("https://worker.example/manifest.json", { headers: originHeaders }),
+      makeEnv()
+    );
+    assert.equal(manifest200.status, 200);
+    const manifestEtag = manifest200.headers.get("ETag");
+    assert.ok(manifestEtag);
+    const manifest304 = await handleRequest(
+      new Request("https://worker.example/manifest.json", {
+        headers: { ...originHeaders, "If-None-Match": manifestEtag },
+      }),
+      makeEnv()
+    );
+    assert.equal(manifest304.status, 304);
+
+    const lyrics200 = await handleRequest(
+      new Request("https://worker.example/lyrics.json", { headers: originHeaders }),
+      makeEnv()
+    );
+    assert.equal(lyrics200.status, 200);
+    const lyricsEtag = lyrics200.headers.get("ETag");
+    assert.ok(lyricsEtag);
+    const lyrics304 = await handleRequest(
+      new Request("https://worker.example/lyrics.json", {
+        headers: { ...originHeaders, "If-None-Match": lyricsEtag },
+      }),
+      makeEnv()
+    );
+    assert.equal(lyrics304.status, 304);
   } finally {
     globalThis.fetch = origFetch;
   }

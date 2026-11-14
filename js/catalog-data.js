@@ -638,6 +638,18 @@
   }
 
   /**
+   * 校验媒体或封面 URL 安全性：仅放行同源相对路径或 http(s):// 协议，拒绝 javascript:/data:/协议相对路径。
+   */
+  function isSafeMediaUrl(rawUrl) {
+    const s = String(rawUrl || "").trim();
+    if (!s || s.length > 2048 || /[\x00-\x1f]/.test(s)) return false;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)) {
+      return /^https?:\/\//i.test(s);
+    }
+    return !s.startsWith("//");
+  }
+
+  /**
    * 解析浏览器 URL Hash 中的曲目分享直链参数 (#track=...&t=...)。
    */
   function parseTrackShareHash(hashStr) {
@@ -646,7 +658,7 @@
     try {
       const params = new URLSearchParams(raw);
       const trackUrl = params.get("track");
-      if (!trackUrl) return null;
+      if (!trackUrl || !isSafeMediaUrl(trackUrl)) return null;
       const tVal = parseFloat(params.get("t") || "0");
       return {
         url: trackUrl,
@@ -765,9 +777,11 @@
     if (!item || typeof item !== "object") return null;
     const base = normalizeR2BaseUrl(r2Base);
     const rawUrl = String(item.url || "").trim();
+    if (rawUrl && !isSafeMediaUrl(rawUrl)) return null;
     const isAbsUrl = /^https?:\/\//i.test(rawUrl);
     const rawPath = String(item.path || (!isAbsUrl ? rawUrl : "")).replace(/^\/+/, "");
     if (!rawUrl && !rawPath) return null;
+    if (rawPath && !isSafeMediaUrl(rawPath)) return null;
 
     let finalUrl = rawUrl;
     if (!isAbsUrl) {
@@ -777,7 +791,7 @@
 
     const rawCover = String(item.cover || "").trim();
     let finalCover = "";
-    if (rawCover) {
+    if (rawCover && isSafeMediaUrl(rawCover)) {
       if (/^https?:\/\//i.test(rawCover)) {
         finalCover = rawCover;
       } else if (base) {
@@ -831,6 +845,7 @@
     copyTextToClipboard,
     formatLrcExport,
     canonicalTrackKey,
+    isSafeMediaUrl,
     normalizeR2BaseUrl,
     resolveR2Track,
   };

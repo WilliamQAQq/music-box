@@ -368,15 +368,15 @@ function scheduleOrAwaitFlush(env, ctx, tracker, reqDelta, classBDelta, now = ne
   const flushEvery = parsePositiveInt(env && env.QUOTA_FLUSH_EVERY, DEFAULT_FLUSH_EVERY);
   const flushIntervalMs = parsePositiveInt(env && env.QUOTA_FLUSH_INTERVAL_MS, DEFAULT_FLUSH_INTERVAL_MS);
   const dirtyAge = tracker.dirtySince ? now.getTime() - tracker.dirtySince : 0;
+  const justTripped =
+    evaluation.shielded && !tracker.state.tripped && evaluation.reason !== "manual_pause";
 
   if (
-    evaluation.shielded ||
+    justTripped ||
     tracker.pendingReqs >= flushEvery ||
     (dirtyAge >= flushIntervalMs && tracker.pendingReqs > 0)
   ) {
-    const tripReason = evaluation.shielded && !tracker.state.tripped && evaluation.reason !== "manual_pause"
-      ? evaluation.reason
-      : "";
+    const tripReason = justTripped ? evaluation.reason : "";
     const p = flushQuotaTracker(env, tracker, tripReason, now);
     if (ctx && typeof ctx.waitUntil === "function" && !tripReason) {
       ctx.waitUntil(p);
@@ -461,6 +461,11 @@ function resolveAllowedOrigin(request, env) {
     } catch {
       return { allowed: false, corsOrigin: "" };
     }
+  }
+
+  const secFetchSite = (request.headers.get("sec-fetch-site") || "").toLowerCase();
+  if (secFetchSite === "cross-site") {
+    return { allowed: false, corsOrigin: "" };
   }
 
   return { allowed: allowMissing, corsOrigin: "" };
@@ -572,19 +577,42 @@ function constantTimeEqualHex(a, b) {
   return diff === 0;
 }
 
+const hmacKeyCache = new Map();
+const secretDigestCache = new Map();
+
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return toHex(buf);
 }
 
+async function getSecretDigestHex(secret) {
+  let p = secretDigestCache.get(secret);
+  if (!p) {
+    if (secretDigestCache.size >= 16) secretDigestCache.clear();
+    p = sha256Hex(secret);
+    secretDigestCache.set(secret, p);
+  }
+  return p;
+}
+
+async function getHmacKey(secret) {
+  let p = hmacKeyCache.get(secret);
+  if (!p) {
+    if (hmacKeyCache.size >= 16) hmacKeyCache.clear();
+    p = crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    hmacKeyCache.set(secret, p);
+  }
+  return p;
+}
+
 async function signMediaPayload(secret, key, expSec) {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
+  const cryptoKey = await getHmacKey(secret);
   const sigBuf = await crypto.subtle.sign(
     "HMAC",
     cryptoKey,
@@ -607,8 +635,8 @@ async function verifyOptionalAccessKey(request, env) {
   const secret = String((env && env.ACCESS_KEY) || "");
   if (!secret) return true;
   const supplied = extractRequestKey(request);
-  if (!supplied) return false;
-  const [a, b] = await Promise.all([sha256Hex(secret), sha256Hex(supplied)]);
+  if (!supplied || supplied.length > 512) return false;
+  const [a, b] = await Promise.all([getSecretDigestHex(secret), sha256Hex(supplied)]);
   return constantTimeEqualHex(a, b);
 }
 
@@ -677,9 +705,9 @@ export async function handleRequest(request, env, ctx) {
   const method = request.method.toUpperCase();
   const originState = resolveAllowedOrigin(request, env);
   const now = new Date();
+  const tracker = await loadQuotaSnapshot(env, now);
 
   if (url.pathname === "/health") {
-    const tracker = await loadQuotaSnapshot(env, now);
     const evaluation = evaluateQuotaShield(tracker, env);
     return jsonResponse(
       {
@@ -697,6 +725,7 @@ export async function handleRequest(request, env, ctx) {
 
   if (method === "OPTIONS") {
     if (!originState.allowed || !originState.corsOrigin) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
       return new Response(null, { status: 403 });
     }
     const headers = new Headers({ "Access-Control-Max-Age": "86400" });
@@ -705,6 +734,7 @@ export async function handleRequest(request, env, ctx) {
   }
 
   if (method !== "GET" && method !== "HEAD") {
+    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
     return jsonResponse({ error: "Method not allowed" }, 405, originState.corsOrigin);
   }
 
@@ -712,6 +742,7 @@ export async function handleRequest(request, env, ctx) {
 
   if (url.pathname === "/quota") {
     if (!originState.allowed) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
       const hasOriginContext = !!(request.headers.get("origin") || request.headers.get("referer"));
       const payload = hasOriginContext
         ? { error: "Forbidden origin" }
@@ -722,9 +753,9 @@ export async function handleRequest(request, env, ctx) {
       return jsonResponse(payload, 403, originState.corsOrigin);
     }
     if (secret && !(await verifyOptionalAccessKey(request, env))) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
       return jsonResponse({ error: "Unauthorized" }, 401, originState.corsOrigin);
     }
-    const tracker = await loadQuotaSnapshot(env, now);
     const evaluation = evaluateQuotaShield(tracker, env);
     return jsonResponse(
       {
@@ -749,7 +780,6 @@ export async function handleRequest(request, env, ctx) {
   }
 
   // Evaluate 80% Free-Tier Quota Shield BEFORE touching MUSIC_BUCKET
-  const tracker = await loadQuotaSnapshot(env, now);
   const preEval = evaluateQuotaShield(tracker, env);
   if (preEval.shielded) {
     if (!tracker.state.tripped && preEval.reason !== "manual_pause") {
@@ -915,9 +945,18 @@ export async function handleRequest(request, env, ctx) {
 
   if (url.pathname === "/manifest.json" || url.pathname === "/music.json") {
     await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
-    const obj = await env.MUSIC_BUCKET.get("manifest.json");
+    const obj = await env.MUSIC_BUCKET.get("manifest.json", !secret ? { onlyIf: request.headers } : undefined);
     if (!obj) {
       return jsonResponse([], 200, originState.corsOrigin, "public, max-age=30");
+    }
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (!secret && ((!obj.body && typeof obj.json !== "function") || (ifNoneMatch && obj.httpEtag && ifNoneMatch === obj.httpEtag))) {
+      const headers = new Headers({
+        "Cache-Control": "public, max-age=60",
+      });
+      if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
+      applySecurityHeaders(headers, originState.corsOrigin);
+      return new Response(null, { status: 304, headers });
     }
     if (!secret && method === "HEAD") {
       const headers = new Headers({
@@ -949,8 +988,8 @@ export async function handleRequest(request, env, ctx) {
 
   if (url.pathname === "/lyrics.json") {
     await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
-    const obj = await env.MUSIC_BUCKET.get("lyrics.json");
-    if (!obj || !obj.body) {
+    const obj = await env.MUSIC_BUCKET.get("lyrics.json", { onlyIf: request.headers });
+    if (!obj) {
       return jsonResponse({}, 200, originState.corsOrigin, "public, max-age=60");
     }
     const headers = new Headers({
@@ -959,6 +998,10 @@ export async function handleRequest(request, env, ctx) {
     });
     if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
     applySecurityHeaders(headers, originState.corsOrigin);
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (!obj.body || (ifNoneMatch && obj.httpEtag && ifNoneMatch === obj.httpEtag)) {
+      return new Response(null, { status: 304, headers });
+    }
     if (method === "HEAD") return new Response(null, { status: 200, headers });
     return new Response(obj.body, { status: 200, headers });
   }

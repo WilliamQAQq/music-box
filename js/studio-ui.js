@@ -30,6 +30,7 @@
     const toast = options.toast;
     const onBeforeOpen = options.onBeforeOpen;
     const onCrossfadeChange = options.onCrossfadeChange;
+    const onClearAudioCache = options.onClearAudioCache;
 
     const hasNativePopover = Object.hasOwn(HTMLElement.prototype, "popover");
     let studioOpen = false;
@@ -41,6 +42,9 @@
     let rafId = null;
     let freqBuf = null;
     let peakHeights = null;
+    let cachedCanvasCtx = null;
+    let cachedBarGrad = null;
+    let cachedGradH = 0;
     let shareFeedbackTimer = null;
     let lastAnnouncement = "";
 
@@ -165,20 +169,32 @@
       syncStudioBadge();
     }
 
-    function drawIdleSpectrum() {
+    function ensureSpectrumCanvas() {
       const canvas = els.spectrumCanvas;
-      if (!canvas) return;
+      if (!canvas) return null;
       const dpr = Math.min(2, global.devicePixelRatio || 1);
       const w = canvas.clientWidth || 320;
       const h = canvas.clientHeight || 78;
-      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
+      const targetW = Math.floor(w * dpr);
+      const targetH = Math.floor(h * dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        cachedBarGrad = null;
       }
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      if (!cachedCanvasCtx) {
+        cachedCanvasCtx = canvas.getContext("2d");
+      }
+      if (!cachedCanvasCtx) return null;
+      cachedCanvasCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cachedCanvasCtx.clearRect(0, 0, w, h);
+      return { ctx: cachedCanvasCtx, w, h };
+    }
+
+    function drawIdleSpectrum() {
+      const surface = ensureSpectrumCanvas();
+      if (!surface) return;
+      const { ctx, w, h } = surface;
 
       // 基线黄铜刻度线
       ctx.fillStyle = "rgba(212, 166, 74, 0.2)";
@@ -197,7 +213,6 @@
         drawIdleSpectrum();
         return;
       }
-      const canvas = els.spectrumCanvas;
       const binCount = audioFx.getFrequencyBinCount();
       if (!freqBuf || freqBuf.length !== binCount) {
         freqBuf = new Uint8Array(binCount);
@@ -210,26 +225,22 @@
         return;
       }
 
-      const dpr = Math.min(2, global.devicePixelRatio || 1);
-      const w = canvas.clientWidth || 320;
-      const h = canvas.clientHeight || 78;
-      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-      }
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      const surface = ensureSpectrumCanvas();
+      if (!surface) return;
+      const { ctx, w, h } = surface;
 
       const bars = 36;
       const gap = 3;
       const barW = Math.max(2, (w - gap * (bars - 1)) / bars);
       const maxBarH = h - 12;
-      const grad = ctx.createLinearGradient(0, h, 0, 6);
-      grad.addColorStop(0, "#7f2328");
-      grad.addColorStop(0.55, "#c99438");
-      grad.addColorStop(1, "#f6dd97");
+      if (!cachedBarGrad || cachedGradH !== h) {
+        cachedBarGrad = ctx.createLinearGradient(0, h, 0, 6);
+        cachedBarGrad.addColorStop(0, "#7f2328");
+        cachedBarGrad.addColorStop(0.55, "#c99438");
+        cachedBarGrad.addColorStop(1, "#f6dd97");
+        cachedGradH = h;
+      }
+      const grad = cachedBarGrad;
 
       for (let i = 0; i < bars; i++) {
         const binIdx = Math.min(binCount - 1, Math.floor((i / bars) * (binCount * 0.72)));
@@ -534,6 +545,7 @@
           }
           const mc = new MessageChannel();
           mc.port1.onmessage = () => {
+            if (onClearAudioCache) onClearAudioCache();
             refreshSwCacheStats();
             if (toast) toast("已清理本地离线音频缓存");
           };

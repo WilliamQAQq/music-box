@@ -41,19 +41,19 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v30", () => {
+test("HTML/SW/CSS structural invariants & asset version v31", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=30",
-    "js/user-state.js?v=30",
-    "js/library-loader.js?v=30",
-    "js/audio-fx.js?v=30",
-    "js/lyrics.js?v=30",
-    "js/studio-ui.js?v=30",
-    "app.js?v=30",
+    "js/catalog-data.js?v=31",
+    "js/user-state.js?v=31",
+    "js/library-loader.js?v=31",
+    "js/audio-fx.js?v=31",
+    "js/lyrics.js?v=31",
+    "js/studio-ui.js?v=31",
+    "app.js?v=31",
   ];
 
   let lastPos = -1;
@@ -63,15 +63,19 @@ test("HTML/SW/CSS structural invariants & asset version v30", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=30"'), "index.html missing style.css?v=30");
+  assert.ok(html.includes('href="style.css?v=31"'), "index.html missing style.css?v=31");
+  assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
+  assert.ok(html.includes("script-src 'self'"), "CSP must restrict script-src to 'self'");
+  assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'), "index.html missing referrer policy meta");
   assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'), "index.html missing manifest link");
   assert.ok(html.includes('<dialog id="studioPanel" class="studio-popover" popover="auto"'), "Missing <dialog popover=\"auto\">");
   assert.ok(html.includes('<fieldset class="source-mode-group">'), "Missing sourceMode radio fieldset");
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v30";'), "sw.js VERSION must match v30");
+  assert.ok(sw.includes('const VERSION = "v31";'), "sw.js VERSION must match v31");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
+  assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
@@ -197,6 +201,15 @@ test("catalog-data: share hash, LRC export, signature, search matching", () => {
     cat.inferGenre("", "", "https://gw.example.workers.dev/media/" + encodeURIComponent("LBI利比 - 跳楼机.mp3") + "?exp=123&sig=abc"),
     "流金热浪 · 时代新声"
   );
+
+  // isSafeMediaUrl & parseTrackShareHash reject dangerous schemes (javascript:, data:, //)
+  assert.equal(cat.isSafeMediaUrl("music/01.爵士/A.mp3"), true);
+  assert.equal(cat.isSafeMediaUrl("https://gw.example.workers.dev/media/A.mp3"), true);
+  assert.equal(cat.isSafeMediaUrl("javascript:alert(1)"), false);
+  assert.equal(cat.isSafeMediaUrl("data:text/html,<script>alert(1)</script>"), false);
+  assert.equal(cat.isSafeMediaUrl("//evil.example/a.mp3"), false);
+  assert.equal(cat.parseTrackShareHash("#track=javascript:alert(1)&t=10"), null);
+  assert.equal(cat.resolveR2Track({ url: "javascript:alert(1)" }, "https://gw.example.workers.dev"), null);
 });
 
 test("user-state: favorites, recent deduplication/cap, resume & A-B loop", () => {

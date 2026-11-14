@@ -141,6 +141,7 @@
     const safePlay = options.safePlay;
     const toast = options.toast;
     const onBeforeMobileOpen = options.onBeforeMobileOpen;
+    const onSeekToTime = options.onSeekToTime;
 
     let desktopLyricsOpen = storageGet(KEYS.LYRICS_OPEN, "1") !== "0";
     let mobileLyricsOpen = false;
@@ -228,17 +229,29 @@
       updatePanelUI();
     }
 
+    const MAX_LIVE_LYRICS_CACHE = 80;
+
     function loadLiveCache() {
       if (liveCacheLoaded) return;
       liveCacheLoaded = true;
       try {
         const raw = storageGet(KEYS.LIVE_LYRICS, "");
-        if (raw) liveLyricsCache = JSON.parse(raw) || {};
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          liveLyricsCache = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
+        }
       } catch (e) { liveLyricsCache = {}; }
     }
 
     function saveLiveCache() {
       try {
+        const keys = Object.keys(liveLyricsCache);
+        if (keys.length > MAX_LIVE_LYRICS_CACHE) {
+          const excess = keys.length - MAX_LIVE_LYRICS_CACHE;
+          for (let i = 0; i < excess; i++) {
+            delete liveLyricsCache[keys[i]];
+          }
+        }
         storageSet(KEYS.LIVE_LYRICS, JSON.stringify(liveLyricsCache));
       } catch (e) { /* ignore quota */ }
     }
@@ -254,10 +267,11 @@
         const musicPrefixed = "music/" + String(track.path).replace(/^\/+/, "");
         if (!keys.includes(musicPrefixed)) keys.push(musicPrefixed);
       }
+      const hasOwn = Object.prototype.hasOwnProperty;
       for (let i = 0; i < keys.length; i++) {
         const k = keys[i];
-        if (lyricsCatalog[k]) return lyricsCatalog[k];
-        if (liveLyricsCache[k]) return liveLyricsCache[k];
+        if (hasOwn.call(lyricsCatalog, k) && lyricsCatalog[k]) return lyricsCatalog[k];
+        if (hasOwn.call(liveLyricsCache, k) && liveLyricsCache[k]) return liveLyricsCache[k];
       }
       return null;
     }
@@ -712,7 +726,9 @@
         const idx = Number(li.dataset.idx);
         const ln = currentLyricState.lines[idx];
         if (!ln || ln.time === null) return;
-        if (isFinite(audio.duration) || audio.readyState >= 1) {
+        if (typeof onSeekToTime === "function") {
+          onSeekToTime(ln.time);
+        } else if (isFinite(audio.duration) || audio.readyState >= 1) {
           audio.currentTime = ln.time;
         }
         exitUserScrollMode(true);
