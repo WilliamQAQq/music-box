@@ -481,9 +481,13 @@
 
   function inferGenre(artist, genre, pathOrUrl) {
     if (pathOrUrl) {
-      const s = String(pathOrUrl);
-      const fname = s.slice(s.lastIndexOf("/") + 1);
+      const cleanPath = String(pathOrUrl).split("?")[0].split("#")[0];
+      const fname = cleanPath.slice(cleanPath.lastIndexOf("/") + 1);
       if (FILENAME_GENRE_MAP[fname]) return FILENAME_GENRE_MAP[fname];
+      try {
+        const decoded = decodeURIComponent(fname);
+        if (FILENAME_GENRE_MAP[decoded]) return FILENAME_GENRE_MAP[decoded];
+      } catch (e) { /* ignore malformed URI */ }
     }
     if (genre) return String(genre);
     if (!artist) return "";
@@ -553,12 +557,12 @@
       [h1, h2] = hashStringPair(
         h1,
         h2,
-        "\x01" + (t.url || "") + "\x02" + (t.title || "") + "\x02" + (t.artist || "") + "\x02" + (t.album || "") + "\x02" + (t.genre || "") + "\x02" + (t.cover || "")
+        "\x01" + canonicalTrackKey(t.url || "") + "\x02" + (t.title || "") + "\x02" + (t.artist || "") + "\x02" + (t.album || "") + "\x02" + (t.genre || "") + "\x02" + canonicalTrackKey(t.cover || "")
       );
     }
     cEntries.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
     for (let i = 0; i < cEntries.length; i++) {
-      [h1, h2] = hashStringPair(h1, h2, "\x03" + cEntries[i][0] + "=" + cEntries[i][1]);
+      [h1, h2] = hashStringPair(h1, h2, "\x03" + cEntries[i][0] + "=" + canonicalTrackKey(cEntries[i][1] || ""));
     }
     return h1.toString(16) + "-" + h2.toString(16);
   }
@@ -784,7 +788,7 @@
     const fallbackName = rawPath.split("/").pop() || String(item.title || "track");
     const artist = String(item.artist || "");
     const title = String(item.title || fallbackName);
-    const genre = String(item.genre || "") || inferGenre(artist);
+    const genre = inferGenre(artist, item.genre, rawPath || rawUrl);
     return {
       name: String(item.name || fallbackName),
       path: rawPath || rawUrl,

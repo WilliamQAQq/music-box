@@ -1848,7 +1848,7 @@
       // Crossfade 尾声平滑衰减（非单曲循环、存在下一曲时生效）
       const xfade = studioCtrl.getCrossfadeSec();
       const rem = audio.duration - cur;
-      if (xfade > 0 && !audio.paused && repeat !== "one" && audio.duration > xfade + 2 && rem > 0 && rem <= xfade) {
+      if (xfade > 0 && !audio.paused && repeat !== "one" && !userState.getAbLoopState().active && audio.duration > xfade + 2 && rem > 0 && rem <= xfade) {
         inTailFade = true;
         audioFx.setTransitionFadeFactor(Math.max(0.05, rem / xfade), false);
       } else if (inTailFade) {

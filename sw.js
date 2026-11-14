@@ -1,4 +1,4 @@
-const VERSION = "v29";
+const VERSION = "v30";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v1";
@@ -7,14 +7,14 @@ const MAX_CACHED_AUDIO = 18;
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=29",
-  "./js/catalog-data.js?v=29",
-  "./js/user-state.js?v=29",
-  "./js/library-loader.js?v=29",
-  "./js/audio-fx.js?v=29",
-  "./js/lyrics.js?v=29",
-  "./js/studio-ui.js?v=29",
-  "./app.js?v=29",
+  "./style.css?v=30",
+  "./js/catalog-data.js?v=30",
+  "./js/user-state.js?v=30",
+  "./js/library-loader.js?v=30",
+  "./js/audio-fx.js?v=30",
+  "./js/lyrics.js?v=30",
+  "./js/studio-ui.js?v=30",
+  "./app.js?v=30",
   "./manifest.webmanifest",
 ];
 
@@ -74,11 +74,31 @@ async function staleWhileRevalidate(request, cacheName) {
 function buildRangeResponse(fullRes, rangeHeader) {
   return fullRes.arrayBuffer().then((buf) => {
     const total = buf.byteLength;
+    if (total <= 0) {
+      return new Response(null, { status: 416, headers: { "Content-Range": "bytes */0" } });
+    }
     const match = /bytes=(\d*)-(\d*)/.exec(rangeHeader || "");
-    let start = match && match[1] ? parseInt(match[1], 10) : 0;
-    let end = match && match[2] ? parseInt(match[2], 10) : total - 1;
-    if (isNaN(start) || start < 0) start = 0;
-    if (isNaN(end) || end >= total) end = total - 1;
+    if (!match || (match[1] === "" && match[2] === "")) {
+      return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + total } });
+    }
+    let start = 0;
+    let end = total - 1;
+    if (match[1] === "") {
+      const suffix = parseInt(match[2], 10);
+      if (isNaN(suffix) || suffix <= 0) {
+        return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + total } });
+      }
+      start = Math.max(0, total - suffix);
+    } else {
+      start = parseInt(match[1], 10);
+      if (match[2] !== "") {
+        end = parseInt(match[2], 10);
+      }
+    }
+    if (isNaN(start) || start < 0 || start >= total || isNaN(end)) {
+      return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + total } });
+    }
+    if (end >= total) end = total - 1;
     if (start > end) {
       return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + total } });
     }
@@ -155,7 +175,7 @@ self.addEventListener("message", (event) => {
         const existing = await cache.match(absUrl);
         if (!existing) {
           const res = await fetch(absUrl);
-          if (res && res.ok) {
+          if (res && res.status === 200 && (res.type === "basic" || res.type === "cors")) {
             await cache.put(absUrl, res);
             await trimAudioCache(cache);
           }

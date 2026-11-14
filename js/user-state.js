@@ -34,6 +34,7 @@
     // 睡眠定时状态
     let sleepMode = "off"; // "off" | "track_end" | "countdown"
     let sleepEndAt = 0;
+    let sleepTargetMinutes = 0;
     let sleepTicker = null;
 
     // A-B 段落复读状态
@@ -196,6 +197,7 @@
       const remMs = sleepMode === "countdown" ? Math.max(0, sleepEndAt - Date.now()) : 0;
       return {
         mode: sleepMode,
+        targetMinutes: sleepMode === "countdown" ? sleepTargetMinutes : 0,
         remainingMs: remMs,
         remainingSec: Math.ceil(remMs / 1000),
       };
@@ -208,6 +210,7 @@
       if (!minutesOrMode || minutesOrMode === "off") {
         sleepMode = "off";
         sleepEndAt = 0;
+        sleepTargetMinutes = 0;
         emit("sleep", getSleepSnapshot());
         return;
       }
@@ -215,12 +218,14 @@
       if (minutesOrMode === "track_end") {
         sleepMode = "track_end";
         sleepEndAt = 0;
+        sleepTargetMinutes = 0;
         emit("sleep", getSleepSnapshot());
         return;
       }
 
       const mins = Math.max(1, Number(minutesOrMode) || 15);
       sleepMode = "countdown";
+      sleepTargetMinutes = mins;
       sleepEndAt = Date.now() + mins * 60 * 1000;
       sleepTicker = setInterval(() => {
         const remMs = sleepEndAt - Date.now();
@@ -228,6 +233,7 @@
           stopSleepTicker();
           sleepMode = "off";
           sleepEndAt = 0;
+          sleepTargetMinutes = 0;
           if (typeof opts.onSleepExpire === "function") opts.onSleepExpire();
           setSleepFade(1);
           emit("sleep", getSleepSnapshot());
@@ -248,6 +254,7 @@
       if (sleepMode !== "track_end") return false;
       sleepMode = "off";
       sleepEndAt = 0;
+      sleepTargetMinutes = 0;
       setSleepFade(1);
       emit("sleep", getSleepSnapshot());
       return true;

@@ -583,7 +583,8 @@
         const newCovers = toCoverMap(data.covers);
         const nextSig = hashLibrarySignature(data.tracks, newCovers);
         const changed = !useCache || nextSig !== cacheSig;
-        if (!isPartialDegraded && (changed || (cache && !cache.sig))) {
+        const signedUrlsRefreshed = useCache && !changed && !isPartialDegraded && !!settings.r2Key && (mode === "r2" || mode === "hybrid");
+        if (!isPartialDegraded && (changed || signedUrlsRefreshed || (cache && !cache.sig))) {
           saveCache({
             sourceMode: mode,
             r2Url: r2Base,
@@ -602,6 +603,8 @@
           if (!partialWarning) {
             toast((useCache ? "歌单已更新，共 " : "已加载 ") + data.tracks.length + " 首音乐");
           }
+        } else if (signedUrlsRefreshed) {
+          onApplyLibrary({ tracks: data.tracks, covers: newCovers });
         }
         if (partialWarning) {
           toast(partialWarning, true);

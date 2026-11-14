@@ -133,7 +133,11 @@
             ? m === "off"
             : st.mode === "track_end"
               ? m === "track_end"
-              : (st.mode === "countdown" && Number(m) > 0 && st.remainingSec <= Number(m) * 60 && st.remainingSec > (Number(m) === 15 ? 0 : Number(m) === 30 ? 15 * 60 : 30 * 60));
+              : (st.mode === "countdown" && Number(m) > 0 && (
+                st.targetMinutes
+                  ? Number(m) === st.targetMinutes
+                  : (st.remainingSec <= Number(m) * 60 && st.remainingSec > (Number(m) === 15 ? 0 : Number(m) === 30 ? 15 * 60 : 30 * 60))
+              ));
           setPressedButtonState(btn, active);
         });
       }

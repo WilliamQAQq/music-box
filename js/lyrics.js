@@ -2,7 +2,7 @@
   "use strict";
 
   const ns = global.__MusicBox || (global.__MusicBox = {});
-  const { KEYS, fmtTime, storageGet, storageSet, setPressedButtonState, formatLrcExport, debounce } = ns.catalog;
+  const { KEYS, fmtTime, storageGet, storageSet, setPressedButtonState, formatLrcExport, debounce, canonicalTrackKey } = ns.catalog;
 
   const USER_SCROLL_RESUME_MS = 5500;
 
@@ -246,8 +246,14 @@
     function lookupTrackLyrics(track) {
       if (!track) return null;
       const keys = [];
-      if (track.url) keys.push(track.url);
-      if (track.path && track.path !== track.url) keys.push(track.path);
+      const canonUrl = track.url ? canonicalTrackKey(track.url) : "";
+      if (canonUrl) keys.push(canonUrl);
+      if (track.url && track.url !== canonUrl) keys.push(track.url);
+      if (track.path && !keys.includes(track.path)) keys.push(track.path);
+      if (track.path) {
+        const musicPrefixed = "music/" + String(track.path).replace(/^\/+/, "");
+        if (!keys.includes(musicPrefixed)) keys.push(musicPrefixed);
+      }
       for (let i = 0; i < keys.length; i++) {
         const k = keys[i];
         if (lyricsCatalog[k]) return lyricsCatalog[k];
@@ -615,9 +621,11 @@
         const fetched = await fetchLiveLyricsFallback(track);
         if (reqSeq !== lyricsReqSeq || getCurrentTrack() !== track) return;
         if (fetched) {
-          const cacheKey = track.path || track.url;
-          liveLyricsCache[cacheKey] = fetched;
-          saveLiveCache();
+          const cacheKey = track.path || canonicalTrackKey(track.url);
+          if (cacheKey) {
+            liveLyricsCache[cacheKey] = fetched;
+            saveLiveCache();
+          }
           entry = fetched;
         }
       }

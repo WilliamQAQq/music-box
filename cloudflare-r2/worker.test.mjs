@@ -683,6 +683,33 @@ test("monotonic quota merge prevents lagging KV from rolling counters backward a
     );
     const quotaAfterLag = await quotaAfterLagRes.json();
     assert.equal(quotaAfterLag.usage.storageBytes, 500123, "Stale KV snapshot must not erase newer GraphQL storageBytes");
+
+    // Suffix Range (bytes=-4) must return valid 206 Content-Range even if R2 object.range only carries suffix
+    const suffixBucket = {
+      async get(key, opts) {
+        if (key === "Test.mp3" && opts && opts.range) {
+          return {
+            size: 10,
+            etag: "etag-10",
+            httpEtag: '"etag-10"',
+            range: { suffix: 4 },
+            body: "6789",
+            writeHttpMetadata() {},
+          };
+        }
+        return null;
+      },
+    };
+    const suffixEnv = makeEnv({ MUSIC_BUCKET: suffixBucket });
+    const suffixRes = await handleRequest(
+      new Request("https://worker.example/media/Test.mp3", {
+        headers: { ...originHeaders, Range: "bytes=-4" },
+      }),
+      suffixEnv
+    );
+    assert.equal(suffixRes.status, 206);
+    assert.equal(suffixRes.headers.get("Content-Range"), "bytes 6-9/10");
+    assert.equal(suffixRes.headers.get("Content-Length"), "4");
   } finally {
     globalThis.fetch = origFetch;
   }

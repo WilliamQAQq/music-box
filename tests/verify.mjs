@@ -41,19 +41,19 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v29", () => {
+test("HTML/SW/CSS structural invariants & asset version v30", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=29",
-    "js/user-state.js?v=29",
-    "js/library-loader.js?v=29",
-    "js/audio-fx.js?v=29",
-    "js/lyrics.js?v=29",
-    "js/studio-ui.js?v=29",
-    "app.js?v=29",
+    "js/catalog-data.js?v=30",
+    "js/user-state.js?v=30",
+    "js/library-loader.js?v=30",
+    "js/audio-fx.js?v=30",
+    "js/lyrics.js?v=30",
+    "js/studio-ui.js?v=30",
+    "app.js?v=30",
   ];
 
   let lastPos = -1;
@@ -63,14 +63,14 @@ test("HTML/SW/CSS structural invariants & asset version v29", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=29"'), "index.html missing style.css?v=29");
+  assert.ok(html.includes('href="style.css?v=30"'), "index.html missing style.css?v=30");
   assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'), "index.html missing manifest link");
   assert.ok(html.includes('<dialog id="studioPanel" class="studio-popover" popover="auto"'), "Missing <dialog popover=\"auto\">");
   assert.ok(html.includes('<fieldset class="source-mode-group">'), "Missing sourceMode radio fieldset");
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v29";'), "sw.js VERSION must match v29");
+  assert.ok(sw.includes('const VERSION = "v30";'), "sw.js VERSION must match v30");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
@@ -180,6 +180,23 @@ test("catalog-data: share hash, LRC export, signature, search matching", () => {
   const parsedSignedShare = cat.parseTrackShareHash(signedShareUrl.slice(signedShareUrl.indexOf("#")));
   assert.equal(parsedSignedShare.url, "https://gw.example.workers.dev/media/Private/Signed.mp3");
   assert.equal(parsedSignedShare.time, 42);
+
+  // Rotating exp/sig query params should not alter hashLibrarySignature
+  const sigSignedA = cat.hashLibrarySignature(
+    [{ url: "https://gw.example.workers.dev/media/A.mp3?exp=1000&sig=111", title: "A", artist: "X", album: "", genre: "Jazz", cover: "https://gw.example.workers.dev/media/c.jpg?exp=1000&sig=111" }],
+    new Map([["dir", "https://gw.example.workers.dev/media/c.jpg?exp=1000&sig=111"]])
+  );
+  const sigSignedB = cat.hashLibrarySignature(
+    [{ url: "https://gw.example.workers.dev/media/A.mp3?exp=2000&sig=222", title: "A", artist: "X", album: "", genre: "Jazz", cover: "https://gw.example.workers.dev/media/c.jpg?exp=2000&sig=222" }],
+    new Map([["dir", "https://gw.example.workers.dev/media/c.jpg?exp=2000&sig=222"]])
+  );
+  assert.equal(sigSignedA, sigSignedB, "Rotating HMAC exp/sig should not change catalog content signature");
+
+  // inferGenre should decode URL-encoded filenames and strip query params
+  assert.equal(
+    cat.inferGenre("", "", "https://gw.example.workers.dev/media/" + encodeURIComponent("LBI利比 - 跳楼机.mp3") + "?exp=123&sig=abc"),
+    "流金热浪 · 时代新声"
+  );
 });
 
 test("user-state: favorites, recent deduplication/cap, resume & A-B loop", () => {
@@ -229,7 +246,11 @@ test("user-state: favorites, recent deduplication/cap, resume & A-B loop", () =>
   ctrl.clearAbLoop();
   assert.equal(ctrl.getAbLoopState().active, false);
 
+  ctrl.setSleepTimer(60);
+  assert.equal(ctrl.getSleepSnapshot().mode, "countdown");
+  assert.equal(ctrl.getSleepSnapshot().targetMinutes, 60);
   ctrl.setSleepTimer("track_end");
+  assert.equal(ctrl.getSleepSnapshot().targetMinutes, 0);
   assert.equal(ctrl.notifyTrackEndedForSleep(), true);
   assert.equal(ctrl.notifyTrackEndedForSleep(), false);
   assert.equal(lastSleepFade, 1);

@@ -865,21 +865,38 @@ export async function handleRequest(request, env, ctx) {
     headers.set("Cache-Control", secret ? "private, max-age=3600" : "public, max-age=86400");
     applySecurityHeaders(headers, originState.corsOrigin);
 
-    if (rangeHeader && obj.range && (obj.range.offset >= obj.size || obj.range.length <= 0)) {
-      headers.set("Content-Range", `bytes */${obj.size}`);
-      return new Response(null, { status: 416, headers });
+    const parsedRange = rangeHeader ? parseByteRangeHeader(rangeHeader, obj.size) : null;
+    if (rangeHeader) {
+      const badObjRange = obj.range && (
+        (Number.isFinite(obj.range.offset) && obj.range.offset >= obj.size) ||
+        (Number.isFinite(obj.range.length) && obj.range.length <= 0)
+      );
+      if (badObjRange || (parsedRange && parsedRange.kind === "unsatisfiable")) {
+        headers.set("Content-Range", `bytes */${obj.size}`);
+        return new Response(null, { status: 416, headers });
+      }
     }
 
     if (!obj.body) {
       return new Response(null, { status: 304, headers });
     }
 
-    if (rangeHeader && obj.range) {
-      const endByte = obj.range.end !== undefined
+    if (rangeHeader && (obj.range || (parsedRange && parsedRange.kind === "valid"))) {
+      const rOffset = (obj.range && Number.isFinite(obj.range.offset))
+        ? obj.range.offset
+        : (parsedRange && Number.isFinite(parsedRange.offset) ? parsedRange.offset : 0);
+      const rLength = (obj.range && Number.isFinite(obj.range.length))
+        ? obj.range.length
+        : (parsedRange && Number.isFinite(parsedRange.length) ? parsedRange.length : Math.max(0, obj.size - rOffset));
+      if (rOffset >= obj.size || rLength <= 0) {
+        headers.set("Content-Range", `bytes */${obj.size}`);
+        return new Response(null, { status: 416, headers });
+      }
+      const endByte = (obj.range && Number.isFinite(obj.range.end))
         ? obj.range.end
-        : obj.range.offset + obj.range.length - 1;
-      headers.set("Content-Range", `bytes ${obj.range.offset}-${endByte}/${obj.size}`);
-      headers.set("Content-Length", String(obj.range.length));
+        : Math.min(obj.size - 1, rOffset + rLength - 1);
+      headers.set("Content-Range", `bytes ${rOffset}-${endByte}/${obj.size}`);
+      headers.set("Content-Length", String(endByte - rOffset + 1));
       return new Response(obj.body, { status: 206, headers });
     }
 
@@ -1025,21 +1042,25 @@ export async function handleScheduled(event, env, ctx) {
   const kv = env && env.MUSIC_QUOTA_KV;
   if (!kv || typeof kv.put !== "function") return;
 
-  const tracker = await loadQuotaSnapshot(env, now);
-  tracker.loadedAt = 0; // Force fresh remote read during cron reconciliation
-  await loadQuotaSnapshot(env, now);
-
-  const [telemetry, remoteStorage] = await Promise.all([
-    fetchCloudflareR2Telemetry(env, now),
+  const tracker = getIsolateTracker(env);
+  const [remoteState, remoteStorage, telemetry] = await Promise.all([
+    readKvJson(kv, QUOTA_STATE_KEY),
     readKvJson(kv, QUOTA_STORAGE_KEY),
+    fetchCloudflareR2Telemetry(env, now),
   ]);
   const periods = currentUtcPeriods(now);
-  let next = rollQuotaPeriods(tracker.state, now);
+  let next = mergeQuotaStates(tracker.state, remoteState, remoteStorage, env, now);
+  if (tracker.pendingReqs > 0 || tracker.pendingClassB > 0) {
+    next.dailyReqs = (next.dailyReqs || 0) + tracker.pendingReqs;
+    next.monthlyClassB = (next.monthlyClassB || 0) + tracker.pendingClassB;
+    tracker.pendingReqs = 0;
+    tracker.pendingClassB = 0;
+  }
 
   if (telemetry) {
     next.monthlyClassB = Math.max(next.monthlyClassB || 0, telemetry.classB);
     next.monthlyClassA = Math.max(next.monthlyClassA || 0, telemetry.classA);
-    next.storageBytes = telemetry.storageBytes;
+    next.storageBytes = Math.max(next.storageBytes || 0, telemetry.storageBytes || 0);
     next.analyticsSyncedAt = telemetry.syncedAt;
   }
   applyRemoteStorageRecord(next, remoteStorage);
@@ -1047,6 +1068,8 @@ export async function handleScheduled(event, env, ctx) {
   next.updatedAt = periods.iso;
 
   tracker.state = next;
+  tracker.loadedAt = now.getTime();
+  tracker.flushedAt = now.getTime();
   const evalResult = evaluateQuotaShield(tracker, env);
   if (evalResult.shielded && evalResult.reason !== "manual_pause") {
     next.tripped = true;
