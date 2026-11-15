@@ -41,19 +41,19 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v31", () => {
+test("HTML/SW/CSS structural invariants & asset version v32", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=31",
-    "js/user-state.js?v=31",
-    "js/library-loader.js?v=31",
-    "js/audio-fx.js?v=31",
-    "js/lyrics.js?v=31",
-    "js/studio-ui.js?v=31",
-    "app.js?v=31",
+    "js/catalog-data.js?v=32",
+    "js/user-state.js?v=32",
+    "js/library-loader.js?v=32",
+    "js/audio-fx.js?v=32",
+    "js/lyrics.js?v=32",
+    "js/studio-ui.js?v=32",
+    "app.js?v=32",
   ];
 
   let lastPos = -1;
@@ -63,7 +63,7 @@ test("HTML/SW/CSS structural invariants & asset version v31", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=31"'), "index.html missing style.css?v=31");
+  assert.ok(html.includes('href="style.css?v=32"'), "index.html missing style.css?v=32");
   assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
   assert.ok(html.includes("script-src 'self'"), "CSP must restrict script-src to 'self'");
   assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'), "index.html missing referrer policy meta");
@@ -73,7 +73,7 @@ test("HTML/SW/CSS structural invariants & asset version v31", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v31";'), "sw.js VERSION must match v31");
+  assert.ok(sw.includes('const VERSION = "v32";'), "sw.js VERSION must match v32");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
@@ -291,4 +291,12 @@ test("music.json & lyrics.json integrity on disk", () => {
   const lyricsMap = JSON.parse(fs.readFileSync(path.join(ROOT, "lyrics.json"), "utf8"));
   assert.equal(typeof lyricsMap, "object");
   assert.ok(Object.keys(lyricsMap).length > 50, "lyrics.json must contain catalog entries");
+
+  const swanKey = "music/Tchaikovsky Swan Lake Suite, Op. 20a I. Scene Swan Theme. Moderato - Berliner Philharmoniker.mp3";
+  const swanTrack = musicList.find((t) => t.url === swanKey);
+  assert.ok(swanTrack, "Swan Lake Suite track must exist in music.json");
+  assert.equal(swanTrack.genre, "古典沙龙 · 剧场礼乐");
+  assert.equal(swanTrack.artist, "Pyotr Ilyich Tchaikovsky, Berliner Philharmoniker");
+  assert.equal(swanTrack.title, "Swan Lake Suite, Op. 20a: I. Scene (Swan Theme. Moderato)");
+  assert.deepEqual(lyricsMap[swanKey], { type: "instrumental" });
 });

@@ -93,7 +93,8 @@ def load_json_safe(path, default):
 
 
 def scan_library(root_dir, no_online=False, prev_meta=None, force_rehash=False):
-    existing_lyrics = load_json_safe(os.path.join(root_dir, LYRICS_CACHE_FILENAME), {})
+    existing_lyrics = dict(load_json_safe(os.path.join(REPO_ROOT, LYRICS_CACHE_FILENAME), {}))
+    existing_lyrics.update(load_json_safe(os.path.join(root_dir, LYRICS_CACHE_FILENAME), {}))
     cached_meta = prev_meta if isinstance(prev_meta, dict) else {}
     next_meta = {}
     tracks = []
@@ -151,14 +152,7 @@ def scan_library(root_dir, no_online=False, prev_meta=None, force_rehash=False):
                     digest = prev_entry["sha256"]
                 else:
                     artist, album, title, raw_genre, dur, embedded_lrc = gen_music.read_tags_and_info(full_path)
-                    if not artist:
-                        artist = gen_music.MANUAL_ARTIST.get(fname, "")
-                    if not title:
-                        title = os.path.splitext(fname)[0].replace("_", " ").replace("-", " ").strip()
-                        title = " ".join(title.split())
-                    for suffix in (" spotdown.org", " (SPOTISAVER)"):
-                        if title.endswith(suffix):
-                            title = title[: -len(suffix)].strip()
+                    artist, title = gen_music.parse_stem_artist_title(fname, artist, title)
 
                     genre = gen_music.resolve_genre(fname, artist, raw_genre)
                     if genre == "其他典藏" and rel_dir:
@@ -179,17 +173,6 @@ def scan_library(root_dir, no_online=False, prev_meta=None, force_rehash=False):
                 }
                 tracks.append(track_obj)
                 media_files[rel_key] = (full_path, ext, digest)
-                next_meta[rel_key] = {
-                    "size": file_size,
-                    "mtime_ns": file_mtime_ns,
-                    "sha256": digest,
-                    "track": {
-                        "artist": artist,
-                        "album": album,
-                        "title": title,
-                        "genre": genre,
-                    },
-                }
 
                 sidecar = os.path.splitext(full_path)[0] + ".lrc"
                 if os.path.isfile(sidecar):
@@ -197,6 +180,10 @@ def scan_library(root_dir, no_online=False, prev_meta=None, force_rehash=False):
                         new_lyrics[rel_key] = {"type": "synced", "lrc": gen_music.clean_lrc_text(sf.read())}
                 elif rel_key in existing_lyrics:
                     new_lyrics[rel_key] = existing_lyrics[rel_key]
+                elif ("music/" + rel_key) in existing_lyrics:
+                    new_lyrics[rel_key] = existing_lyrics["music/" + rel_key]
+                elif stat_hit and isinstance(prev_entry.get("lyric"), dict):
+                    new_lyrics[rel_key] = prev_entry["lyric"]
                 elif embedded_lrc:
                     new_lyrics[rel_key] = {"type": "synced", "lrc": gen_music.clean_lrc_text(embedded_lrc)}
                 elif not no_online:
@@ -208,6 +195,20 @@ def scan_library(root_dir, no_online=False, prev_meta=None, force_rehash=False):
                         fetched = gen_music.fetch_online_lyrics(artist, title, album, dur)
                         if fetched:
                             new_lyrics[rel_key] = fetched
+
+                next_meta[rel_key] = {
+                    "size": file_size,
+                    "mtime_ns": file_mtime_ns,
+                    "sha256": digest,
+                    "track": {
+                        "artist": artist,
+                        "album": album,
+                        "title": title,
+                        "genre": genre,
+                    },
+                }
+                if rel_key in new_lyrics:
+                    next_meta[rel_key]["lyric"] = new_lyrics[rel_key]
             elif ext in gen_music.IMG_EXTS:
                 base = os.path.splitext(fname)[0].lower()
                 if base in gen_music.COVER_NAMES or rel_dir not in covers:

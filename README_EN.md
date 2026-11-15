@@ -8,7 +8,7 @@
 [**简体中文**](README.md) · **English**
 
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_Listen_Live-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
-[![Tracks](https://img.shields.io/badge/Records-209_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
+[![Tracks](https://img.shields.io/badge/Records-210_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
 [![Genres](https://img.shields.io/badge/Collections-18_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections-18-editions)
 [![Lyrics](https://img.shields.io/badge/Scrolling_Lyrics-Synced_Bilingual_LRC-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
 
@@ -37,9 +37,9 @@
 ## 🏛️ Key Highlights
 
 - **Victorian Vinyl Gramophone Aesthetic**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and a responsive layout that adapts seamlessly from a two-column desktop salon to an iPad two-row cabinet and a slide-up mobile drawer.
-- **18 Curated Record Collections & National Anthem Editions**: **209 tracks across 158 artists**, organized into 11 salon genres and 7 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan, United Kingdom). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
+- **18 Curated Record Collections & National Anthem Editions**: **210 tracks across 159 artists**, organized into 11 salon genres and 7 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan, United Kingdom). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
 - **Time-Synced Scrolling Lyrics (Victorian Libretto Folio)**:
-  - **163 vocal & analog-broadcast tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 117 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **46 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
+  - **163 vocal & analog-broadcast tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 117 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **47 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
 - **Zero API Limits · Lazy Lyrics · PWA Offline Cache & Smart Preload**: Instant boot from same-origin [`music.json`](music.json) paired with 64-bit FNV-1a library signatures; [`lyrics.json`](lyrics.json) now loads strictly on demand upon track playback (zero cold-boot lyric transfer); [`sw.js`](sw.js) and [`manifest.webmanifest`](manifest.webmanifest) deliver Range-safe offline track caching, while **⚙️ Cabinet Settings** connects any public/private GitHub repo.
@@ -70,7 +70,7 @@
 
 | Collection | Featured Artists | Curatorial Notes | Tracks |
 | :--- | :--- | :--- | :---: |
-| **古典沙龙 · 剧场礼乐**<br>*(Classical Salon & Tango)* | Erik Satie · Pachelbel's Canon · Chopin / Debussy / Beethoven · Caruso / Pavarotti · Red Army Choir | Chamber cello & piano, vintage Russian and Argentine tangos, and choral marches | **19** |
+| **古典沙龙 · 剧场礼乐**<br>*(Classical Salon & Tango)* | Tchaikovsky · Erik Satie · Chopin / Debussy / Beethoven · Caruso / Pavarotti · Red Army Choir | Orchestral ballet suites, chamber cello & piano, vintage Russian and Argentine tangos, and choral marches | **20** |
 | **黄金年代 · 爵士名伶**<br>*(Golden Era Vocal Jazz)* | Billie Holiday · Ella Fitzgerald · Chet Baker · Julie London | 1930s–60s smoky jazz divas, crooners, and velvet swing standards | **18** |
 | **交响爵士 · 浪漫夜曲**<br>*(Symphonic & Night Jazz)* | Laufey & Iceland Symphony Orchestra · Anthony Lazaro | Contemporary vocal jazz interwoven with lush orchestral arrangements | **16** |
 | **先锋浪潮 · 独立摇滚**<br>*(Indie Rock & Post-Rock)* | Omnipotent Youth Society · No Party For Cao Dong · Hedgehog · Wang Wen | Contemporary Chinese indie bands, post-rock instrumentals, and synth-wave | **15** |

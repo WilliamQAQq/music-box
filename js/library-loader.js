@@ -473,13 +473,18 @@
       }
 
       ordered.sort((a, b) => {
-        const al = String(a.artist || "").toLowerCase();
-        const bl = String(b.artist || "").toLowerCase();
+        const aa = String(a.artist || "");
+        const ba = String(b.artist || "");
+        const al = aa.toLowerCase();
+        const bl = ba.toLowerCase();
         if (al !== bl) return al < bl ? -1 : 1;
-        return String(a.title || "").localeCompare(String(b.title || ""), undefined, {
-          numeric: true,
-          sensitivity: "base",
-        });
+        if (aa !== ba) return aa < ba ? -1 : 1;
+        const at = String(a.title || "");
+        const bt = String(b.title || "");
+        const atl = at.toLowerCase();
+        const btl = bt.toLowerCase();
+        if (atl !== btl) return atl < btl ? -1 : 1;
+        return at < bt ? -1 : (at > bt ? 1 : 0);
       });
       return { tracks: ordered, covers: mergedCovers };
     }

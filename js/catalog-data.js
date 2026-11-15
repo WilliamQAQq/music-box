@@ -291,6 +291,9 @@
     "claude debussy": "古典沙龙 · 剧场礼乐",
     "ludwig van beethoven": "古典沙龙 · 剧场礼乐",
     "antonio vivaldi": "古典沙龙 · 剧场礼乐",
+    "pyotr ilyich tchaikovsky, berliner philharmoniker": "古典沙龙 · 剧场礼乐",
+    "pyotr ilyich tchaikovsky": "古典沙龙 · 剧场礼乐",
+    "berliner philharmoniker": "古典沙龙 · 剧场礼乐",
     "中国人民解放军军乐团": "国歌军乐 · 中国",
     "中央乐团合唱团": "国歌军乐 · 中国",
     "中国人民解放军总政歌舞团": "国歌军乐 · 中国",
@@ -424,6 +427,7 @@
     "The Red Army Choir - Kalinka (Калинка).mp3": "古典沙龙 · 剧场礼乐",
     "National Anthem- United States - Star Spangled Banner.mp3": "古典沙龙 · 剧场礼乐",
     "United States of America National Anthem (Instrumental).mp3": "古典沙龙 · 剧场礼乐",
+    "Tchaikovsky Swan Lake Suite, Op. 20a I. Scene Swan Theme. Moderato - Berliner Philharmoniker.mp3": "古典沙龙 · 剧场礼乐",
 
     // 暗夜怪谈 · 模拟恐怖
     "Mandela Catalogue_ Amazing Grace (Full Version).mp3": "暗夜怪谈 · 模拟恐怖",

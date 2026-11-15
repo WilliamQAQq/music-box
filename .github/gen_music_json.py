@@ -27,6 +27,7 @@ MANUAL_ARTIST = {
     "Francis_Shaw_-_Military_March_(SkySound7.com).mp3": "Francis Shaw",
     "Mandela Catalogue_ Amazing Grace (Full Version).mp3": "Mandela Catalogue",
     "National Anthem- United States - Star Spangled Banner.mp3": "美国国歌",
+    "Tchaikovsky Swan Lake Suite, Op. 20a I. Scene Swan Theme. Moderato - Berliner Philharmoniker.mp3": "Pyotr Ilyich Tchaikovsky, Berliner Philharmoniker",
     "United States of America National Anthem (Instrumental).mp3": "美国国歌",
     "Вадим Казаченко - Прощай навеки, последняя любовь.mp3": "Вадим Казаченко",
 }
@@ -162,6 +163,9 @@ ARTIST_GENRE = {
     "claude debussy": "古典沙龙 · 剧场礼乐",
     "ludwig van beethoven": "古典沙龙 · 剧场礼乐",
     "antonio vivaldi": "古典沙龙 · 剧场礼乐",
+    "pyotr ilyich tchaikovsky, berliner philharmoniker": "古典沙龙 · 剧场礼乐",
+    "pyotr ilyich tchaikovsky": "古典沙龙 · 剧场礼乐",
+    "berliner philharmoniker": "古典沙龙 · 剧场礼乐",
 
     # 9. 国歌军乐 · 中国 (National Anthems & Military Marches - China)
     "中国人民解放军军乐团": "国歌军乐 · 中国",
@@ -307,6 +311,7 @@ MANUAL_GENRE = {
     "The Red Army Choir - Kalinka (Калинка).mp3": "古典沙龙 · 剧场礼乐",
     "National Anthem- United States - Star Spangled Banner.mp3": "古典沙龙 · 剧场礼乐",
     "United States of America National Anthem (Instrumental).mp3": "古典沙龙 · 剧场礼乐",
+    "Tchaikovsky Swan Lake Suite, Op. 20a I. Scene Swan Theme. Moderato - Berliner Philharmoniker.mp3": "古典沙龙 · 剧场礼乐",
 
     # 暗夜怪谈 · 模拟恐怖
     "Mandela Catalogue_ Amazing Grace (Full Version).mp3": "暗夜怪谈 · 模拟恐怖",
@@ -386,17 +391,19 @@ def read_tags_and_info(path):
     try:
         import mutagen
         raw = mutagen.File(path)
-        dur = round(raw.info.length, 1) if raw and getattr(raw, "info", None) else 0
+        info = getattr(raw, "info", None) if raw is not None else None
+        dur = round(info.length, 1) if info is not None and getattr(info, "length", None) else 0
         embedded_lrc = ""
-        if raw and getattr(raw, "tags", None):
-            for k in raw.tags.keys():
+        raw_tags = getattr(raw, "tags", None) if raw is not None else None
+        if raw_tags:
+            for k in raw_tags.keys():
                 if k.startswith(("USLT", "©lyr", "LYRICS")):
-                    val = raw.tags[k]
+                    val = raw_tags[k]
                     embedded_lrc = str(getattr(val, "text", val)).strip()
                     if embedded_lrc:
                         break
         t = mutagen.File(path, easy=True)
-        if t is None or not t.tags:
+        if t is None or not getattr(t, "tags", None):
             return "", "", "", "", dur, embedded_lrc
 
         def first(key):
@@ -406,6 +413,65 @@ def read_tags_and_info(path):
         return first("artist"), first("album"), first("title"), first("genre"), dur, embedded_lrc
     except Exception:
         return "", "", "", "", 0, ""
+
+
+def parse_stem_artist_title(fname, artist="", title=""):
+    """Fallback artist/title extraction from filename when ID3 tags are absent."""
+    stem = os.path.splitext(fname)[0]
+    for suffix in ("_spotdown.org", " spotdown.org", " (SPOTISAVER)"):
+        if stem.lower().endswith(suffix.lower()):
+            stem = stem[: -len(suffix)].strip()
+
+    if not artist:
+        artist = MANUAL_ARTIST.get(fname, "")
+
+    if not title:
+        raw_stem = stem.replace("_-_", " - ")
+        if " - " in raw_stem:
+            left, right = raw_stem.split(" - ", 1)
+            left, right = left.strip(), right.strip()
+            if not artist:
+                artist = left.replace("_", " ").strip()
+                title = right
+            elif artist.lower() == left.lower():
+                title = right
+            elif artist.lower() == right.lower() or right.lower() in artist.lower():
+                title = left
+            else:
+                title = raw_stem
+        else:
+            title = raw_stem.replace("-", " ")
+        title = " ".join(title.replace("_", " ").split())
+
+    for suffix in (" spotdown.org", " (SPOTISAVER)"):
+        if title.endswith(suffix):
+            title = title[: -len(suffix)].strip()
+    return artist, title
+
+
+INSTRUMENTAL_HINT_RE = re.compile(
+    r"\b(instrumental|symphony|concerto|sonata|nocturne|prelude|overture|suite,\s*op\.|gymnop[eé]die|clair de lune|four seasons|philharmoniker|philharmonic)\b|纯音乐|器乐",
+    re.I,
+)
+LRC_TS_SECONDS_RE = re.compile(r"\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]")
+
+
+def is_likely_instrumental(artist, title, album="", raw_genre=""):
+    blob = " ".join([artist or "", title or "", album or "", raw_genre or ""])
+    return bool(INSTRUMENTAL_HINT_RE.search(blob))
+
+
+def max_lrc_timestamp_sec(lrc_text):
+    max_sec = 0.0
+    for m in LRC_TS_SECONDS_RE.finditer(lrc_text or ""):
+        mins = int(m.group(1))
+        secs = int(m.group(2))
+        frac_str = m.group(3) or "0"
+        frac = int(frac_str) / (10 ** len(frac_str))
+        t = mins * 60 + secs + frac
+        if t > max_sec:
+            max_sec = t
+    return max_sec
 
 
 META_TAG_RE = re.compile(r"^\[(id|ar|ti|al|by|hash|sign|qq|total|re|ve):.*\]$", re.I)
@@ -427,6 +493,9 @@ def clean_lrc_text(text):
 
 def fetch_online_lyrics(artist, title, album, target_dur):
     """Best-effort online LRC lookup for newly uploaded tracks."""
+    if is_likely_instrumental(artist, title, album):
+        return {"type": "instrumental"}
+
     # 1. NetEase Cloud Music
     try:
         q = ("%s %s" % (artist, title)).strip()
@@ -511,7 +580,10 @@ def fetch_online_lyrics(artist, title, album, target_dur):
     except Exception:
         pass
 
-    # 4. api.lrc.cx fallback
+    # 4. api.lrc.cx fallback (skip blind durationless fallback for pure instrumental works)
+    if is_likely_instrumental(artist, title, album):
+        return {"type": "instrumental"}
+
     try:
         params = {"title": title, "artist": artist}
         if album and album != "Unknown Album":
@@ -520,7 +592,9 @@ def fetch_online_lyrics(artist, title, album, target_dur):
         with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "MusicBox/1.0"}), timeout=8) as r:
             lrc = clean_lrc_text(r.read().decode("utf-8", errors="replace"))
         if len(TIME_TAG_RE.findall(lrc)) >= 3:
-            return {"type": "synced", "lrc": lrc}
+            max_ts = max_lrc_timestamp_sec(lrc)
+            if target_dur <= 0 or max_ts <= target_dur + 20:
+                return {"type": "synced", "lrc": lrc}
     except Exception:
         pass
     return None
@@ -565,15 +639,7 @@ def main():
             if ext in AUDIO_EXTS:
                 full_path = os.path.join(root, fname)
                 artist, album, title, raw_genre, dur, embedded_lrc = read_tags_and_info(full_path)
-                if not artist:
-                    artist = MANUAL_ARTIST.get(fname, "")
-                if not title:
-                    title = os.path.splitext(fname)[0]
-                    title = title.replace("_", " ").replace("-", " ").strip()
-                    title = " ".join(title.split())
-                for suffix in (" spotdown.org", " (SPOTISAVER)"):
-                    if title.endswith(suffix):
-                        title = title[: -len(suffix)].strip()
+                artist, title = parse_stem_artist_title(fname, artist, title)
                 genre = resolve_genre(fname, artist, raw_genre)
                 tracks.append({
                     "title": title,
