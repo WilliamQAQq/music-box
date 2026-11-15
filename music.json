@@ -80,14 +80,6 @@
     "dir": "music"
   },
   {
-    "title": "God Save the King (天佑吾王 - 英国国歌)",
-    "artist": "Band of the Grenadier Guards",
-    "album": "国歌军乐特辑",
-    "genre": "国歌军乐 · 英国",
-    "url": "music/Band of the Grenadier Guards - God Save the King (天佑吾王 - 英国国歌).mp3",
-    "dir": "music"
-  },
-  {
     "title": "Canon In D - Piano & Cello",
     "artist": "Benny Martin/The Wong Janice",
     "album": "Canon In D (Piano & Cello)",
@@ -917,6 +909,14 @@
     "album": "流金热浪 · 时代新声",
     "genre": "流金热浪 · 时代新声",
     "url": "music/ROSÉ, Bruno Mars - APT.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "God Save the King (天佑吾王 - 英国国歌)",
+    "artist": "Royal Philharmonic Orchestra, City of London Choir",
+    "album": "God Save The King (British National Anthem)",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/Band of the Grenadier Guards - God Save the King (天佑吾王 - 英国国歌).mp3",
     "dir": "music"
   },
   {

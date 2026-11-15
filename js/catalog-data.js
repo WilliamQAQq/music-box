@@ -335,6 +335,7 @@
     "帝国海軍軍楽隊": "国歌军乐 · 日本",
     "帝国海軍軍楽隊 (1909)": "国歌军乐 · 日本",
     "band of the grenadier guards": "国歌军乐 · 英国",
+    "royal philharmonic orchestra, city of london choir": "国歌军乐 · 英国",
     "military band": "国歌军乐 · 英国",
     "f. j. ricketts (kenneth j. alford)": "国歌军乐 · 英国",
     "dame clara butt": "国歌军乐 · 英国",

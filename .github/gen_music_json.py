@@ -221,6 +221,7 @@ ARTIST_GENRE = {
 
     # 15. 国歌军乐 · 英国 (National Anthems & Military Marches - UK)
     "band of the grenadier guards": "国歌军乐 · 英国",
+    "royal philharmonic orchestra, city of london choir": "国歌军乐 · 英国",
     "military band": "国歌军乐 · 英国",
     "f. j. ricketts (kenneth j. alford)": "国歌军乐 · 英国",
     "dame clara butt": "国歌军乐 · 英国",
@@ -453,11 +454,14 @@ INSTRUMENTAL_HINT_RE = re.compile(
     r"\b(instrumental|symphony|concerto|sonata|nocturne|prelude|overture|suite,\s*op\.|gymnop[eé]die|clair de lune|four seasons|philharmoniker|philharmonic)\b|纯音乐|器乐",
     re.I,
 )
+VOCAL_HINT_RE = re.compile(r"\b(choir|chorus|vocal|tenor|soprano|baritone)\b|合唱|演唱", re.I)
 LRC_TS_SECONDS_RE = re.compile(r"\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]")
 
 
 def is_likely_instrumental(artist, title, album="", raw_genre=""):
     blob = " ".join([artist or "", title or "", album or "", raw_genre or ""])
+    if VOCAL_HINT_RE.search(blob) and "instrumental" not in blob.lower():
+        return False
     return bool(INSTRUMENTAL_HINT_RE.search(blob))
 
 
