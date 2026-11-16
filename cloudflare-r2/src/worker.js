@@ -491,7 +491,7 @@ function applySecurityHeaders(headers, corsOrigin) {
 }
 
 function sanitizeMediaKey(rawEncodedPath) {
-  if (!rawEncodedPath || rawEncodedPath.length > 512) return null;
+  if (!rawEncodedPath || rawEncodedPath.length > 1536) return null;
   const decodedSegments = [];
   for (const seg of rawEncodedPath.split("/")) {
     if (!seg) continue;
@@ -516,6 +516,7 @@ function sanitizeMediaKey(rawEncodedPath) {
   }
   if (!decodedSegments.length) return null;
   const fullKey = decodedSegments.join("/");
+  if (fullKey.length > 512) return null;
   const dot = fullKey.lastIndexOf(".");
   if (dot <= 0) return null;
   const ext = fullKey.slice(dot + 1).toLowerCase();
@@ -524,42 +525,35 @@ function sanitizeMediaKey(rawEncodedPath) {
   return { key: fullKey, mime };
 }
 
+function parseRangeTokens(rangeHeader) {
+  const m = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+  if (!m || (m[1] === "" && m[2] === "")) return null;
+  const start = m[1] === "" ? null : Number(m[1]);
+  const end = m[2] === "" ? null : Number(m[2]);
+  if (start !== null && !Number.isSafeInteger(start)) return null;
+  if (end !== null && !Number.isSafeInteger(end)) return null;
+  if (start === null && end <= 0) return null;
+  if (start !== null && end !== null && start > end) return null;
+  return { start, end };
+}
+
 function isRangeHeaderSyntacticallyValid(rangeHeader) {
   if (!rangeHeader) return true;
-  const m = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
-  if (!m) return false;
-  if (m[1] === "" && m[2] === "") return false;
-  if (m[1] !== "" && m[2] !== "" && Number(m[1]) > Number(m[2])) return false;
-  if (m[1] === "" && Number(m[2]) <= 0) return false;
-  return true;
+  return parseRangeTokens(rangeHeader) !== null;
 }
 
 function parseByteRangeHeader(rangeHeader, totalSize) {
   if (!rangeHeader) return { kind: "none" };
-  const m = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
-  if (!m) return { kind: "invalid" };
-  const startRaw = m[1];
-  const endRaw = m[2];
-  if (startRaw === "" && endRaw === "") return { kind: "invalid" };
+  const tokens = parseRangeTokens(rangeHeader);
+  if (!tokens) return { kind: "invalid" };
   if (totalSize <= 0) return { kind: "unsatisfiable" };
-
-  let start;
-  let end;
-  if (startRaw === "") {
-    const suffix = Number(endRaw);
-    if (!Number.isFinite(suffix) || suffix <= 0) return { kind: "invalid" };
-    start = Math.max(0, totalSize - suffix);
-    end = totalSize - 1;
-  } else {
-    start = Number(startRaw);
-    end = endRaw === "" ? totalSize - 1 : Number(endRaw);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start) {
-      return { kind: "invalid" };
-    }
-    if (start >= totalSize) return { kind: "unsatisfiable" };
-    end = Math.min(end, totalSize - 1);
+  if (tokens.start === null) {
+    const start = Math.max(0, totalSize - tokens.end);
+    return { kind: "valid", offset: start, length: totalSize - start, end: totalSize - 1 };
   }
-  return { kind: "valid", offset: start, length: end - start + 1, end };
+  if (tokens.start >= totalSize) return { kind: "unsatisfiable" };
+  const end = tokens.end === null ? totalSize - 1 : Math.min(tokens.end, totalSize - 1);
+  return { kind: "valid", offset: tokens.start, length: end - tokens.start + 1, end };
 }
 
 function toHex(buffer) {
@@ -958,12 +952,12 @@ export async function handleRequest(request, env, ctx) {
       applySecurityHeaders(headers, originState.corsOrigin);
       return new Response(null, { status: 304, headers });
     }
-    if (!secret && method === "HEAD") {
+    if (method === "HEAD") {
       const headers = new Headers({
         "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": secret ? "private, no-store" : "public, max-age=60",
       });
-      if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
+      if (!secret && obj.httpEtag) headers.set("ETag", obj.httpEtag);
       applySecurityHeaders(headers, originState.corsOrigin);
       return new Response(null, { status: 200, headers });
     }

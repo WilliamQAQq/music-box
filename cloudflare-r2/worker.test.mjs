@@ -751,6 +751,50 @@ test("monotonic quota merge prevents lagging KV from rolling counters backward a
       makeEnv()
     );
     assert.equal(lyrics304.status, 304);
+
+    // UTF-8 percent-encoded CJK key > 512 raw chars but <= 512 decoded chars succeeds
+    const cjkKey = `${"流派".repeat(45)}/${"交响曲".repeat(15)}.mp3`; // 138 decoded chars, > 1200 encoded chars
+    const cjkEnv = makeEnv({
+      MUSIC_BUCKET: makeMockBucket({
+        [cjkKey]: { body: new Uint8Array([1, 2, 3, 4]), contentType: "audio/mpeg", etag: '"cjk"' },
+      }),
+    });
+    const encodedCjkPath = cjkKey.split("/").map(encodeURIComponent).join("/");
+    assert.ok(encodedCjkPath.length > 512 && encodedCjkPath.length <= 1536);
+    const cjkRes = await handleRequest(
+      new Request(`https://worker.example/media/${encodedCjkPath}`, { headers: originHeaders }),
+      cjkEnv
+    );
+    assert.equal(cjkRes.status, 200, "Valid UTF-8 encoded key <= 512 decoded chars must be accepted");
+
+    // Too-long decoded key (> 512 decoded chars) is rejected with 400
+    const tooLongDecoded = `${"a".repeat(510)}.mp3`;
+    const tooLongRes = await handleRequest(
+      new Request(`https://worker.example/media/${tooLongDecoded}`, { headers: originHeaders }),
+      makeEnv()
+    );
+    assert.equal(tooLongRes.status, 400);
+
+    // Overflowing Range integers (> MAX_SAFE_INTEGER) rejected cleanly with 416
+    const overflowRangeRes = await handleRequest(
+      new Request("https://worker.example/media/%E6%B0%91%E8%B0%A3%E8%AF%97%E7%AF%87/Test%20Track.mp3", {
+        headers: { ...originHeaders, Range: "bytes=99999999999999999999-999999999999999999999" },
+      }),
+      makeEnv()
+    );
+    assert.equal(overflowRangeRes.status, 416);
+
+    // HEAD /manifest.json in ACCESS_KEY mode returns 200 with private no-store & empty body
+    const headSecretRes = await handleRequest(
+      new Request("https://worker.example/manifest.json", {
+        method: "HEAD",
+        headers: { ...originHeaders, "X-Music-Key": "secret-key" },
+      }),
+      makeEnv({ ACCESS_KEY: "secret-key" })
+    );
+    assert.equal(headSecretRes.status, 200);
+    assert.equal(headSecretRes.headers.get("Cache-Control"), "private, no-store");
+    assert.equal(await headSecretRes.text(), "");
   } finally {
     globalThis.fetch = origFetch;
   }

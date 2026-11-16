@@ -1852,19 +1852,30 @@
     }
     syncSlider(els.seek);
     els.durTime.textContent = fmtTime(audio.duration);
+    updateMediaSessionPosition();
   }
 
   audio.addEventListener("loadedmetadata", updateDuration);
   audio.addEventListener("durationchange", updateDuration);
 
   audio.addEventListener("timeupdate", () => {
+    if (pendingSeekSec > 0) {
+      if (isFinite(audio.duration)) updateDuration();
+      return;
+    }
     const cur = audio.currentTime || 0;
     if (!isSeeking && isFinite(audio.duration)) {
       // A-B 复读检查
       const abJump = userState.getAbJumpTarget(cur);
       if (abJump !== null) {
         audio.currentTime = abJump;
+        els.seek.value = abJump;
+        syncSlider(els.seek);
+        const jumpSec = Math.floor(abJump);
+        lastShownCurSec = jumpSec;
+        els.curTime.textContent = fmtTime(jumpSec);
         lyricsCtrl.syncToTime(abJump, true);
+        updateMediaSessionPosition();
         return;
       }
 
@@ -1899,11 +1910,15 @@
   audio.addEventListener("seeked", () => {
     lastShownCurSec = Math.floor(audio.currentTime || 0);
     lyricsCtrl.syncToTime(audio.currentTime || 0, false);
+    updateMediaSessionPosition();
   });
+
+  audio.addEventListener("ratechange", updateMediaSessionPosition);
 
   audio.addEventListener("play", () => {
     setPlayingUI(true);
     audioFx.onPlay();
+    updateMediaSessionPosition();
   });
 
   audio.addEventListener("playing", () => {
@@ -1931,6 +1946,7 @@
   audio.addEventListener("pause", () => {
     setPlayingUI(false);
     audioFx.onPauseOrEnd();
+    updateMediaSessionPosition();
     lyricsCtrl.updateCollapsedSubtitle();
     clearTimeout(preloadTimer);
     preloadTimer = null;
@@ -2032,6 +2048,18 @@
       try { navigator.mediaSession.setActionHandler(k, handlers[k]); } catch (e) { /* 不支持该动作 */ }
     });
     return s;
+  }
+
+  function updateMediaSessionPosition() {
+    if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return;
+    if (!isFinite(audio.duration) || audio.duration <= 0) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: Math.max(0.25, Math.min(4, audio.playbackRate || 1)),
+        position: Math.max(0, Math.min(audio.duration, audio.currentTime || 0)),
+      });
+    } catch (e) { /* 忽略浏览器未就绪或不支持的字段异常 */ }
   }
 
   function updateMediaSession(t, cover) {

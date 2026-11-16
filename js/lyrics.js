@@ -92,14 +92,19 @@
     return { type: "synced", lines, hasTrans };
   }
 
+  const LIVE_LYRICS_TIMEOUT_MS = 8000;
+
   async function fetchLiveLyricsFallback(track) {
     const params = new URLSearchParams({ title: track.title || "" });
     if (track.artist) params.set("artist", track.artist);
     if (track.album && track.album.toLowerCase() !== "unknown album") {
       params.set("album", track.album);
     }
+    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), LIVE_LYRICS_TIMEOUT_MS) : null;
     try {
-      const res = await fetch("https://api.lrc.cx/lyrics?" + params.toString());
+      const fetchOpts = ctrl ? { signal: ctrl.signal } : undefined;
+      const res = await fetch("https://api.lrc.cx/lyrics?" + params.toString(), fetchOpts);
       if (!res.ok) return null;
       const text = await res.text();
       if (!text || !text.trim()) return null;
@@ -109,6 +114,8 @@
       return { type: "synced", lrc: text };
     } catch (e) {
       return null;
+    } finally {
+      if (timer !== null) clearTimeout(timer);
     }
   }
 
@@ -378,7 +385,9 @@
       els.lyricsSearchCount.textContent = matchCount ? matchCount + " 处匹配" : "无匹配";
       if (firstMatchIdx !== -1 && lyricLineEls[firstMatchIdx]) {
         enterUserScrollMode();
-        lyricLineEls[firstMatchIdx].scrollIntoView({ block: "center", behavior: "auto" });
+        if (isVisible()) {
+          scrollLyricElToCenter(lyricLineEls[firstMatchIdx], true);
+        }
       }
     }
 
@@ -520,15 +529,13 @@
       return hi;
     }
 
-    async function centerActiveLyric(immediate) {
-      if (userScrolling || !isVisible()) return;
+    async function scrollLyricElToCenter(targetEl, immediate) {
       const scroller = els.lyricsScroll;
-      const activeEl = activeLyricIndex >= 0 ? lyricLineEls[activeLyricIndex] : null;
-      if (!scroller || !activeEl) return;
+      if (!scroller || !targetEl) return;
 
       const targetTop = Math.max(
         0,
-        activeEl.offsetTop - scroller.clientHeight / 2 + activeEl.offsetHeight / 2
+        targetEl.offsetTop - scroller.clientHeight / 2 + targetEl.offsetHeight / 2
       );
       if (Math.abs(scroller.scrollTop - targetTop) < 2) return;
 
@@ -545,6 +552,12 @@
         programmaticScrollGuardUntil = Date.now() + 180;
       }
       if (seq !== lyricsScrollSeq) return;
+    }
+
+    async function centerActiveLyric(immediate) {
+      if (userScrolling || !isVisible()) return;
+      const activeEl = activeLyricIndex >= 0 ? lyricLineEls[activeLyricIndex] : null;
+      if (activeEl) await scrollLyricElToCenter(activeEl, immediate);
     }
 
     function scheduleAutoFollowResume() {

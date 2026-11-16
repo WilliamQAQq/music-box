@@ -203,6 +203,7 @@
     let analyserConnected = false;
     let synthDisconnectTimer = null;
     let vinylDisconnectTimer = null;
+    let eqDisconnectTimer = null;
     let audioSuspendTimer = null;
 
     let sleepFadeFactor = 1;
@@ -731,9 +732,27 @@
       }
     }
 
+    function disconnectEqBranchImmediate() {
+      if (!eqNodes || !eqConnected || !baseGraph) return;
+      safeDisconnect(baseGraph.postStage2Bus, eqNodes.low);
+      safeDisconnect(eqNodes.wetGain, baseGraph.masterGain);
+      eqConnected = false;
+    }
+
+    function scheduleEqDisconnect() {
+      clearTimeout(eqDisconnectTimer);
+      if (!eqConnected) return;
+      eqDisconnectTimer = setTimeout(() => {
+        eqDisconnectTimer = null;
+        if (!isEqActive()) disconnectEqBranchImmediate();
+      }, BYPASS_DISCONNECT_DELAY_MS);
+    }
+
     function syncEqBranch() {
       const wantEq = isEqActive();
       if (wantEq && !audio.paused) {
+        clearTimeout(eqDisconnectTimer);
+        eqDisconnectTimer = null;
         if (buildEqNodes() && !eqConnected) {
           baseGraph.postStage2Bus.connect(eqNodes.low);
           eqNodes.wetGain.connect(baseGraph.masterGain);
@@ -749,11 +768,7 @@
         eqNodes.mid.gain.setTargetAtTime(eqState.mid, time, 0.02);
         eqNodes.treble.gain.setTargetAtTime(eqState.treble, time, 0.02);
         eqNodes.wetGain.gain.setTargetAtTime(useEq ? 1 : 0, time, 0.02);
-        if (!wantEq && eqConnected) {
-          safeDisconnect(baseGraph.postStage2Bus, eqNodes.low);
-          safeDisconnect(eqNodes.wetGain, baseGraph.masterGain);
-          eqConnected = false;
-        }
+        if (!wantEq && eqConnected) scheduleEqDisconnect();
       }
     }
 

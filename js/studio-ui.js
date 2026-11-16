@@ -207,6 +207,30 @@
       }
     }
 
+    function sampleSpectrumBar(freqBuf, binCount, barIdx, totalBars) {
+      const usableBins = Math.max(2, Math.floor(binCount * 0.85));
+      const span = usableBins - 1;
+      const denom = Math.max(1, totalBars - 1);
+      const pos = Math.pow(barIdx / denom, 1.25) * span;
+      const endPos = Math.pow(Math.min(1, (barIdx + 1) / denom), 1.25) * span;
+      const lo = Math.floor(pos);
+      const hi = Math.min(binCount - 1, lo + 1);
+      const frac = pos - lo;
+      const rangeEnd = Math.min(binCount - 1, Math.floor(endPos));
+      if (rangeEnd > lo + 1) {
+        let sum = 0;
+        let peak = freqBuf[lo];
+        const count = rangeEnd - lo + 1;
+        for (let b = lo; b <= rangeEnd; b++) {
+          const v = freqBuf[b];
+          sum += v;
+          if (v > peak) peak = v;
+        }
+        return ((sum / count) * 0.65 + peak * 0.35) / 255;
+      }
+      return (freqBuf[lo] * (1 - frac) + freqBuf[hi] * frac) / 255;
+    }
+
     function renderSpectrumFrame() {
       rafId = null;
       if (!canAnimateSpectrum()) {
@@ -243,8 +267,7 @@
       const grad = cachedBarGrad;
 
       for (let i = 0; i < bars; i++) {
-        const binIdx = Math.min(binCount - 1, Math.floor((i / bars) * (binCount * 0.72)));
-        const raw = freqBuf[binIdx] / 255;
+        const raw = sampleSpectrumBar(freqBuf, binCount, i, bars);
         const barH = Math.max(3, raw * maxBarH);
         const x = i * (barW + gap);
         const y = h - 6 - barH;

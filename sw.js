@@ -1,4 +1,4 @@
-const VERSION = "v33";
+const VERSION = "v34";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v2";
@@ -7,14 +7,14 @@ const MAX_CACHED_AUDIO = 18;
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=33",
-  "./js/catalog-data.js?v=33",
-  "./js/user-state.js?v=33",
-  "./js/library-loader.js?v=33",
-  "./js/audio-fx.js?v=33",
-  "./js/lyrics.js?v=33",
-  "./js/studio-ui.js?v=33",
-  "./app.js?v=33",
+  "./style.css?v=34",
+  "./js/catalog-data.js?v=34",
+  "./js/user-state.js?v=34",
+  "./js/library-loader.js?v=34",
+  "./js/audio-fx.js?v=34",
+  "./js/lyrics.js?v=34",
+  "./js/studio-ui.js?v=34",
+  "./app.js?v=34",
   "./manifest.webmanifest",
 ];
 
@@ -35,21 +35,31 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+async function matchCacheFallback(cache, request) {
+  const cached = await cache.match(request, { ignoreSearch: true });
+  if (cached) return cached;
+  if (request.mode === "navigate") {
+    return cache.match("./index.html");
+  }
+  return null;
+}
+
 async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const res = await fetch(request);
     if (res && res.ok && res.type === "basic") {
       cache.put(request, res.clone()).catch(() => {});
+      return res;
+    }
+    if (res && res.status >= 500) {
+      const fallback = await matchCacheFallback(cache, request);
+      if (fallback) return fallback;
     }
     return res;
   } catch (err) {
-    const cached = await cache.match(request, { ignoreSearch: true });
-    if (cached) return cached;
-    if (request.mode === "navigate") {
-      const shell = await cache.match("./index.html");
-      if (shell) return shell;
-    }
+    const fallback = await matchCacheFallback(cache, request);
+    if (fallback) return fallback;
     throw err;
   }
 }
@@ -67,47 +77,48 @@ async function staleWhileRevalidate(request, cacheName) {
     return cached;
   }
   const net = await netPromise;
-  if (net) return net;
+  if (net && net.status < 500) return net;
   const fallback = await cache.match(request, { ignoreSearch: true });
-  return fallback || Response.error();
+  return fallback || net || Response.error();
 }
 
 function buildRangeResponse(fullRes, rangeHeader) {
-  return fullRes.arrayBuffer().then((buf) => {
-    const total = buf.byteLength;
+  return fullRes.blob().then((blob) => {
+    const total = blob.size;
     if (total <= 0) {
       return new Response(null, { status: 416, headers: { "Content-Range": "bytes */0" } });
     }
-    const match = /bytes=(\d*)-(\d*)/.exec(rangeHeader || "");
+    const match = /^bytes=(\d*)-(\d*)$/i.exec((rangeHeader || "").trim());
     if (!match || (match[1] === "" && match[2] === "")) {
       return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + total } });
     }
     let start = 0;
     let end = total - 1;
     if (match[1] === "") {
-      const suffix = parseInt(match[2], 10);
-      if (isNaN(suffix) || suffix <= 0) {
+      const suffix = Number(match[2]);
+      if (!Number.isSafeInteger(suffix) || suffix <= 0) {
         return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + total } });
       }
       start = Math.max(0, total - suffix);
     } else {
-      start = parseInt(match[1], 10);
+      start = Number(match[1]);
       if (match[2] !== "") {
-        end = parseInt(match[2], 10);
+        end = Number(match[2]);
       }
     }
-    if (isNaN(start) || start < 0 || start >= total || isNaN(end)) {
+    if (!Number.isSafeInteger(start) || start < 0 || start >= total || !Number.isSafeInteger(end)) {
       return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + total } });
     }
     if (end >= total) end = total - 1;
     if (start > end) {
       return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + total } });
     }
+    const mime = blob.type || fullRes.headers.get("Content-Type") || "application/octet-stream";
     const headers = new Headers(fullRes.headers);
     headers.set("Content-Range", "bytes " + start + "-" + end + "/" + total);
     headers.set("Content-Length", String(end - start + 1));
     headers.set("Accept-Ranges", "bytes");
-    return new Response(buf.slice(start, end + 1), { status: 206, statusText: "Partial Content", headers });
+    return new Response(blob.slice(start, end + 1, mime), { status: 206, statusText: "Partial Content", headers });
   });
 }
 
