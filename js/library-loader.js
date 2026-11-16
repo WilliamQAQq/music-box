@@ -472,21 +472,24 @@
         });
       }
 
-      ordered.sort((a, b) => {
-        const aa = String(a.artist || "");
-        const ba = String(b.artist || "");
-        const al = aa.toLowerCase();
-        const bl = ba.toLowerCase();
-        if (al !== bl) return al < bl ? -1 : 1;
-        if (aa !== ba) return aa < ba ? -1 : 1;
-        const at = String(a.title || "");
-        const bt = String(b.title || "");
-        const atl = at.toLowerCase();
-        const btl = bt.toLowerCase();
-        if (atl !== btl) return atl < btl ? -1 : 1;
-        return at < bt ? -1 : (at > bt ? 1 : 0);
+      const keyed = ordered.map((track) => {
+        const aa = String(track.artist || "");
+        const at = String(track.title || "");
+        return {
+          track,
+          aa,
+          al: aa.toLowerCase(),
+          at,
+          atl: at.toLowerCase(),
+        };
       });
-      return { tracks: ordered, covers: mergedCovers };
+      keyed.sort((a, b) => {
+        if (a.al !== b.al) return a.al < b.al ? -1 : 1;
+        if (a.aa !== b.aa) return a.aa < b.aa ? -1 : 1;
+        if (a.atl !== b.atl) return a.atl < b.atl ? -1 : 1;
+        return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0);
+      });
+      return { tracks: keyed.map((k) => k.track), covers: mergedCovers };
     }
 
     function getActiveSourceState() {

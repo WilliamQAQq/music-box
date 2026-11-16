@@ -694,6 +694,115 @@ function jsonResponse(data, status, corsOrigin, cacheControl = "no-store") {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
+/**
+ * Serves public JSON endpoints (/manifest.json, /lyrics.json) using streaming and
+ * PoP Edge Cache (after all origin and quota shield guards). Isolated per-origin CORS
+ * headers are stripped before caching and re-applied per request.
+ */
+async function servePublicJsonEndpoint(request, env, ctx, tracker, originState, options) {
+  const {
+    r2Key,
+    emptyFallback,
+    emptyCacheControl,
+    cacheControl,
+    cacheUrl,
+    now,
+    allowEdgeCache = true,
+  } = options;
+  const method = request.method.toUpperCase();
+  const ifNoneMatch = request.headers.get("if-none-match");
+  const reqCacheControl = (request.headers.get("cache-control") || "").toLowerCase();
+  const bypassCacheRead = reqCacheControl.includes("no-store") || reqCacheControl.includes("no-cache");
+  const allowCacheWrite = allowEdgeCache && !reqCacheControl.includes("no-store");
+  const edgeCache =
+    allowEdgeCache && typeof caches !== "undefined" && caches && caches.default ? caches.default : null;
+  const cacheKeyReq = edgeCache ? new Request(cacheUrl, { method: "GET" }) : null;
+
+  if (edgeCache && cacheKeyReq && !bypassCacheRead) {
+    const cached = await edgeCache.match(cacheKeyReq);
+    if (cached) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
+      const headers = new Headers(cached.headers);
+      headers.set("X-Edge-Cache", "HIT");
+      applySecurityHeaders(headers, originState.corsOrigin);
+      const etag = headers.get("etag");
+      if (ifNoneMatch && etag && ifNoneMatch === etag) {
+        cached.body?.cancel?.().catch(() => {});
+        return new Response(null, { status: 304, headers });
+      }
+      if (method === "HEAD") {
+        cached.body?.cancel?.().catch(() => {});
+        return new Response(null, { status: 200, headers });
+      }
+      return new Response(cached.body, { status: cached.status, headers });
+    }
+  }
+
+  await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
+  const obj = await env.MUSIC_BUCKET.get(r2Key, { onlyIf: request.headers });
+  if (!obj) {
+    return jsonResponse(emptyFallback, 200, originState.corsOrigin, emptyCacheControl);
+  }
+  if ((!obj.body && typeof obj.json !== "function") || (ifNoneMatch && obj.httpEtag && ifNoneMatch === obj.httpEtag)) {
+    const headers = new Headers({
+      "Cache-Control": cacheControl,
+    });
+    if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
+    applySecurityHeaders(headers, originState.corsOrigin);
+    return new Response(null, { status: 304, headers });
+  }
+  if (method === "HEAD") {
+    const headers = new Headers({
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": cacheControl,
+    });
+    if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
+    applySecurityHeaders(headers, originState.corsOrigin);
+    return new Response(null, { status: 200, headers });
+  }
+
+  let payload;
+  if (obj.body) {
+    payload = obj.body;
+  } else {
+    let data;
+    try {
+      data = await obj.json();
+    } catch {
+      return jsonResponse({ error: `Invalid ${r2Key} JSON in bucket` }, 502, originState.corsOrigin, "no-store");
+    }
+    payload = JSON.stringify(data);
+  }
+
+  const baseHeaders = new Headers({
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": cacheControl,
+  });
+  if (obj.httpEtag) baseHeaders.set("ETag", obj.httpEtag);
+
+  if (edgeCache && cacheKeyReq && allowCacheWrite) {
+    const cacheHeaders = new Headers(baseHeaders);
+    applySecurityHeaders(cacheHeaders, "");
+    cacheHeaders.delete("Vary");
+    const baseResp = new Response(payload, { status: 200, headers: cacheHeaders });
+    const cacheResp = baseResp.clone();
+    if (typeof ctx?.waitUntil === "function") {
+      ctx.waitUntil(edgeCache.put(cacheKeyReq, cacheResp));
+    } else {
+      await edgeCache.put(cacheKeyReq, cacheResp);
+    }
+    const clientHeaders = new Headers(baseHeaders);
+    clientHeaders.set("X-Edge-Cache", bypassCacheRead ? "BYPASS" : "MISS");
+    applySecurityHeaders(clientHeaders, originState.corsOrigin);
+    return new Response(baseResp.body, { status: 200, headers: clientHeaders });
+  }
+
+  const headers = new Headers(baseHeaders);
+  if (edgeCache) headers.set("X-Edge-Cache", "BYPASS");
+  applySecurityHeaders(headers, originState.corsOrigin);
+  return new Response(payload, { status: 200, headers });
+}
+
 export async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
@@ -938,66 +1047,52 @@ export async function handleRequest(request, env, ctx) {
   }
 
   if (url.pathname === "/manifest.json" || url.pathname === "/music.json") {
-    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
-    const obj = await env.MUSIC_BUCKET.get("manifest.json", !secret ? { onlyIf: request.headers } : undefined);
-    if (!obj) {
-      return jsonResponse([], 200, originState.corsOrigin, "public, max-age=30");
+    if (secret) {
+      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
+      const obj = await env.MUSIC_BUCKET.get("manifest.json");
+      if (!obj) {
+        return jsonResponse([], 200, originState.corsOrigin, "public, max-age=30");
+      }
+      if (method === "HEAD") {
+        const headers = new Headers({
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "private, no-store",
+        });
+        applySecurityHeaders(headers, originState.corsOrigin);
+        return new Response(null, { status: 200, headers });
+      }
+      let data;
+      try {
+        data = await obj.json();
+      } catch {
+        return jsonResponse({ error: "Invalid manifest JSON in bucket" }, 502, originState.corsOrigin, "no-store");
+      }
+      if (Array.isArray(data)) {
+        const signed = await attachSignedUrlsToManifest(data, url.origin, secret);
+        return jsonResponse(signed, 200, originState.corsOrigin, "private, no-store");
+      }
+      return jsonResponse(data, 200, originState.corsOrigin, "private, no-store");
     }
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (!secret && ((!obj.body && typeof obj.json !== "function") || (ifNoneMatch && obj.httpEtag && ifNoneMatch === obj.httpEtag))) {
-      const headers = new Headers({
-        "Cache-Control": "public, max-age=60",
-      });
-      if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
-      applySecurityHeaders(headers, originState.corsOrigin);
-      return new Response(null, { status: 304, headers });
-    }
-    if (method === "HEAD") {
-      const headers = new Headers({
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": secret ? "private, no-store" : "public, max-age=60",
-      });
-      if (!secret && obj.httpEtag) headers.set("ETag", obj.httpEtag);
-      applySecurityHeaders(headers, originState.corsOrigin);
-      return new Response(null, { status: 200, headers });
-    }
-    let data;
-    try {
-      data = await obj.json();
-    } catch {
-      return jsonResponse({ error: "Invalid manifest JSON in bucket" }, 502, originState.corsOrigin, "no-store");
-    }
-    if (secret && Array.isArray(data)) {
-      const signed = await attachSignedUrlsToManifest(data, url.origin, secret);
-      return jsonResponse(signed, 200, originState.corsOrigin, "private, no-store");
-    }
-    const headers = new Headers({
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "public, max-age=60",
+    return servePublicJsonEndpoint(request, env, ctx, tracker, originState, {
+      r2Key: "manifest.json",
+      emptyFallback: [],
+      emptyCacheControl: "public, max-age=30",
+      cacheControl: "public, max-age=60",
+      cacheUrl: `${url.origin}/manifest.json`,
+      now,
     });
-    if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
-    applySecurityHeaders(headers, originState.corsOrigin);
-    return new Response(JSON.stringify(data), { status: 200, headers });
   }
 
   if (url.pathname === "/lyrics.json") {
-    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
-    const obj = await env.MUSIC_BUCKET.get("lyrics.json", { onlyIf: request.headers });
-    if (!obj) {
-      return jsonResponse({}, 200, originState.corsOrigin, "public, max-age=60");
-    }
-    const headers = new Headers({
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": secret ? "private, max-age=120" : "public, max-age=120",
+    return servePublicJsonEndpoint(request, env, ctx, tracker, originState, {
+      r2Key: "lyrics.json",
+      emptyFallback: {},
+      emptyCacheControl: "public, max-age=60",
+      cacheControl: secret ? "private, max-age=120" : "public, max-age=120",
+      cacheUrl: `${url.origin}/lyrics.json`,
+      now,
+      allowEdgeCache: !secret,
     });
-    if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
-    applySecurityHeaders(headers, originState.corsOrigin);
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (!obj.body || (ifNoneMatch && obj.httpEtag && ifNoneMatch === obj.httpEtag)) {
-      return new Response(null, { status: 304, headers });
-    }
-    if (method === "HEAD") return new Response(null, { status: 200, headers });
-    return new Response(obj.body, { status: 200, headers });
   }
 
   await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);

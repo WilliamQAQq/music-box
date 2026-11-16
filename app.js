@@ -29,6 +29,9 @@
   const PRELOAD_DELAY_MS = 1400;
   const PRELOAD_TIMEOUT_MS = 12000;
   const MAX_PRELOAD_CACHE = 12;
+  const ZH_COLLATOR = typeof Intl !== "undefined" && typeof Intl.Collator === "function"
+    ? new Intl.Collator("zh-CN")
+    : null;
 
   const $ = (id) => document.getElementById(id);
 
@@ -350,10 +353,12 @@
       const genre = inferGenre(t.artist, t.genre, t.url || t.path);
       const next = Object.assign({}, t, { genre });
       next._searchKey = buildSearchKey(next);
+      next._canonKey = canonicalTrackKey(next.url);
+      next._genreRank = genreRank(genre || "其他典藏");
       return next;
     });
     covers = data.covers instanceof Map ? data.covers : new Map(data.covers || []);
-    trackIdxByUrl = new Map(tracks.map((t, i) => [canonicalTrackKey(t.url), i]));
+    trackIdxByUrl = new Map(tracks.map((t, i) => [t._canonKey, i]));
 
     // 清理已下线曲目的 DOM 缓存，同时保留现存节点的 DOM 引用与用户持久化收藏/历史（避免切源或网关暂退时误删）
     playlistRowCache.forEach((_, urlKey) => {
@@ -362,7 +367,7 @@
 
     const remap = (i) => {
       const t = oldTracks[i];
-      const key = t ? canonicalTrackKey(t.url) : "";
+      const key = t ? (t._canonKey || canonicalTrackKey(t.url)) : "";
       return key && trackIdxByUrl.has(key) ? trackIdxByUrl.get(key) : -1;
     };
     if (currentIndex !== -1) currentIndex = remap(currentIndex);
@@ -728,11 +733,11 @@
 
       for (let i = 0; i < tracks.length; i++) {
         const t = tracks[i];
-        const tKey = canonicalTrackKey(t.url);
         const g = t.genre || "其他典藏";
         if (activeGenre !== "all") {
           if (g !== activeGenre) continue;
         } else if (isPersonalTabAll) {
+          const tKey = t._canonKey || canonicalTrackKey(t.url);
           if (!favUrls.has(tKey) && !recUrls.has(tKey)) continue;
         } else if (shelfCategory !== "all") {
           if (genreCategory(g) !== shelfCategory) continue;
@@ -744,12 +749,14 @@
 
       if (view === "genre" && !isPersonalTabAll) {
         filteredTracks.sort((a, b) => {
-          const ga = tracks[a].genre || "其他典藏";
-          const gb = tracks[b].genre || "其他典藏";
-          const ra = genreRank(ga);
-          const rb = genreRank(gb);
+          const ta = tracks[a];
+          const tb = tracks[b];
+          const ra = ta._genreRank;
+          const rb = tb._genreRank;
           if (ra !== rb) return ra - rb;
-          if (ga !== gb) return ga.localeCompare(gb, "zh-CN");
+          const ga = ta.genre || "其他典藏";
+          const gb = tb.genre || "其他典藏";
+          if (ga !== gb) return ZH_COLLATOR ? ZH_COLLATOR.compare(ga, gb) : ga.localeCompare(gb, "zh-CN");
           return a - b;
         });
       }
@@ -826,9 +833,25 @@
     btn.setAttribute("aria-label", (isFav ? "移出珍藏：" : "收藏：") + title);
   }
 
+  function setRowRovingState(entry, isTarget) {
+    if (!entry || !entry.li || entry._roving === isTarget) return;
+    const tab = isTarget ? 0 : -1;
+    entry.li.tabIndex = tab;
+    if (entry.favBtn) entry.favBtn.tabIndex = tab;
+    if (entry.enqueueBtn) entry.enqueueBtn.tabIndex = tab;
+    entry._roving = isTarget;
+  }
+
+  function updateRowFavState(entry, isFav, title) {
+    if (!entry || (entry._fav === isFav && entry._favTitle === title)) return;
+    syncRowFavButton(entry.favBtn, isFav, title);
+    entry._fav = isFav;
+    entry._favTitle = title;
+  }
+
   function getOrCreatePlaylistRow(tIndex, k, mode, tabTargetK) {
     const t = tracks[tIndex];
-    const rowKey = canonicalTrackKey(t.url);
+    const rowKey = t._canonKey || canonicalTrackKey(t.url);
     const isRovingTarget = k === tabTargetK;
     const isFav = userState.isFavorite(t.url);
     const metaText = formatItemMeta(t, mode);
@@ -863,52 +886,74 @@
       enqueueBtn.textContent = "+";
 
       li.append(idxEl, eqEl, nameEl, metaEl, favBtn, enqueueBtn);
-      entry = { li, idxEl, eqEl, nameEl, metaEl, favBtn, enqueueBtn };
+      entry = {
+        li,
+        idxEl,
+        eqEl,
+        nameEl,
+        metaEl,
+        favBtn,
+        enqueueBtn,
+        _idx: -1,
+        _posK: -1,
+        _roving: null,
+        _fav: null,
+        _favTitle: null,
+        _title: null,
+        _meta: null,
+      };
       playlistRowCache.set(rowKey, entry);
     }
 
-    entry.li.dataset.index = String(tIndex);
-    entry.li.dataset.posK = String(k);
-    entry.li.tabIndex = isRovingTarget ? 0 : -1;
+    if (entry._idx !== tIndex) {
+      entry.li.dataset.index = String(tIndex);
+      entry._idx = tIndex;
+    }
+    if (entry._posK !== k) {
+      entry.li.dataset.posK = String(k);
+      entry.idxEl.textContent = String(k + 1);
+      entry._posK = k;
+    }
+    setRowRovingState(entry, isRovingTarget);
+
     const isActive = tIndex === currentIndex;
-    entry.li.classList.toggle("active", isActive);
-    entry.li.classList.toggle("playing", isActive && !audio.paused);
+    const isPlaying = isActive && !audio.paused;
+    if (entry.li.classList.contains("active") !== isActive) entry.li.classList.toggle("active", isActive);
+    if (entry.li.classList.contains("playing") !== isPlaying) entry.li.classList.toggle("playing", isPlaying);
     if (isActive) activePlaylistEl = entry.li;
     if (isRovingTarget) rovingPlaylistEntry = entry;
 
-    if (entry.idxEl.textContent !== String(k + 1)) entry.idxEl.textContent = String(k + 1);
-    if (entry.nameEl.textContent !== t.title) entry.nameEl.textContent = t.title;
-    if (entry.metaEl.textContent !== metaText) entry.metaEl.textContent = metaText;
-    syncRowFavButton(entry.favBtn, isFav, t.title);
-    entry.favBtn.tabIndex = isRovingTarget ? 0 : -1;
-    entry.enqueueBtn.tabIndex = isRovingTarget ? 0 : -1;
-    entry.enqueueBtn.setAttribute("aria-label", "下一首播放 " + t.title);
+    if (entry._title !== t.title) {
+      entry.nameEl.textContent = t.title;
+      entry.enqueueBtn.setAttribute("aria-label", "下一首播放 " + t.title);
+      entry._title = t.title;
+    }
+    if (entry._meta !== metaText) {
+      entry.metaEl.textContent = metaText;
+      entry._meta = metaText;
+    }
+    updateRowFavState(entry, isFav, t.title);
     return entry.li;
   }
 
   function setPlaylistRovingTabIndex(activeLi) {
     if (!activeLi) return;
     if (rovingPlaylistEntry && rovingPlaylistEntry.li !== activeLi) {
-      rovingPlaylistEntry.li.tabIndex = -1;
-      rovingPlaylistEntry.favBtn.tabIndex = -1;
-      rovingPlaylistEntry.enqueueBtn.tabIndex = -1;
+      setRowRovingState(rovingPlaylistEntry, false);
     }
     const tIndex = Number(activeLi.dataset.index);
     const nextEntry = (!isNaN(tIndex) && tracks[tIndex])
-      ? playlistRowCache.get(canonicalTrackKey(tracks[tIndex].url))
+      ? playlistRowCache.get(tracks[tIndex]._canonKey || canonicalTrackKey(tracks[tIndex].url))
       : null;
     if (nextEntry && nextEntry.li === activeLi) {
-      nextEntry.li.tabIndex = 0;
-      nextEntry.favBtn.tabIndex = 0;
-      nextEntry.enqueueBtn.tabIndex = 0;
+      setRowRovingState(nextEntry, true);
       rovingPlaylistEntry = nextEntry;
     } else {
-      activeLi.tabIndex = 0;
       const favBtn = activeLi.querySelector(".playlist-fav-btn");
       const enqBtn = activeLi.querySelector(".playlist-enqueue-btn");
-      if (favBtn) favBtn.tabIndex = 0;
-      if (enqBtn) enqBtn.tabIndex = 0;
-      rovingPlaylistEntry = { li: activeLi, favBtn: favBtn || {}, enqueueBtn: enqBtn || {} };
+      const fallback = { li: activeLi, favBtn, enqueueBtn: enqBtn, _roving: null };
+      setRowRovingState(fallback, true);
+      rovingPlaylistEntry = fallback;
     }
   }
 
@@ -1054,7 +1099,8 @@
     }
     activePlaylistEl = null;
     if (currentIndex !== -1 && tracks[currentIndex]) {
-      const cached = playlistRowCache.get(canonicalTrackKey(tracks[currentIndex].url));
+      const curTrack = tracks[currentIndex];
+      const cached = playlistRowCache.get(curTrack._canonKey || canonicalTrackKey(curTrack.url));
       const curEl = (cached && cached.li.isConnected)
         ? cached.li
         : els.playlist.querySelector('.playlist-item[data-index="' + currentIndex + '"]');
@@ -1142,7 +1188,7 @@
       if (entry) {
         const idx = trackIdxByUrl.get(key);
         const title = idx !== undefined && tracks[idx] ? tracks[idx].title : "";
-        syncRowFavButton(entry.favBtn, payload.added, title);
+        updateRowFavState(entry, !!payload.added, title);
       }
     }
   });
@@ -1410,7 +1456,7 @@
     for (let i = 0; i < order.length; i++) {
       const t = tracks[order[i]];
       if (!t) continue;
-      const tKey = canonicalTrackKey(t.url);
+      const tKey = t._canonKey || canonicalTrackKey(t.url);
       const occ = (occCounts.get(tKey) || 0) + 1;
       occCounts.set(tKey, occ);
       const cacheKey = tKey + "#" + occ;
@@ -1420,6 +1466,7 @@
       const isNext = pos >= 0 && i === pos + 1;
       const isPast = pos >= 0 && i < pos;
       const subText = t.artist || t.genre || "";
+      const numText = isActive ? "\u25B6" : String(i + 1);
 
       let entry = queueRowCache.get(cacheKey);
       if (!entry) {
@@ -1462,20 +1509,52 @@
 
         actions.append(nextBtn, rmBtn);
         li.append(playRowBtn, actions);
-        entry = { li, num, titleEl, subEl, actions, nextBtn, rmBtn };
+        entry = {
+          li,
+          num,
+          titleEl,
+          subEl,
+          actions,
+          nextBtn,
+          rmBtn,
+          _qidx: -1,
+          _numText: null,
+          _title: null,
+          _sub: null,
+          _actionsHidden: null,
+          _nextHidden: null,
+        };
         queueRowCache.set(cacheKey, entry);
       }
 
-      entry.li.dataset.qidx = String(i);
-      entry.li.classList.toggle("active", isActive);
-      entry.li.classList.toggle("past", isPast);
-      entry.num.textContent = isActive ? "\u25B6" : String(i + 1);
-      if (entry.titleEl.textContent !== t.title) entry.titleEl.textContent = t.title;
-      if (entry.subEl.textContent !== subText) entry.subEl.textContent = subText;
-      entry.actions.hidden = isActive;
-      entry.nextBtn.hidden = isNext;
-      entry.nextBtn.setAttribute("aria-label", "下一首播放 " + t.title);
-      entry.rmBtn.setAttribute("aria-label", "移除 " + t.title);
+      if (entry._qidx !== i) {
+        entry.li.dataset.qidx = String(i);
+        entry._qidx = i;
+      }
+      if (entry.li.classList.contains("active") !== isActive) entry.li.classList.toggle("active", isActive);
+      if (entry.li.classList.contains("past") !== isPast) entry.li.classList.toggle("past", isPast);
+      if (entry._numText !== numText) {
+        entry.num.textContent = numText;
+        entry._numText = numText;
+      }
+      if (entry._title !== t.title) {
+        entry.titleEl.textContent = t.title;
+        entry.nextBtn.setAttribute("aria-label", "下一首播放 " + t.title);
+        entry.rmBtn.setAttribute("aria-label", "移除 " + t.title);
+        entry._title = t.title;
+      }
+      if (entry._sub !== subText) {
+        entry.subEl.textContent = subText;
+        entry._sub = subText;
+      }
+      if (entry._actionsHidden !== isActive) {
+        entry.actions.hidden = isActive;
+        entry._actionsHidden = isActive;
+      }
+      if (entry._nextHidden !== isNext) {
+        entry.nextBtn.hidden = isNext;
+        entry._nextHidden = isNext;
+      }
 
       frag.appendChild(entry.li);
     }

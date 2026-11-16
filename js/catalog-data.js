@@ -486,13 +486,19 @@
 
   function inferGenre(artist, genre, pathOrUrl) {
     if (pathOrUrl) {
-      const cleanPath = String(pathOrUrl).split("?")[0].split("#")[0];
+      const raw = String(pathOrUrl);
+      const qIdx = raw.indexOf("?");
+      const hIdx = raw.indexOf("#");
+      const endIdx = qIdx === -1 ? hIdx : (hIdx === -1 ? qIdx : Math.min(qIdx, hIdx));
+      const cleanPath = endIdx === -1 ? raw : raw.slice(0, endIdx);
       const fname = cleanPath.slice(cleanPath.lastIndexOf("/") + 1);
       if (FILENAME_GENRE_MAP[fname]) return FILENAME_GENRE_MAP[fname];
-      try {
-        const decoded = decodeURIComponent(fname);
-        if (FILENAME_GENRE_MAP[decoded]) return FILENAME_GENRE_MAP[decoded];
-      } catch (e) { /* ignore malformed URI */ }
+      if (fname.indexOf("%") !== -1) {
+        try {
+          const decoded = decodeURIComponent(fname);
+          if (FILENAME_GENRE_MAP[decoded]) return FILENAME_GENRE_MAP[decoded];
+        } catch (e) { /* ignore malformed URI */ }
+      }
     }
     if (genre) return String(genre);
     if (!artist) return "";

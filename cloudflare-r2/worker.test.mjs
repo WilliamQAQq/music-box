@@ -799,3 +799,184 @@ test("monotonic quota merge prevents lagging KV from rolling counters backward a
     globalThis.fetch = origFetch;
   }
 });
+
+test("Edge Cache serves public JSON with zero R2 reads while preserving CORS isolation, quota shield, and ACCESS_KEY privacy", async () => {
+  const origCaches = globalThis.caches;
+  const cacheStore = new Map();
+  let cacheMatches = 0;
+  let cachePuts = 0;
+
+  globalThis.caches = {
+    default: {
+      async match(req) {
+        cacheMatches += 1;
+        const key = typeof req === "string" ? req : req.url;
+        const entry = cacheStore.get(key);
+        if (!entry) return undefined;
+        return new Response(entry.body.slice(0), { status: entry.status, headers: entry.headers });
+      },
+      async put(req, res) {
+        cachePuts += 1;
+        const key = typeof req === "string" ? req : req.url;
+        const bytes = await res.arrayBuffer();
+        cacheStore.set(key, {
+          status: res.status,
+          headers: Array.from(res.headers.entries()),
+          body: bytes,
+        });
+      },
+    },
+  };
+
+  try {
+    const manifestBytes = new TextEncoder().encode(
+      JSON.stringify([{ title: "Canon in D", artist: "Pachelbel", path: "a/canon.mp3" }])
+    );
+    const lyricsBytes = new TextEncoder().encode(JSON.stringify({ "a/canon.mp3": { lrc: "[00:00.00]Canon" } }));
+    let r2GetCount = 0;
+
+    const baseEnv = makeEnv({
+      ALLOW_LOCALHOST: "1",
+      MUSIC_BUCKET: makeMockBucket({
+        "manifest.json": { body: manifestBytes, contentType: "application/json", etag: '"m-etag-1"' },
+        "lyrics.json": { body: lyricsBytes, contentType: "application/json", etag: '"l-etag-1"' },
+      }),
+    });
+    const origGet = baseEnv.MUSIC_BUCKET.get.bind(baseEnv.MUSIC_BUCKET);
+    baseEnv.MUSIC_BUCKET.get = async (...args) => {
+      r2GetCount += 1;
+      return origGet(...args);
+    };
+
+    const runWithCtx = async (req, env = baseEnv) => {
+      const pending = [];
+      const res = await handleRequest(req, env, { waitUntil: (p) => pending.push(p) });
+      await Promise.all(pending);
+      return res;
+    };
+
+    // 1. First public GET /manifest.json misses Edge Cache, hits R2 once, stores CORS-stripped entry
+    const r1 = await runWithCtx(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io" },
+      })
+    );
+    assert.equal(r1.status, 200);
+    assert.equal(r1.headers.get("X-Edge-Cache"), "MISS");
+    assert.equal(r1.headers.get("Access-Control-Allow-Origin"), "https://williamqaqq.github.io");
+    assert.equal(r2GetCount, 1);
+    assert.equal(cachePuts, 1);
+    const cachedManifest = cacheStore.get("https://worker.example/manifest.json");
+    assert.ok(cachedManifest, "manifest.json must be stored under normalized cache key");
+    assert.equal(
+      new Headers(cachedManifest.headers).get("access-control-allow-origin"),
+      null,
+      "shared Edge Cache must never persist Access-Control-Allow-Origin"
+    );
+    await r1.json();
+
+    // 2. Second request from localhost hits Edge Cache with 0 R2 reads and gets localhost CORS header
+    const r2 = await runWithCtx(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "http://localhost:8080" },
+      })
+    );
+    assert.equal(r2.status, 200);
+    assert.equal(r2.headers.get("X-Edge-Cache"), "HIT");
+    assert.equal(r2.headers.get("Access-Control-Allow-Origin"), "http://localhost:8080");
+    assert.equal(r2GetCount, 1, "Edge Cache HIT must make 0 R2 Class B reads");
+    const r2Json = await r2.json();
+    assert.equal(r2Json[0].title, "Canon in D");
+
+    // 3. Conditional ETag request on warm Edge Cache returns 304 locally with 0 R2 reads
+    const r3 = await runWithCtx(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io", "If-None-Match": '"m-etag-1"' },
+      })
+    );
+    assert.equal(r3.status, 304);
+    assert.equal(r3.headers.get("X-Edge-Cache"), "HIT");
+    assert.equal(r2GetCount, 1);
+
+    // 4. Cache-Control: no-store bypasses Edge Cache read and avoids writing stale cache
+    const r4 = await runWithCtx(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io", "Cache-Control": "no-store" },
+      })
+    );
+    assert.equal(r4.status, 200);
+    assert.equal(r4.headers.get("X-Edge-Cache"), "BYPASS");
+    assert.equal(r2GetCount, 2);
+    assert.equal(cachePuts, 1);
+
+    // 5. Public /lyrics.json also caches cleanly on second request
+    const l1 = await runWithCtx(
+      new Request("https://worker.example/lyrics.json", {
+        headers: { Origin: "https://williamqaqq.github.io" },
+      })
+    );
+    assert.equal(l1.status, 200);
+    assert.equal(l1.headers.get("X-Edge-Cache"), "MISS");
+    assert.equal(r2GetCount, 3);
+    assert.equal(cachePuts, 2);
+
+    const l2 = await runWithCtx(
+      new Request("https://worker.example/lyrics.json", {
+        headers: { Origin: "http://localhost:8080" },
+      })
+    );
+    assert.equal(l2.status, 200);
+    assert.equal(l2.headers.get("X-Edge-Cache"), "HIT");
+    assert.equal(l2.headers.get("Access-Control-Allow-Origin"), "http://localhost:8080");
+    assert.equal(r2GetCount, 3);
+
+    // 6. Security guards run BEFORE Edge Cache: bad Origin -> 403, quota shield -> 503
+    const matchesBeforeGuards = cacheMatches;
+    const forbiddenRes = await runWithCtx(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://evil.example" },
+      })
+    );
+    assert.equal(forbiddenRes.status, 403);
+    assert.equal(cacheMatches, matchesBeforeGuards, "Forbidden origin must not probe Edge Cache");
+
+    const pausedEnv = { ...baseEnv, GATEWAY_PAUSED: "1" };
+    const shieldRes = await runWithCtx(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io" },
+      }),
+      pausedEnv
+    );
+    assert.equal(shieldRes.status, 503);
+    assert.equal(cacheMatches, matchesBeforeGuards, "Quota-shielded request must not serve from Edge Cache");
+
+    // 7. ACCESS_KEY secret mode NEVER reads or writes Edge Cache on /manifest.json or /lyrics.json
+    const secretEnv = { ...baseEnv, ACCESS_KEY: "top-secret-key" };
+    const putsBeforeSecret = cachePuts;
+    const sm1 = await runWithCtx(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io", "X-Music-Key": "top-secret-key" },
+      }),
+      secretEnv
+    );
+    assert.equal(sm1.status, 200);
+    assert.equal(sm1.headers.get("Cache-Control"), "private, no-store");
+    assert.equal(cacheMatches, matchesBeforeGuards);
+    assert.equal(cachePuts, putsBeforeSecret);
+    const smJson = await sm1.json();
+    assert.ok(String(smJson[0].url || "").includes("sig="), "secret manifest must still sign media URLs");
+
+    const sl1 = await runWithCtx(
+      new Request("https://worker.example/lyrics.json", {
+        headers: { Origin: "https://williamqaqq.github.io", "X-Music-Key": "top-secret-key" },
+      }),
+      secretEnv
+    );
+    assert.equal(sl1.status, 200);
+    assert.equal(sl1.headers.get("Cache-Control"), "private, max-age=120");
+    assert.equal(cacheMatches, matchesBeforeGuards);
+    assert.equal(cachePuts, putsBeforeSecret);
+  } finally {
+    globalThis.caches = origCaches;
+  }
+});

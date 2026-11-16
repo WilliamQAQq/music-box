@@ -41,19 +41,20 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v34", () => {
+test("HTML/SW/CSS structural invariants & asset version v35", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
+  const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=34",
-    "js/user-state.js?v=34",
-    "js/library-loader.js?v=34",
-    "js/audio-fx.js?v=34",
-    "js/lyrics.js?v=34",
-    "js/studio-ui.js?v=34",
-    "app.js?v=34",
+    "js/catalog-data.js?v=35",
+    "js/user-state.js?v=35",
+    "js/library-loader.js?v=35",
+    "js/audio-fx.js?v=35",
+    "js/lyrics.js?v=35",
+    "js/studio-ui.js?v=35",
+    "app.js?v=35",
   ];
 
   let lastPos = -1;
@@ -63,7 +64,11 @@ test("HTML/SW/CSS structural invariants & asset version v34", () => {
     lastPos = idx;
     assert.ok(sw.includes(src), `sw.js SHELL_ASSETS missing ${src}`);
   }
-  assert.ok(html.includes('href="style.css?v=34"'), "index.html missing style.css?v=34");
+  assert.ok(
+    html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
+    "index.html missing R2 gateway preconnect hint"
+  );
+  assert.ok(html.includes('href="style.css?v=35"'), "index.html missing style.css?v=35");
   assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
   assert.ok(html.includes("script-src 'self'"), "CSP must restrict script-src to 'self'");
   assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'), "index.html missing referrer policy meta");
@@ -73,12 +78,16 @@ test("HTML/SW/CSS structural invariants & asset version v34", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v34";'), "sw.js VERSION must match v34");
+  assert.ok(sw.includes('const VERSION = "v35";'), "sw.js VERSION must match v35");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
+  assert.equal(css.includes("background-attachment: fixed"), false, "style.css must not use paint-heavy background-attachment: fixed");
+  assert.ok(css.includes("body::before") && css.includes("contain: strict"), "style.css must isolate fixed backdrop on body::before");
+  assert.ok(css.includes(".queue-item") && css.includes("@supports not (content-visibility: auto)"), "style.css must gate queue item content-visibility cleanly");
+  assert.ok(appJs.includes("ZH_COLLATOR") && appJs.includes("next._canonKey") && appJs.includes("next._genreRank"), "app.js must precompute lookup keys and genre sort metadata");
   assert.ok(css.includes('[aria-invalid="true"]'), "style.css must style aria-invalid form inputs");
   assert.ok(
     css.includes(".r2-quota-bar::-webkit-progress-value") && css.includes(".r2-quota-bar::-moz-progress-bar"),
@@ -196,10 +205,18 @@ test("catalog-data: share hash, LRC export, signature, search matching", () => {
   );
   assert.equal(sigSignedA, sigSignedB, "Rotating HMAC exp/sig should not change catalog content signature");
 
-  // inferGenre should decode URL-encoded filenames and strip query params
+  // inferGenre should handle unencoded fast-path, URL-encoded filenames, and malformed % escapes cleanly
+  assert.equal(
+    cat.inferGenre("", "", "music/LBI利比 - 跳楼机.mp3?exp=123#top"),
+    "流金热浪 · 时代新声"
+  );
   assert.equal(
     cat.inferGenre("", "", "https://gw.example.workers.dev/media/" + encodeURIComponent("LBI利比 - 跳楼机.mp3") + "?exp=123&sig=abc"),
     "流金热浪 · 时代新声"
+  );
+  assert.equal(
+    cat.inferGenre("Unknown", "古典沙龙 · 剧场礼乐", "music/%ZZ_broken.mp3?v=1#t=2"),
+    "古典沙龙 · 剧场礼乐"
   );
 
   // isSafeMediaUrl & parseTrackShareHash reject dangerous schemes (javascript:, data:, //)
@@ -370,7 +387,7 @@ test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", as
 
   // networkFirst falls back to cached response when upstream returns >= 500
   const navReq = new Request("https://williamqaqq.github.io/music-box/");
-  const fallbackRes = await swCtx.networkFirst(navReq, "music-box-shell-v34");
+  const fallbackRes = await swCtx.networkFirst(navReq, "music-box-shell-v35");
   assert.equal(fallbackRes.status, 200);
   assert.equal(await fallbackRes.text(), "<html>cached-shell</html>");
 });
