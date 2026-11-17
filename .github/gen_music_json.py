@@ -400,7 +400,10 @@ def read_tags_and_info(path):
             for k in raw_tags.keys():
                 if k.startswith(("USLT", "©lyr", "LYRICS")):
                     val = raw_tags[k]
-                    embedded_lrc = str(getattr(val, "text", val)).strip()
+                    raw_text = getattr(val, "text", val)
+                    if isinstance(raw_text, (list, tuple)):
+                        raw_text = "\n".join(str(x) for x in raw_text if x is not None)
+                    embedded_lrc = str(raw_text).strip()
                     if embedded_lrc:
                         break
         t = mutagen.File(path, easy=True)
@@ -674,9 +677,11 @@ def main():
 
     for t in tracks:
         d = t["dir"]
-        while d:
+        while True:
             if d in covers:
                 t["cover"] = covers[d]
+                break
+            if not d:
                 break
             d = os.path.dirname(d)
 

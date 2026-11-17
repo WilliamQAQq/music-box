@@ -976,6 +976,43 @@ test("Edge Cache serves public JSON with zero R2 reads while preserving CORS iso
     assert.equal(sl1.headers.get("Cache-Control"), "private, max-age=120");
     assert.equal(cacheMatches, matchesBeforeGuards);
     assert.equal(cachePuts, putsBeforeSecret);
+
+    // 8. Weak / multi-tag If-None-Match matches warm Edge Cache ETag with 0 R2 reads
+    const weak304 = await runWithCtx(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io", "If-None-Match": '"stale", W/"m-etag-1"' },
+      })
+    );
+    assert.equal(weak304.status, 304);
+    assert.equal(weak304.headers.get("X-Edge-Cache"), "HIT");
+
+    // 9. Non-integer signed URL expiry parameter is rejected even before HMAC compare
+    const floatExpRes = await runWithCtx(
+      new Request("https://worker.example/media/track.mp3?exp=1999999999.5&sig=abcd", {
+        headers: { Origin: "https://williamqaqq.github.io" },
+      }),
+      secretEnv
+    );
+    assert.equal(floatExpRes.status, 401);
+
+    // 10. Transient Edge Cache put failure never breaks /manifest.json delivery
+    cacheStore.clear();
+    const origPut = globalThis.caches.default.put;
+    globalThis.caches.default.put = async () => {
+      throw new Error("Simulated Edge Cache quota failure");
+    };
+    try {
+      const resilientRes = await runWithCtx(
+        new Request("https://worker.example/manifest.json", {
+          headers: { Origin: "https://williamqaqq.github.io" },
+        })
+      );
+      assert.equal(resilientRes.status, 200);
+      const data = await resilientRes.json();
+      assert.equal(data[0].title, "Canon in D");
+    } finally {
+      globalThis.caches.default.put = origPut;
+    }
   } finally {
     globalThis.caches = origCaches;
   }

@@ -295,7 +295,8 @@
         if (dot === -1) continue;
         const ext = lower.slice(dot + 1);
         const baseName = lower.slice(lower.lastIndexOf("/") + 1, dot);
-        const dir = p.slice(0, p.lastIndexOf("/"));
+        const slashIdx = p.lastIndexOf("/");
+        const dir = slashIdx === -1 ? "" : p.slice(0, slashIdx);
 
         if (AUDIO_EXTS.indexOf(ext) !== -1) {
           const rawStem = p.slice(p.lastIndexOf("/") + 1, dot)

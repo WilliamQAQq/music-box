@@ -1,4 +1,4 @@
-const VERSION = "v35";
+const VERSION = "v36";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v2";
@@ -7,14 +7,14 @@ const MAX_CACHED_AUDIO = 18;
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=35",
-  "./js/catalog-data.js?v=35",
-  "./js/user-state.js?v=35",
-  "./js/library-loader.js?v=35",
-  "./js/audio-fx.js?v=35",
-  "./js/lyrics.js?v=35",
-  "./js/studio-ui.js?v=35",
-  "./app.js?v=35",
+  "./style.css?v=36",
+  "./js/catalog-data.js?v=36",
+  "./js/user-state.js?v=36",
+  "./js/library-loader.js?v=36",
+  "./js/audio-fx.js?v=36",
+  "./js/lyrics.js?v=36",
+  "./js/studio-ui.js?v=36",
+  "./app.js?v=36",
   "./manifest.webmanifest",
 ];
 
@@ -185,8 +185,9 @@ self.addEventListener("message", (event) => {
   if (data.type === "CACHE_TRACK" && data.url) {
     event.waitUntil((async () => {
       try {
-        const absUrl = new URL(data.url, self.location.href).href;
-        if (!absUrl.startsWith(self.location.origin)) return;
+        const parsedUrl = new URL(data.url, self.location.href);
+        if (parsedUrl.origin !== self.location.origin) return;
+        const absUrl = parsedUrl.href;
         const cache = await caches.open(AUDIO_CACHE);
         const existing = await cache.match(absUrl);
         if (!existing) {

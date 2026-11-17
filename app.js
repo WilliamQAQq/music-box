@@ -195,6 +195,7 @@
   let errorStreak = 0;
 
   let pendingSeekSec = 0;
+  let pendingFadeInMs = 0;
   let initialDeepLinkHandled = false;
   let lastShownCurSec = -1;
   let inTailFade = false;
@@ -288,9 +289,12 @@
     onBeforeOpen: () => closeQueueDrawer(false),
     onClearAudioCache: () => swCachedUrls.clear(),
     onCrossfadeChange: (sec) => {
-      if (sec <= 0 && inTailFade) {
-        inTailFade = false;
-        audioFx.setTransitionFadeFactor(1, true);
+      if (sec <= 0) {
+        pendingFadeInMs = 0;
+        if (inTailFade) {
+          inTailFade = false;
+          audioFx.setTransitionFadeFactor(1, true);
+        }
       }
     },
   });
@@ -385,7 +389,7 @@
       els.genreShelf.hidden = true;
       els.genreStage.hidden = true;
       els.emptyState.hidden = false;
-      els.playlist.innerHTML = "";
+      els.playlist.replaceChildren();
       renderCount();
       updateLocateBtn();
       updateQueueUI();
@@ -1214,6 +1218,7 @@
     pos = order.indexOf(tIndex);
     currentIndex = tIndex;
     pendingSeekSec = Math.max(0, Number(seekSec) || 0);
+    pendingFadeInMs = 0;
     lastShownCurSec = -1;
     inTailFade = false;
     userState.clearAbLoop();
@@ -1797,8 +1802,13 @@
     userState.clearAbLoop();
 
     const xfade = studioCtrl.getCrossfadeSec();
-    if (xfade > 0) audioFx.fadeInOver(Math.min(xfade * 700, 2200));
-    else audioFx.setTransitionFadeFactor(1, true);
+    if (xfade > 0) {
+      pendingFadeInMs = Math.min(xfade * 700, 2200);
+      audioFx.setTransitionFadeFactor(0.05, true);
+    } else {
+      pendingFadeInMs = 0;
+      audioFx.setTransitionFadeFactor(1, true);
+    }
 
     audio.src = t.url;
     studioCtrl.applyPlaybackSpeed(Number(storageGet(KEYS.SPEED, "1")) || 1, false);
@@ -1847,6 +1857,7 @@
   }
 
   function restart() {
+    pendingFadeInMs = 0;
     inTailFade = false;
     audioFx.setTransitionFadeFactor(1, true);
     audio.currentTime = 0;
@@ -2002,6 +2013,11 @@
 
   audio.addEventListener("playing", () => {
     errorStreak = 0;
+    if (pendingFadeInMs > 0) {
+      const ms = pendingFadeInMs;
+      pendingFadeInMs = 0;
+      audioFx.fadeInOver(ms);
+    }
     audioFx.onPlaying();
     lyricsCtrl.updateCollapsedSubtitle();
     scheduleNextPreload();
@@ -2037,6 +2053,7 @@
   audio.addEventListener("ended", () => {
     audioFx.onPauseOrEnd();
     if (userState.notifyTrackEndedForSleep()) {
+      pendingFadeInMs = 0;
       inTailFade = false;
       audioFx.setTransitionFadeFactor(1, true);
       toast("本曲已播完，睡眠定时已停止播放");
@@ -2049,6 +2066,7 @@
   audio.addEventListener("error", () => {
     if (currentIndex === -1 || !audio.error) return;
     setPlayingUI(false);
+    pendingFadeInMs = 0;
     inTailFade = false;
     audioFx.setTransitionFadeFactor(1, true);
     cancelPreload();

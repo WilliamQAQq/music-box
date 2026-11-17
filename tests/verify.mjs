@@ -41,20 +41,21 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v35", () => {
+test("HTML/SW/CSS structural invariants & asset version v36", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=35",
-    "js/user-state.js?v=35",
-    "js/library-loader.js?v=35",
-    "js/audio-fx.js?v=35",
-    "js/lyrics.js?v=35",
-    "js/studio-ui.js?v=35",
-    "app.js?v=35",
+    "js/catalog-data.js?v=36",
+    "js/user-state.js?v=36",
+    "js/library-loader.js?v=36",
+    "js/audio-fx.js?v=36",
+    "js/lyrics.js?v=36",
+    "js/studio-ui.js?v=36",
+    "app.js?v=36",
   ];
 
   let lastPos = -1;
@@ -68,7 +69,7 @@ test("HTML/SW/CSS structural invariants & asset version v35", () => {
     html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
     "index.html missing R2 gateway preconnect hint"
   );
-  assert.ok(html.includes('href="style.css?v=35"'), "index.html missing style.css?v=35");
+  assert.ok(html.includes('href="style.css?v=36"'), "index.html missing style.css?v=36");
   assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
   assert.ok(html.includes("script-src 'self'"), "CSP must restrict script-src to 'self'");
   assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'), "index.html missing referrer policy meta");
@@ -78,9 +79,11 @@ test("HTML/SW/CSS structural invariants & asset version v35", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v35";'), "sw.js VERSION must match v35");
+  assert.ok(sw.includes('const VERSION = "v36";'), "sw.js VERSION must match v36");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
+  assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
+  assert.equal(lyricsJs.includes("innerHTML"), false, "lyrics.js must use replaceChildren() instead of innerHTML");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
@@ -342,13 +345,15 @@ test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", as
   };
   mockCacheStore.set("https://williamqaqq.github.io/music-box/", new Response("<html>cached-shell</html>", { status: 200 }));
 
+  const swHandlers = {};
+  let swFetchCount = 0;
   const swCtx = {
     location: { origin: "https://williamqaqq.github.io", href: "https://williamqaqq.github.io/music-box/sw.js" },
-    addEventListener: () => {},
+    addEventListener: (ev, fn) => { swHandlers[ev] = fn; },
     skipWaiting: async () => {},
     clients: { claim: async () => {} },
     caches: { open: async () => mockCache, keys: async () => [], delete: async () => true },
-    fetch: async () => new Response("Upstream Bad Gateway", { status: 502 }),
+    fetch: async () => { swFetchCount++; return new Response("Upstream Bad Gateway", { status: 502 }); },
     Request,
     Response,
     Headers,
@@ -387,9 +392,19 @@ test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", as
 
   // networkFirst falls back to cached response when upstream returns >= 500
   const navReq = new Request("https://williamqaqq.github.io/music-box/");
-  const fallbackRes = await swCtx.networkFirst(navReq, "music-box-shell-v35");
+  const fallbackRes = await swCtx.networkFirst(navReq, "music-box-shell-v36");
   assert.equal(fallbackRes.status, 200);
   assert.equal(await fallbackRes.text(), "<html>cached-shell</html>");
+
+  // CACHE_TRACK must reject prefix-spoofed external origins like https://williamqaqq.github.io.evil.com/...
+  const fetchBefore = swFetchCount;
+  const pendingMsgs = [];
+  swHandlers.message({
+    data: { type: "CACHE_TRACK", url: "https://williamqaqq.github.io.evil.com/track.mp3" },
+    waitUntil: (p) => pendingMsgs.push(p),
+  });
+  await Promise.all(pendingMsgs);
+  assert.equal(swFetchCount, fetchBefore, "CACHE_TRACK must reject prefix-spoofed cross-origin URLs");
 });
 
 test("audio-fx: EQ bypass delays disconnect until gain ramp finishes", async () => {
@@ -445,4 +460,153 @@ test("audio-fx: EQ bypass delays disconnect until gain ramp finishes", async () 
   assert.equal(fx.isEqConnected(), true, "EQ must stay connected briefly while ramping down to prevent click");
   await new Promise((r) => setTimeout(r, 190));
   assert.equal(fx.isEqConnected(), false, "EQ disconnects cleanly after BYPASS_DISCONNECT_DELAY_MS");
+});
+
+test("audio-fx: fallback fadeInOver ramps smoothly to 1 when AudioContext is uninitialized", async () => {
+  const { sandbox } = createBrowserSandbox();
+  sandbox.document = { body: { classList: { toggle() {} } } };
+  loadScriptIntoSandbox(sandbox, "js/catalog-data.js");
+  loadScriptIntoSandbox(sandbox, "js/audio-fx.js");
+
+  const gainHistory = [];
+  const fx = sandbox.__MusicBox.createAudioFxController({
+    audio: { paused: false, volume: 0.8, addEventListener() {} },
+    vinylBtn: { classList: { toggle() {} }, setAttribute() {} },
+    synthBtn: { classList: { toggle() {} }, setAttribute() {} },
+    onFallbackGainChange: (g) => gainHistory.push(g),
+  });
+
+  fx.fadeInOver(140);
+  assert.ok(gainHistory.length >= 1 && gainHistory[0] <= 0.1, "fadeInOver should start attenuated");
+  await new Promise((r) => setTimeout(r, 200));
+  const lastGain = gainHistory[gainHistory.length - 1];
+  assert.ok(gainHistory.length >= 3, "fallback fadeInOver should step smoothly rather than jump once");
+  assert.equal(lastGain, 1, "fallback fadeInOver must settle cleanly at full gain 1");
+});
+
+test("library-loader & lyrics: root-level path dir and async loadForTrack state reset", async () => {
+  const { sandbox } = createBrowserSandbox();
+  const makeEl = () => ({
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    dataset: {},
+    classList: { toggle() {}, add() {}, remove() {} },
+    style: {},
+    children: [],
+    offsetTop: 0,
+    offsetHeight: 20,
+    clientHeight: 200,
+    scrollTop: 0,
+    scrollTo() { return Promise.resolve(); },
+    append(...nodes) { this.children.push(...nodes); },
+    appendChild(node) { this.children.push(node); return node; },
+    replaceChildren(...nodes) { this.children = nodes; },
+    focus() {},
+    addEventListener() {},
+    querySelectorAll() { return []; },
+    querySelector() { return null; },
+    setAttribute() {},
+    removeAttribute() {},
+    getAttribute() { return ""; },
+  });
+  sandbox.document = {
+    body: { classList: { toggle() {} } },
+    createElement: () => makeEl(),
+    createDocumentFragment: () => makeEl(),
+    getElementById: () => makeEl(),
+  };
+  sandbox.requestAnimationFrame = () => 0;
+  sandbox.fetch = async (url) => {
+    if (String(url).includes("/repos/o/r/git/trees/")) {
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            truncated: false,
+            tree: [
+              { type: "blob", path: "SoloPiece.mp3" },
+              { type: "blob", path: "cover.jpg" },
+            ],
+          };
+        },
+      };
+    }
+    if (String(url).includes("lyrics.json")) {
+      return { ok: true, status: 200, async json() { return {}; } };
+    }
+    return { ok: false, status: 404, async json() { return {}; }, async text() { return ""; } };
+  };
+
+  loadScriptIntoSandbox(sandbox, "js/catalog-data.js");
+  loadScriptIntoSandbox(sandbox, "js/library-loader.js");
+  loadScriptIntoSandbox(sandbox, "js/lyrics.js");
+
+  const makeElsBag = () => {
+    const bag = {};
+    return new Proxy({}, { get: (_, k) => (bag[k] ||= makeEl()) });
+  };
+
+  // Root-level file in GitHub API fallback must produce dir: "" (not truncated stem)
+  let applied = null;
+  const loaderEls = makeElsBag();
+  const loader = sandbox.__MusicBox.createLibraryLoader({
+    els: loaderEls,
+    toast() {},
+    onApplyLibrary(d) { applied = d; },
+    onLoadingChange() {},
+    onBannerChange() {},
+  });
+  // Configure GitHub-only mode pointed at mock repo o/r with empty root path
+  const s = loader.getSettings();
+  s.sourceMode = "github";
+  s.owner = "o";
+  s.repo = "r";
+  s.branch = "main";
+  s.path = "";
+  await loader.loadLibrary(true);
+  assert.ok(applied && applied.tracks.length === 1);
+  assert.equal(applied.tracks[0].dir, "", "Root track without '/' must keep empty dir instead of slice(0, -1)");
+
+  // Switching track during async lyrics fetch must clear stale lyrics before awaiting
+  const lyricsEls = makeElsBag();
+  const trackA = { title: "Track A", artist: "A", url: "a.mp3" };
+  const trackB = { title: "Track B", artist: "B", url: "b.mp3" };
+  let activeTrack = trackA;
+  let resolveLyricsB;
+  sandbox.fetch = async (url) => {
+    if (String(url).includes("api.lrc.cx")) {
+      return new Promise((r) => {
+        resolveLyricsB = () => r({ ok: false, status: 404, async text() { return ""; } });
+      });
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return { "a.mp3": { type: "synced", lrc: "[00:00.00]Stale Lyric Line\n[00:05.00]Second" } };
+      },
+    };
+  };
+  const lyr = sandbox.__MusicBox.createLyricsController({
+    audio: { paused: false, currentTime: 1, duration: 30, addEventListener() {} },
+    els: lyricsEls,
+    getCurrentTrack: () => activeTrack,
+    defaultTrackSub: (t) => t.artist + " · Test",
+    safePlay() {},
+  });
+  await lyr.loadForTrack(trackA);
+  lyr.togglePanel();
+  lyr.syncToTime(1, true);
+  assert.ok(lyricsEls.trackSub.textContent.includes("Stale Lyric Line"));
+
+  activeTrack = trackB;
+  const pendingB = lyr.loadForTrack(trackB);
+  lyr.syncToTime(1, true);
+  lyr.updateCollapsedSubtitle();
+  assert.equal(lyricsEls.trackSub.textContent, "B · Test", "Pending track switch must not reuse prior track lyrics");
+  if (resolveLyricsB) resolveLyricsB();
+  await pendingB;
 });

@@ -641,9 +641,10 @@ async function verifySignedMediaOrKey(request, url, key, env) {
   const expStr = url.searchParams.get("exp");
   const sigStr = url.searchParams.get("sig");
   if (expStr && sigStr) {
+    if (!/^\d+$/.test(expStr)) return false;
     const expSec = Number(expStr);
     const nowSec = Math.floor(Date.now() / 1000);
-    if (Number.isFinite(expSec) && expSec >= nowSec && expSec <= nowSec + MAX_SIGNED_TTL_SEC + 300) {
+    if (Number.isSafeInteger(expSec) && expSec >= nowSec && expSec <= nowSec + MAX_SIGNED_TTL_SEC + 300) {
       const expectedSig = await signMediaPayload(secret, key, expSec);
       if (constantTimeEqualHex(sigStr.toLowerCase(), expectedSig)) {
         return true;
@@ -694,6 +695,19 @@ function jsonResponse(data, status, corsOrigin, cacheControl = "no-store") {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
+function normalizeEtagToken(tag) {
+  return String(tag || "").trim().replace(/^W\//i, "");
+}
+
+function etagMatches(ifNoneMatch, etag) {
+  if (!ifNoneMatch || !etag) return false;
+  const trimmed = ifNoneMatch.trim();
+  if (trimmed === "*") return true;
+  const target = normalizeEtagToken(etag);
+  if (!target) return false;
+  return trimmed.split(",").some((part) => normalizeEtagToken(part) === target);
+}
+
 /**
  * Serves public JSON endpoints (/manifest.json, /lyrics.json) using streaming and
  * PoP Edge Cache (after all origin and quota shield guards). Isolated per-origin CORS
@@ -726,7 +740,7 @@ async function servePublicJsonEndpoint(request, env, ctx, tracker, originState, 
       headers.set("X-Edge-Cache", "HIT");
       applySecurityHeaders(headers, originState.corsOrigin);
       const etag = headers.get("etag");
-      if (ifNoneMatch && etag && ifNoneMatch === etag) {
+      if (etagMatches(ifNoneMatch, etag)) {
         cached.body?.cancel?.().catch(() => {});
         return new Response(null, { status: 304, headers });
       }
@@ -743,7 +757,7 @@ async function servePublicJsonEndpoint(request, env, ctx, tracker, originState, 
   if (!obj) {
     return jsonResponse(emptyFallback, 200, originState.corsOrigin, emptyCacheControl);
   }
-  if ((!obj.body && typeof obj.json !== "function") || (ifNoneMatch && obj.httpEtag && ifNoneMatch === obj.httpEtag)) {
+  if ((!obj.body && typeof obj.json !== "function") || etagMatches(ifNoneMatch, obj.httpEtag)) {
     const headers = new Headers({
       "Cache-Control": cacheControl,
     });
@@ -786,10 +800,13 @@ async function servePublicJsonEndpoint(request, env, ctx, tracker, originState, 
     cacheHeaders.delete("Vary");
     const baseResp = new Response(payload, { status: 200, headers: cacheHeaders });
     const cacheResp = baseResp.clone();
+    const putPromise = Promise.resolve(edgeCache.put(cacheKeyReq, cacheResp)).catch((err) => {
+      console.warn("Edge cache put failed:", err);
+    });
     if (typeof ctx?.waitUntil === "function") {
-      ctx.waitUntil(edgeCache.put(cacheKeyReq, cacheResp));
+      ctx.waitUntil(putPromise);
     } else {
-      await edgeCache.put(cacheKeyReq, cacheResp);
+      await putPromise;
     }
     const clientHeaders = new Headers(baseHeaders);
     clientHeaders.set("X-Edge-Cache", bypassCacheRead ? "BYPASS" : "MISS");

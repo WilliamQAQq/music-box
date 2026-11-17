@@ -209,7 +209,15 @@
     let sleepFadeFactor = 1;
     let transitionFadeFactor = 1;
     let fadeOutRestoreTimer = null;
+    let fallbackFadeInterval = null;
     let fadeInUntilMs = 0;
+
+    function clearTransitionTimers() {
+      clearTimeout(fadeOutRestoreTimer);
+      fadeOutRestoreTimer = null;
+      clearInterval(fallbackFadeInterval);
+      fallbackFadeInterval = null;
+    }
 
     function isEqActive() {
       return Math.abs(eqState.bass) >= 0.05 || Math.abs(eqState.mid) >= 0.05 || Math.abs(eqState.treble) >= 0.05;
@@ -958,15 +966,14 @@
     }
 
     function setTransitionFadeFactor(factor, immediate) {
-      clearTimeout(fadeOutRestoreTimer);
-      fadeOutRestoreTimer = null;
+      clearTransitionTimers();
       fadeInUntilMs = 0;
       transitionFadeFactor = clampNum(factor, 0.02, 1, 1);
       applyMasterFade(!!immediate);
     }
 
     function fadeOutThenRun(durationMs, callback) {
-      clearTimeout(fadeOutRestoreTimer);
+      clearTransitionTimers();
       fadeInUntilMs = 0;
       const ms = Math.max(0, Number(durationMs) || 0);
       if (ms <= 20 || audio.paused) {
@@ -989,7 +996,7 @@
     }
 
     function fadeInOver(durationMs) {
-      clearTimeout(fadeOutRestoreTimer);
+      clearTransitionTimers();
       const ms = Math.max(0, Number(durationMs) || 0);
       if (ms <= 30) {
         fadeInUntilMs = 0;
@@ -997,7 +1004,8 @@
         applyMasterFade(true);
         return;
       }
-      fadeInUntilMs = Date.now() + ms;
+      const startMs = Date.now();
+      fadeInUntilMs = startMs + ms;
       transitionFadeFactor = 1;
       const target = Math.max(0.02, Math.min(1, sleepFadeFactor));
       if (baseGraph && audioCtx) {
@@ -1006,12 +1014,25 @@
         baseGraph.masterGain.gain.setValueAtTime(0.05, t);
         baseGraph.masterGain.gain.linearRampToValueAtTime(target, t + ms / 1000);
       } else if (typeof options.onFallbackGainChange === "function") {
-        options.onFallbackGainChange(0.18);
-        fadeOutRestoreTimer = setTimeout(() => {
-          fadeOutRestoreTimer = null;
-          fadeInUntilMs = 0;
-          if (typeof options.onFallbackGainChange === "function") options.onFallbackGainChange(target);
-        }, Math.min(260, ms * 0.45));
+        transitionFadeFactor = 0.05;
+        options.onFallbackGainChange(Math.max(0.02, Math.min(1, sleepFadeFactor * transitionFadeFactor)));
+        fallbackFadeInterval = setInterval(() => {
+          if (baseGraph && audioCtx) {
+            clearTransitionTimers();
+            transitionFadeFactor = 1;
+            fadeInUntilMs = 0;
+            applyMasterFade(false);
+            return;
+          }
+          const ratio = Math.min(1, (Date.now() - startMs) / ms);
+          const eased = 0.05 + 0.95 * (1 - (1 - ratio) * (1 - ratio));
+          transitionFadeFactor = ratio >= 1 ? 1 : eased;
+          options.onFallbackGainChange(Math.max(0.02, Math.min(1, sleepFadeFactor * transitionFadeFactor)));
+          if (ratio >= 1) {
+            clearTransitionTimers();
+            fadeInUntilMs = 0;
+          }
+        }, 40);
       }
     }
 

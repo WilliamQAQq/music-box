@@ -429,9 +429,16 @@
       return true;
     }
 
+    function setEmptyLyricsMessage(text) {
+      const li = document.createElement("li");
+      li.className = "lyric-empty";
+      li.textContent = text;
+      els.lyricsList.replaceChildren(li);
+    }
+
     function renderLyricsView() {
       const st = currentLyricState;
-      els.lyricsList.innerHTML = "";
+      els.lyricsList.replaceChildren();
       lyricLineEls = [];
       lastStyledActive = -1;
       lastStyledPastEnd = 0;
@@ -449,10 +456,7 @@
 
       if (!st || st.type === "none") {
         els.lyricsTransBtn.hidden = true;
-        const li = document.createElement("li");
-        li.className = "lyric-empty";
-        li.textContent = "馆藏暂未收录此曲唱词";
-        els.lyricsList.appendChild(li);
+        setEmptyLyricsMessage("馆藏暂未收录此曲唱词");
         return;
       }
 
@@ -466,7 +470,7 @@
         const msg = document.createElement("p");
         msg.textContent = "此曲为器乐演奏曲目，无唱词，敬请静心聆听留声旋律。";
         li.append(badge, msg);
-        els.lyricsList.appendChild(li);
+        els.lyricsList.replaceChildren(li);
         return;
       }
 
@@ -625,26 +629,33 @@
     async function loadForTrack(track) {
       if (!track) return;
       const reqSeq = ++lyricsReqSeq;
+      currentLyricState = null;
       exitUserScrollMode(true);
       activeLyricIndex = -1;
+      lyricLineEls = [];
       els.lyricsTrackName.textContent = track.artist ? (track.title + " · " + track.artist) : track.title;
 
       loadLiveCache();
       let entry = lookupTrackLyrics(track);
-      if (!entry && !lyricsCatalogLoaded) {
+      const hideToolbarForPending = () => {
         els.lyricsTransBtn.hidden = true;
         if (els.lyricsExportBtn) els.lyricsExportBtn.hidden = true;
-        if (els.lyricsSearchBtn) els.lyricsSearchBtn.hidden = true;
-        els.lyricsList.innerHTML = '<li class="lyric-empty">正在加载唱词库…</li>';
-        lyricLineEls = [];
+        if (els.lyricsSearchBtn) {
+          els.lyricsSearchBtn.hidden = true;
+          if (els.lyricsSearchBar && !els.lyricsSearchBar.hidden) toggleLyricSearchBar(false);
+        }
+      };
+
+      if (!entry && !lyricsCatalogLoaded) {
+        hideToolbarForPending();
+        setEmptyLyricsMessage("正在加载唱词库…");
         await loadCatalog(false);
         if (reqSeq !== lyricsReqSeq || getCurrentTrack() !== track) return;
         entry = lookupTrackLyrics(track);
       }
       if (!entry) {
-        els.lyricsTransBtn.hidden = true;
-        els.lyricsList.innerHTML = '<li class="lyric-empty">正在检索唱词…</li>';
-        lyricLineEls = [];
+        hideToolbarForPending();
+        setEmptyLyricsMessage("正在检索唱词…");
         const fetched = await fetchLiveLyricsFallback(track);
         if (reqSeq !== lyricsReqSeq || getCurrentTrack() !== track) return;
         if (fetched) {
@@ -686,7 +697,6 @@
         showTrans = !showTrans;
         storageSet(KEYS.LYRICS_TRANS, showTrans ? "1" : "0");
         updatePanelUI();
-        centerActiveLyric(false);
       });
 
       if (els.lyricsSearchBtn) {
