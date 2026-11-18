@@ -12,6 +12,7 @@
     LIVE_LYRICS: "gh-lyrics-live-v1",
     VINYL_FX: "gh-vinyl-fx",
     SYNTH_FX: "gh-synth-fx",
+    RADIO_FX: "gh-radio-fx",
     SHUFFLE: "gh-shuffle",
     REPEAT: "gh-repeat",
     VOLUME: "gh-volume",

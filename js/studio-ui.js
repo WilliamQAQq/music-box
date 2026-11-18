@@ -118,6 +118,7 @@
       const items = [
         { slider: els.vinylMixRange, readout: els.vinylMixVal, val: Math.round(mix.vinyl * 100) },
         { slider: els.synthMixRange, readout: els.synthMixVal, val: Math.round(mix.synth * 100) },
+        { slider: els.radioMixRange, readout: els.radioMixVal, val: Math.round((mix.radio || 1) * 100) },
       ];
       items.forEach(({ slider, readout, val }) => {
         if (!slider) return;
@@ -503,6 +504,12 @@
       if (els.synthMixRange) {
         els.synthMixRange.addEventListener("input", () => {
           audioFx.setFxMix("synth", (parseFloat(els.synthMixRange.value) || 100) / 100);
+          syncMixUI();
+        });
+      }
+      if (els.radioMixRange) {
+        els.radioMixRange.addEventListener("input", () => {
+          audioFx.setFxMix("radio", (parseFloat(els.radioMixRange.value) || 100) / 100);
           syncMixUI();
         });
       }

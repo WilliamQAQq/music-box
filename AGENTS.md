@@ -79,7 +79,7 @@ npx.cmd wrangler secret put CF_ANALYTICS_TOKEN --config cloudflare-r2/wrangler.t
 ```
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=36` / `VERSION = "v36"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=37` / `VERSION = "v37"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查
@@ -113,11 +113,11 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 - 下一首智能预加载:起播稳定 1.4 秒后检查 `navigator.connection`(`saveData` / `2g` 跳过),利用离屏 `Audio` 预热下一首并自动释放解码器。
 - 自然播完到列表末尾:列表循环则从头(随机模式重新洗牌),否则停止;手动点"下一首"在末尾回到开头。单曲循环只影响自然播完,手动切歌照常切。
 - 播放出错自动跳下一首,连续 3 首失败即停止(防止断网时无限跳歌);`play()` 的 AbortError(切歌打断)不提示。
-- 系统媒体键:Media Session API(初始化时注册一次,play/pause 分开处理);键盘:空格/方向键/N/P/M/L/V/S/Q/E/F/`[`/`]`/`\`,带 Ctrl/Alt/⌘ 时不拦截,设置弹窗打开时只响应 Esc。
+- 系统媒体键:Media Session API(初始化时注册一次,play/pause 分开处理);键盘:空格/方向键/N/P/M/L/V/S/R/Q/E/F/`[`/`]`/`\`,带 Ctrl/Alt/⌘ 时不拦截,设置弹窗打开时只响应 Esc。
 - 搜索匹配标题/歌手/专辑/风格/路径,支持空格分隔多关键词 AND 防抖检索与一键清空/定位当前曲目。
 - 生成脚本用 `mutagen.File(..., easy=True)`,mp3/m4a/flac/ogg 都能读歌手与风格标签。
-- 模拟黑胶/合成器/均衡 DSP: Web Audio API 延迟创建上下文与节点,关闭后 140ms 自动断开节点与停振 LFO,零空转开销;并通过 `masterGain` 实现 Crossfade 与睡眠定时 10 秒柔顺渐弱。
-- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`、`gh-lyrics-open`、`gh-lyrics-trans`、`gh-lyrics-live-v1`、`gh-vinyl-fx`、`gh-synth-fx`、`gh-favorites-v1`、`gh-recent-v1`、`gh-resume-v1`、`gh-eq-v1`、`gh-fx-mix-v1`、`gh-speed-v1`、`gh-crossfade-v1`、`gh-spectrum-v1`。
+- 模拟黑胶/合成器/无线电台/均衡 DSP: Web Audio API 延迟创建上下文与节点,关闭后 140ms 自动断开节点与停振 LFO,零空转开销;并通过 `masterGain` 实现 Crossfade 与睡眠定时 10 秒柔顺渐弱。
+- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`、`gh-lyrics-open`、`gh-lyrics-trans`、`gh-lyrics-live-v1`、`gh-vinyl-fx`、`gh-synth-fx`、`gh-radio-fx`、`gh-favorites-v1`、`gh-recent-v1`、`gh-resume-v1`、`gh-eq-v1`、`gh-fx-mix-v1`、`gh-speed-v1`、`gh-crossfade-v1`、`gh-spectrum-v1`。
 
 ## 交接对象
 

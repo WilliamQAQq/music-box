@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v36", () => {
+test("HTML/SW/CSS structural invariants & asset version v37", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,13 +49,13 @@ test("HTML/SW/CSS structural invariants & asset version v36", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=36",
-    "js/user-state.js?v=36",
-    "js/library-loader.js?v=36",
-    "js/audio-fx.js?v=36",
-    "js/lyrics.js?v=36",
-    "js/studio-ui.js?v=36",
-    "app.js?v=36",
+    "js/catalog-data.js?v=37",
+    "js/user-state.js?v=37",
+    "js/library-loader.js?v=37",
+    "js/audio-fx.js?v=37",
+    "js/lyrics.js?v=37",
+    "js/studio-ui.js?v=37",
+    "app.js?v=37",
   ];
 
   let lastPos = -1;
@@ -69,7 +69,9 @@ test("HTML/SW/CSS structural invariants & asset version v36", () => {
     html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
     "index.html missing R2 gateway preconnect hint"
   );
-  assert.ok(html.includes('href="style.css?v=36"'), "index.html missing style.css?v=36");
+  assert.ok(html.includes('href="style.css?v=37"'), "index.html missing style.css?v=37");
+  assert.ok(html.includes('id="radioFxBtn"'), "index.html missing #radioFxBtn button");
+  assert.ok(html.includes('id="radioMixRange"'), "index.html missing #radioMixRange slider");
   assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
   assert.ok(html.includes("script-src 'self'"), "CSP must restrict script-src to 'self'");
   assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'), "index.html missing referrer policy meta");
@@ -79,11 +81,12 @@ test("HTML/SW/CSS structural invariants & asset version v36", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v36";'), "sw.js VERSION must match v36");
+  assert.ok(sw.includes('const VERSION = "v37";'), "sw.js VERSION must match v37");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
   assert.equal(lyricsJs.includes("innerHTML"), false, "lyrics.js must use replaceChildren() instead of innerHTML");
+  assert.ok(css.includes(".radio-fx-btn") && css.includes("body.radio-fx-active"), "style.css must style .radio-fx-btn and body.radio-fx-active");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
@@ -392,7 +395,7 @@ test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", as
 
   // networkFirst falls back to cached response when upstream returns >= 500
   const navReq = new Request("https://williamqaqq.github.io/music-box/");
-  const fallbackRes = await swCtx.networkFirst(navReq, "music-box-shell-v36");
+  const fallbackRes = await swCtx.networkFirst(navReq, "music-box-shell-v37");
   assert.equal(fallbackRes.status, 200);
   assert.equal(await fallbackRes.text(), "<html>cached-shell</html>");
 
@@ -407,7 +410,7 @@ test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", as
   assert.equal(swFetchCount, fetchBefore, "CACHE_TRACK must reject prefix-spoofed cross-origin URLs");
 });
 
-test("audio-fx: EQ bypass delays disconnect until gain ramp finishes", async () => {
+test("audio-fx: EQ & radio station DSP branches delay disconnect until gain ramp finishes", async () => {
   const { sandbox } = createBrowserSandbox();
   const makeParam = (initVal = 0) => ({
     value: initVal,
@@ -419,20 +422,40 @@ test("audio-fx: EQ bypass delays disconnect until gain ramp finishes", async () 
   const makeNode = () => ({
     connect() {},
     disconnect() {},
+    start() {},
+    stop() {},
     gain: makeParam(0),
     frequency: makeParam(440),
     Q: makeParam(1),
     delayTime: makeParam(0),
+    threshold: makeParam(-20),
+    knee: makeParam(10),
+    ratio: makeParam(4),
+    attack: makeParam(0.01),
+    release: makeParam(0.1),
     type: "",
+    loop: false,
+    buffer: null,
+    curve: null,
+    oversample: "none",
   });
   class MockAudioContext {
     constructor() {
       this.currentTime = 0;
+      this.sampleRate = 8000;
       this.state = "running";
       this.destination = makeNode();
     }
     createGain() { return makeNode(); }
     createBiquadFilter() { return makeNode(); }
+    createWaveShaper() { return makeNode(); }
+    createDynamicsCompressor() { return makeNode(); }
+    createOscillator() { return makeNode(); }
+    createBufferSource() { return makeNode(); }
+    createBuffer(channels, length) {
+      const chs = Array.from({ length: channels }, () => new Float32Array(length));
+      return { getChannelData: (i) => chs[i] };
+    }
     createMediaElementSource() { return makeNode(); }
     createAnalyser() { return { ...makeNode(), frequencyBinCount: 64, getByteFrequencyData() {} }; }
     resume() { return Promise.resolve(); }
@@ -452,6 +475,7 @@ test("audio-fx: EQ bypass delays disconnect until gain ramp finishes", async () 
     audio: mockAudio,
     vinylBtn: { classList: { toggle() {} }, setAttribute() {} },
     synthBtn: { classList: { toggle() {} }, setAttribute() {} },
+    radioBtn: { classList: { toggle() {} }, setAttribute() {} },
   });
 
   fx.setEqBand("bass", 4);
@@ -460,6 +484,18 @@ test("audio-fx: EQ bypass delays disconnect until gain ramp finishes", async () 
   assert.equal(fx.isEqConnected(), true, "EQ must stay connected briefly while ramping down to prevent click");
   await new Promise((r) => setTimeout(r, 190));
   assert.equal(fx.isEqConnected(), false, "EQ disconnects cleanly after BYPASS_DISCONNECT_DELAY_MS");
+
+  // Radio station mode DSP branch connects on enable, updates mix, and disconnects after ramp-down
+  fx.toggleRadioFx();
+  assert.equal(fx.isRadioEnabled(), true);
+  assert.equal(fx.isRadioConnected(), true);
+  fx.setFxMix("radio", 1.3);
+  assert.equal(fx.getFxMix().radio, 1.3);
+  fx.toggleRadioFx();
+  assert.equal(fx.isRadioEnabled(), false);
+  assert.equal(fx.isRadioConnected(), true, "Radio branch stays connected briefly during ramp-down");
+  await new Promise((r) => setTimeout(r, 190));
+  assert.equal(fx.isRadioConnected(), false, "Radio branch disconnects cleanly after BYPASS_DISCONNECT_DELAY_MS");
 });
 
 test("audio-fx: fallback fadeInOver ramps smoothly to 1 when AudioContext is uninitialized", async () => {

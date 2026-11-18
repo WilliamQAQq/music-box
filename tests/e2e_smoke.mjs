@@ -421,11 +421,13 @@ async function run() {
     await page.click('.shelf-tab[data-category="all"]');
     await page.click("#clearGenreBtn");
 
-    // Toggle Vinyl & Synth DSP branches during active track
+    // Toggle Vinyl, Synth & Radio Station DSP branches during active track
     await page.click("#vinylFxBtn");
     await page.click("#synthFxBtn");
+    await page.click("#radioFxBtn");
     assert.equal(await page.locator("#vinylFxBtn.on").count(), 1, "Vinyl FX button should be active");
     assert.equal(await page.locator("#synthFxBtn.on").count(), 1, "Synth FX button should be active");
+    assert.equal(await page.locator("#radioFxBtn.on").count(), 1, "Radio FX button should be active");
 
     // Open Phonograph Studio Popover & test Spectrum / EQ / FX Mix / Speed / Crossfade / Sleep / A-B Loop / Share
     await page.click("#studioBtn");
@@ -445,6 +447,9 @@ async function run() {
     await page.locator("#eqBass").fill("6");
     await page.locator("#eqBass").dispatchEvent("input");
     assert.equal(await page.textContent("#eqBassVal"), "+6 dB");
+    await page.locator("#radioMixRange").fill("125");
+    await page.locator("#radioMixRange").dispatchEvent("input");
+    assert.equal(await page.textContent("#radioMixVal"), "125%");
     await page.click('.eq-preset-btn[data-preset="warm"]');
 
     await page.click('.studio-pill-btn[data-speed="1.25"]');
@@ -465,6 +470,7 @@ async function run() {
     const dismissedByOutsideClick = await page.evaluate(() => !document.getElementById("studioPanel").matches(":popover-open"));
     assert.equal(dismissedByOutsideClick, true, "popover=\"auto\" must light-dismiss on outside click");
     await page.click("#synthFxBtn");
+    await page.click("#radioFxBtn");
     await page.waitForTimeout(200);
 
     // Re-open studio panel for A-B loop & Share Copy verification

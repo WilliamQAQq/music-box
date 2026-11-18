@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>
-<link rel="stylesheet" href="style.css?v=36">
+<link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
 
@@ -201,6 +201,7 @@
   <div class="player-right">
     <button type="button" id="vinylFxBtn" class="ctrl-btn vinyl-fx-btn" title="模拟黑胶唱片音效 (快捷键 V)" aria-label="模拟黑胶唱片音效" aria-pressed="false">胶</button>
     <button type="button" id="synthFxBtn" class="ctrl-btn synth-fx-btn" title="模拟合成器音效 (快捷键 S)" aria-label="模拟合成器音效" aria-pressed="false">合</button>
+    <button type="button" id="radioFxBtn" class="ctrl-btn radio-fx-btn" title="模拟无线电台音效 (快捷键 R)" aria-label="模拟无线电台音效" aria-pressed="false">电</button>
     <button type="button" id="studioBtn" class="ctrl-btn studio-btn" title="留声机调音台与工具 (快捷键 E)" aria-label="打开留声机调音台与工具" aria-pressed="false" aria-controls="studioPanel">调<span class="studio-dot" id="studioBadgeDot" aria-hidden="true" hidden></span></button>
     <button type="button" id="lyricsToggleBtn" class="ctrl-btn lyrics-toggle-btn" title="展开/收起滚动歌词 (L)" aria-label="展开或收起滚动歌词" aria-pressed="true">词</button>
     <button type="button" id="queueToggleBtn" class="ctrl-btn queue-toggle-btn" title="展开/收起播放队列 (快捷键 Q)" aria-label="展开或收起播放队列" aria-pressed="false" aria-controls="queueDrawer">
@@ -415,6 +416,11 @@
           <input type="range" id="synthMixRange" class="range studio-range" min="20" max="150" step="5" value="100" aria-label="合成器音效混合比例">
           <span class="studio-slider-val" id="synthMixVal">100%</span>
         </label>
+        <label class="studio-slider-row">
+          <span class="studio-slider-lbl">电台失真度</span>
+          <input type="range" id="radioMixRange" class="range studio-range" min="20" max="150" step="5" value="100" aria-label="无线电台音效混合比例">
+          <span class="studio-slider-val" id="radioMixVal">100%</span>
+        </label>
       </div>
     </section>
 
@@ -487,12 +493,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="js/catalog-data.js?v=36"></script>
-<script defer src="js/user-state.js?v=36"></script>
-<script defer src="js/library-loader.js?v=36"></script>
-<script defer src="js/audio-fx.js?v=36"></script>
-<script defer src="js/lyrics.js?v=36"></script>
-<script defer src="js/studio-ui.js?v=36"></script>
-<script defer src="app.js?v=36"></script>
+<script defer src="js/catalog-data.js?v=37"></script>
+<script defer src="js/user-state.js?v=37"></script>
+<script defer src="js/library-loader.js?v=37"></script>
+<script defer src="js/audio-fx.js?v=37"></script>
+<script defer src="js/lyrics.js?v=37"></script>
+<script defer src="js/studio-ui.js?v=37"></script>
+<script defer src="app.js?v=37"></script>
 </body>
 </html>

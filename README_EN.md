@@ -47,7 +47,7 @@
   - Dedicated **♥ Personal Collections** (`Favorites` + 45-track `Recent History`) synced with heart buttons (`F` shortcut), using Keyed DOM reuse across both the playlist and Queue Drawer for flicker-free updates;
   - Automatic **Resume Playback Bar** on return visits, plus one-click copy of `#track=...&t=...` share deep links opening directly to the current timestamp.
 - **Phonograph Studio Popover (`E` shortcut / `调` Console Button)**:
-  - **Live Brass Spectrum & 3-Band EQ**: Real-time Canvas spectrum analyzer (automatically pauses frame loops when hidden, scrolled offscreen, or paused), paired with a bypassable 3-band vintage EQ (110Hz / 1.1kHz / 7.5kHz) + 5 presets (`Flat / Warm / Jazz / Rock / Vocal`) and independent Vinyl/Synth mix sliders;
+  - **Live Brass Spectrum & 3-Band EQ**: Real-time Canvas spectrum analyzer (automatically pauses frame loops when hidden, scrolled offscreen, or paused), paired with a bypassable 3-band vintage EQ (110Hz / 1.1kHz / 7.5kHz) + 5 presets (`Flat / Warm / Jazz / Rock / Vocal`) and independent Vinyl/Synth/Radio mix sliders;
   - **Pitch-Preserving Speed, Crossfade, Sleep Timer & A-B Loop**: `0.75x–1.5x` turntable speed, `0/2/4/6s` track Crossfade, A-B loop practice (`[` / `]` / `\`), and `End of Track / 15 / 30 / 60m` Sleep Timer with 10-second gentle fadeout.
 - **In-Panel Lyric Search & `.lrc` Export**: Libretto panel adds live keyword filtering (`搜`) and single-click `.lrc` file export (`导`, optionally including bilingual lines).
 - **Interactive Play Queue & Multi-Token Search**: Enqueue any track as **Play Next (`+`)** right from the list or manage the live order (jump, promote to next, remove, reshuffle, clear upcoming) in the slide-over **Queue Drawer (`Q`)**. Toolbar search supports space-separated multi-keyword `AND` filtering with debounced input, one-click clear (`×`), and a quick **Locate Current Track (`定位`)** button.
@@ -56,10 +56,14 @@
   - **Tube / Cartridge Saturation**: Asymmetric even-harmonic warmth blended with soft `tanh` clipping and exact zero-point DC normalization;
   - **Turntable Pitch Drift (Wow & Flutter)**: 33.3 RPM cyclical speed drift (0.555 Hz) and mechanical motor jitter for an unmistakably human, organic vinyl breathing;
   - **Surface Noise & Crackles**: Procedurally synthesized 6-second stereo groove friction rumble with dust crackles and cosine loop-seam crossfading (click-free continuous loop), illuminating the tonearm with a warm golden glow.
-- **Analog Poly-Synthesizer Emulation (Web Audio Poly-Synth DSP)**: Toggle via the **"合"** button or shortcut `S` (dynamically stops & disconnects LFOs/branches on bypass; stackable with Vinyl mode):
+- **Analog Poly-Synthesizer Emulation (Web Audio Poly-Synth DSP)**: Toggle via the **"合"** button or shortcut `S` (dynamically stops & disconnects LFOs/branches on bypass; stackable with Vinyl and Radio modes):
   - **Dual Asynchronous LFO 6-Stage Allpass PWM Matrix**: Dual odd/even asynchronous LFOs modulate a 6-stage pure linear allpass phase-dispersion cascade mixed 50%/50% with the dry signal for lush, phase-animated PWM shimmer with zero nonlinear intermodulation noise;
   - **Dual Formant Sculpting, Air Shelf & 24dB/oct Cascaded Moog Ladder VCF**: Shapes 500Hz and 1.28kHz electronic formants plus a gentle 7.4kHz air shelf into a dual-cascaded 24dB/oct resonant low-pass filter swept smoothly by a sine LFO;
   - **3-Voice Juno-60 Unison Ensemble Chorus & Velvet Echo**: Pre-filtered at 3.8kHz into left, right, and center pitch-detuned BBD unison voices plus a band-limited (220Hz–1.9kHz) space echo for a wide, noise-free retro synth transformation.
+- **Vintage Shortwave / AM Radio Station Emulation (Web Audio Radio DSP)**: Toggle via the **"电"** button or shortcut `R` (adjustable `20%–150%` distortion mix in the Studio popover; stackable with Vinyl or Synth modes):
+  - **Narrowband IF & Bakelite Speaker Bandpass**: Steep 2nd-order high-pass (`340Hz–430Hz`) and low-pass (`3.2kHz–3.6kHz`) walls paired with a `1.12kHz` nasal bakelite cabinet resonance and `2.1kHz` AM voice presence peak;
+  - **Diode Envelope Detector & Pentode Tube Clipping**: Asymmetric envelope-detector wave-shaping (`2x` oversampled, DC-zeroed) feeding a fast AM receiver Automatic Gain Control (AGC) compressor;
+  - **Ionospheric Skywave Fading (QSB) & Sferics Static**: Dual slow sine LFOs simulate ionospheric carrier fading and tuning drift, layered with a seamless 6-second loop of band-limited AM static, atmospheric sferics crackle bursts, and faint heterodyne carrier whistle.
 - **Refined Playback & Mobile Engineering**: Native `Media Session API` integration, true Fisher-Yates shuffle history, 3-mode repeat (`Off / All / One`), safe-area notch padding, generous coarse-pointer touch targets, and automatic skip-circuit-breaker on network errors.
 
 ---
@@ -103,7 +107,7 @@
 | `Space` | Play / Pause | `N` / `P` | Next / Previous track |
 | `←` / `→` | Seek backward / forward 5s | `M` | Mute / Unmute |
 | `↑` / `↓` | Volume +5% / -5% | `L` | Toggle scrolling lyrics panel |
-| `V` | Toggle vinyl record emulation | `S` | Toggle synthesizer resynthesis |
+| `V` | Toggle vinyl record emulation | `S` / `R` | Toggle synth / radio station mode |
 | `E` | Toggle Phonograph Studio popover | `F` | Favorite / Unfavorite track |
 | `Q` | Toggle play queue drawer | `[` / `]` / `\` | Set A-B loop A / B / Clear |
 | `Esc` | Close active overlay / modal | | |

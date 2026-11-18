@@ -82,6 +82,7 @@
     lyricsToggleBtn: $("lyricsToggleBtn"),
     vinylFxBtn: $("vinylFxBtn"),
     synthFxBtn: $("synthFxBtn"),
+    radioFxBtn: $("radioFxBtn"),
     studioBtn: $("studioBtn"),
     studioBadgeDot: $("studioBadgeDot"),
     studioPanel: $("studioPanel"),
@@ -100,6 +101,8 @@
     vinylMixVal: $("vinylMixVal"),
     synthMixRange: $("synthMixRange"),
     synthMixVal: $("synthMixVal"),
+    radioMixRange: $("radioMixRange"),
+    radioMixVal: $("radioMixVal"),
     speedBtns: Array.from(document.querySelectorAll(".studio-pill-btn[data-speed]")),
     crossfadeBtns: Array.from(document.querySelectorAll(".studio-pill-btn[data-xfade]")),
     sleepBtns: Array.from(document.querySelectorAll(".studio-pill-btn[data-sleep]")),
@@ -236,6 +239,7 @@
     audio,
     vinylBtn: els.vinylFxBtn,
     synthBtn: els.synthFxBtn,
+    radioBtn: els.radioFxBtn,
     toast,
     getBaseVolume: () => baseVolume,
     onFallbackGainChange: (factor) => {
@@ -2234,6 +2238,7 @@
       case "l": case "L": lyricsCtrl.togglePanel(); break;
       case "v": case "V": audioFx.toggleVinylFx(); break;
       case "s": case "S": audioFx.toggleSynthFx(); break;
+      case "r": case "R": audioFx.toggleRadioFx(); break;
       case "q": case "Q": toggleQueueDrawer(els.queueToggleBtn); break;
       case "e": case "E": studioCtrl.toggleStudio(els.studioBtn); break;
       case "f": case "F":
@@ -2345,6 +2350,7 @@
     audioFx.syncUI();
     if (els.vinylFxBtn) els.vinylFxBtn.addEventListener("click", audioFx.toggleVinylFx);
     if (els.synthFxBtn) els.synthFxBtn.addEventListener("click", audioFx.toggleSynthFx);
+    if (els.radioFxBtn) els.radioFxBtn.addEventListener("click", audioFx.toggleRadioFx);
 
     updateQueueUI();
     setupMediaSession();

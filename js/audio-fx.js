@@ -5,6 +5,7 @@
   const { KEYS, storageGet, storageSet, setPressedButtonState } = ns.catalog;
 
   const BASE_VINYL_NOISE_GAIN = 0.045;
+  const BASE_RADIO_STATIC_GAIN = 0.036;
   const BYPASS_DISCONNECT_DELAY_MS = 140;
 
   function safeDisconnect(fromNode, toNode) {
@@ -143,6 +144,96 @@
     return curve;
   }
 
+  /**
+   * 生成 6 秒无缝短波/调幅无线电静电底噪、天电突发脉冲与微弱差拍啸叫缓冲：
+   * 首尾采用等功率余弦交叉淡化，确保循环无接缝。
+   */
+  function createRadioStaticBuffer(ctx) {
+    const sampleRate = ctx.sampleRate;
+    const length = Math.max(sampleRate * 4, Math.floor(sampleRate * 6));
+    const fadeLen = Math.min(Math.floor(sampleRate * 0.045), Math.floor(length / 8));
+    const totalGen = length + fadeLen;
+    const raw0 = new Float32Array(totalGen);
+    const raw1 = new Float32Array(totalGen);
+
+    let lp0 = 0;
+    let lp1 = 0;
+    const humFreq = (2 * Math.PI * 100) / sampleRate;
+    const whistleFreqA = (2 * Math.PI * 1740) / sampleRate;
+    const whistleFreqB = (2 * Math.PI * 2460) / sampleRate;
+
+    for (let i = 0; i < totalGen; i++) {
+      const w0 = Math.random() * 2 - 1;
+      const w1 = Math.random() * 2 - 1;
+      // 模拟短波中频检波带通底噪 (预加重高频沙沙声 + 慢速电离层起伏)
+      lp0 = 0.72 * lp0 + 0.28 * w0;
+      lp1 = 0.72 * lp1 + 0.28 * w1;
+      const bandNoise0 = (w0 - lp0 * 0.55) * 0.14;
+      const bandNoise1 = (w1 - lp1 * 0.55) * 0.14;
+
+      const qsbEnv = 0.82 + 0.18 * Math.sin((i / sampleRate) * Math.PI * 2 * 0.33);
+      const whistleMod = Math.sin((i / sampleRate) * Math.PI * 2 * 0.42) * 18;
+      const heterodyne =
+        Math.sin(i * whistleFreqA + whistleMod) * 0.0028 +
+        Math.sin(i * whistleFreqB - whistleMod * 0.7) * 0.0016;
+      const tubeHum = Math.sin(i * humFreq) * 0.0032;
+
+      raw0[i] = (bandNoise0 * qsbEnv) + heterodyne + tubeHum;
+      raw1[i] = (bandNoise1 * qsbEnv * 0.96 + bandNoise0 * 0.04) + heterodyne * 0.9 + tubeHum;
+    }
+
+    // 模拟大气天电干扰 (Sferics) 短促脉冲簇
+    const burstCount = Math.max(4, Math.floor((length / sampleRate) * 2.2));
+    for (let b = 0; b < burstCount; b++) {
+      const startPos = Math.floor(Math.random() * length);
+      const burstLen = Math.floor(sampleRate * (0.006 + Math.random() * 0.022));
+      const amp = 0.09 + Math.random() * 0.16;
+      for (let j = 0; j < burstLen; j++) {
+        const idx = (startPos + j) % length;
+        const win = Math.sin((j / burstLen) * Math.PI);
+        const crack = (Math.random() * 2 - 1) * amp * win;
+        raw0[idx] += crack;
+        raw1[idx] += crack * 0.88;
+      }
+    }
+
+    const buffer = ctx.createBuffer(2, length, sampleRate);
+    const ch0 = buffer.getChannelData(0);
+    const ch1 = buffer.getChannelData(1);
+    ch0.set(raw0.subarray(0, length));
+    ch1.set(raw1.subarray(0, length));
+
+    for (let i = 0; i < fadeLen; i++) {
+      const t = i / fadeLen;
+      const fadeIn = Math.sin(t * Math.PI * 0.5);
+      const fadeOut = Math.cos(t * Math.PI * 0.5);
+      ch0[i] = ch0[i] * fadeIn + raw0[length + i] * fadeOut;
+      ch1[i] = ch1[i] * fadeIn + raw1[length + i] * fadeOut;
+    }
+
+    return buffer;
+  }
+
+  /**
+   * 模拟矿石/二极管包络检波器非对称削波与电子管五极管交调失真曲线（严格零点无偏置）。
+   */
+  function makeRadioDistortionCurve() {
+    const n = 4096;
+    const curve = new Float32Array(n);
+    const rawEval = (x) => {
+      const asym = x >= 0 ? Math.tanh(x * 2.55) * 0.88 : Math.tanh(x * 1.9) * 0.72;
+      const grit = 0.08 * x * x - 0.045 * x * x * x;
+      return asym + grit;
+    };
+    const dcOffset = rawEval(0);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / (n - 1) - 1;
+      const shaped = rawEval(x) - dcOffset;
+      curve[i] = Math.max(-1, Math.min(1, shaped));
+    }
+    return curve;
+  }
+
   const EQ_PRESETS = {
     flat: { label: "原声平直", bass: 0, mid: 0, treble: 0 },
     warm: { label: "维多利亚暖声", bass: 4.5, mid: 1.5, treble: -2.5 },
@@ -170,10 +261,12 @@
     const audio = options.audio;
     const vinylBtn = options.vinylBtn;
     const synthBtn = options.synthBtn;
+    const radioBtn = options.radioBtn;
     const toast = options.toast;
 
     let vinylFxEnabled = storageGet(KEYS.VINYL_FX, "0") === "1";
     let synthFxEnabled = storageGet(KEYS.SYNTH_FX, "0") === "1";
+    let radioFxEnabled = storageGet(KEYS.RADIO_FX, "0") === "1";
 
     const savedEq = safeParseJson(storageGet(KEYS.EQ, ""), {});
     const eqState = {
@@ -186,23 +279,28 @@
     const mixState = {
       vinyl: clampNum(savedMix.vinyl, 0.2, 1.5, 1.0),
       synth: clampNum(savedMix.synth, 0.2, 1.5, 1.0),
+      radio: clampNum(savedMix.radio, 0.2, 1.5, 1.0),
     };
 
     let audioCtx = null;
     let baseGraph = null;
     let synthNodes = null;
     let vinylNodes = null;
+    let radioNodes = null;
     let eqNodes = null;
     let analyserNode = null;
     let vinylNoiseBuffer = null;
+    let radioStaticBuffer = null;
 
     let synthConnected = false;
     let vinylConnected = false;
+    let radioConnected = false;
     let eqConnected = false;
     let analyserWanted = false;
     let analyserConnected = false;
     let synthDisconnectTimer = null;
     let vinylDisconnectTimer = null;
+    let radioDisconnectTimer = null;
     let eqDisconnectTimer = null;
     let audioSuspendTimer = null;
 
@@ -224,7 +322,7 @@
     }
 
     function needsAudioGraph() {
-      return !!(vinylFxEnabled || synthFxEnabled || isEqActive() || analyserWanted);
+      return !!(vinylFxEnabled || synthFxEnabled || radioFxEnabled || isEqActive() || analyserWanted);
     }
 
     function ensureBaseGraph() {
@@ -252,13 +350,21 @@
         stage1Bus.connect(stage2DryGain);
         stage2DryGain.connect(postStage2Bus);
 
+        // 第三级总线(第二级输出 vs 短波/调幅无线电台)
+        const stage3DryGain = audioCtx.createGain();
+        stage3DryGain.gain.value = 1;
+        const postStage3Bus = audioCtx.createGain();
+        postStage3Bus.gain.value = 1;
+        postStage2Bus.connect(stage3DryGain);
+        stage3DryGain.connect(postStage3Bus);
+
         // EQ 旁路直通增益与主淡入淡出保护增益
         const eqDryGain = audioCtx.createGain();
         eqDryGain.gain.value = 1;
         const masterGain = audioCtx.createGain();
         masterGain.gain.value = 1;
 
-        postStage2Bus.connect(eqDryGain);
+        postStage3Bus.connect(eqDryGain);
         eqDryGain.connect(masterGain);
         masterGain.connect(audioCtx.destination);
 
@@ -268,6 +374,8 @@
           stage1Bus,
           stage2DryGain,
           postStage2Bus,
+          stage3DryGain,
+          postStage3Bus,
           eqDryGain,
           masterGain,
         };
@@ -706,6 +814,177 @@
       }, BYPASS_DISCONNECT_DELAY_MS);
     }
 
+    function buildRadioNodes() {
+      if (radioNodes) return true;
+      if (!ensureBaseGraph()) return false;
+      try {
+        const inputDrive = audioCtx.createGain();
+        inputDrive.gain.value = 1.35;
+
+        // 二阶陡峭高通 (切除 380Hz 以下低频，模拟矿石/电木小口径喇叭)
+        const hp1 = audioCtx.createBiquadFilter();
+        hp1.type = "highpass";
+        hp1.frequency.value = 340;
+        hp1.Q.value = 0.85;
+
+        const hp2 = audioCtx.createBiquadFilter();
+        hp2.type = "highpass";
+        hp2.frequency.value = 430;
+        hp2.Q.value = 0.95;
+
+        // 电木箱体中频腔体鼻音共振与调幅话音峰
+        const boxRes = audioCtx.createBiquadFilter();
+        boxRes.type = "peaking";
+        boxRes.frequency.value = 1120;
+        boxRes.Q.value = 1.65;
+        boxRes.gain.value = 4.2;
+
+        const presencePeak = audioCtx.createBiquadFilter();
+        presencePeak.type = "peaking";
+        presencePeak.frequency.value = 2100;
+        presencePeak.Q.value = 1.85;
+        presencePeak.gain.value = 3.0;
+
+        // 二极管包络检波与电子管五极管过载削波
+        const shaper = audioCtx.createWaveShaper();
+        shaper.curve = makeRadioDistortionCurve();
+        shaper.oversample = "2x";
+
+        // 二阶陡峭调幅中频低通墙 (3.2kHz–3.6kHz 截频，受电离层漂移微调)
+        const lp1 = audioCtx.createBiquadFilter();
+        lp1.type = "lowpass";
+        lp1.frequency.value = 3250;
+        lp1.Q.value = 1.2;
+
+        const lp2 = audioCtx.createBiquadFilter();
+        lp2.type = "lowpass";
+        lp2.frequency.value = 3600;
+        lp2.Q.value = 1.1;
+
+        const driftGain = audioCtx.createGain();
+        driftGain.gain.value = 260;
+        driftGain.connect(lp1.frequency);
+
+        // 短波自动增益控制 (AGC) 压缩感與电离层天波衰落 (QSB)
+        const agcComp = audioCtx.createDynamicsCompressor();
+        agcComp.threshold.value = -20;
+        agcComp.knee.value = 10;
+        agcComp.ratio.value = 4.5;
+        agcComp.attack.value = 0.005;
+        agcComp.release.value = 0.14;
+
+        const fadeModGain = audioCtx.createGain();
+        fadeModGain.gain.value = 0.92;
+
+        const fadeLfoGain = audioCtx.createGain();
+        fadeLfoGain.gain.value = 0.12;
+        fadeLfoGain.connect(fadeModGain.gain);
+
+        const wetGain = audioCtx.createGain();
+        wetGain.gain.value = 0;
+
+        inputDrive.connect(hp1);
+        hp1.connect(hp2);
+        hp2.connect(boxRes);
+        boxRes.connect(presencePeak);
+        presencePeak.connect(shaper);
+        shaper.connect(lp1);
+        lp1.connect(lp2);
+        lp2.connect(agcComp);
+        agcComp.connect(fadeModGain);
+        fadeModGain.connect(wetGain);
+
+        // 短波静电与外差哨叫噪声支路
+        const noiseBp = audioCtx.createBiquadFilter();
+        noiseBp.type = "bandpass";
+        noiseBp.frequency.value = 1480;
+        noiseBp.Q.value = 0.75;
+
+        const noiseLp = audioCtx.createBiquadFilter();
+        noiseLp.type = "lowpass";
+        noiseLp.frequency.value = 3300;
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.value = 0;
+
+        noiseBp.connect(noiseLp);
+        noiseLp.connect(noiseGain);
+
+        radioNodes = {
+          inputDrive,
+          wetGain,
+          driftGain,
+          fadeLfoGain,
+          noiseBp,
+          noiseGain,
+          noiseSource: null,
+          lfos: [],
+        };
+        return true;
+      } catch (e) {
+        console.warn("Radio audio emulation unavailable:", e);
+        return false;
+      }
+    }
+
+    function connectRadioBranch() {
+      clearTimeout(radioDisconnectTimer);
+      radioDisconnectTimer = null;
+      if (!buildRadioNodes()) return false;
+      if (!radioConnected) {
+        if (!radioStaticBuffer) radioStaticBuffer = createRadioStaticBuffer(audioCtx);
+
+        baseGraph.postStage2Bus.connect(radioNodes.inputDrive);
+        radioNodes.wetGain.connect(baseGraph.postStage3Bus);
+        radioNodes.noiseGain.connect(baseGraph.postStage3Bus);
+
+        const fadeLfo = audioCtx.createOscillator();
+        fadeLfo.type = "sine";
+        fadeLfo.frequency.value = 0.23;
+        fadeLfo.connect(radioNodes.fadeLfoGain);
+
+        const driftLfo = audioCtx.createOscillator();
+        driftLfo.type = "sine";
+        driftLfo.frequency.value = 0.13;
+        driftLfo.connect(radioNodes.driftGain);
+
+        const noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = radioStaticBuffer;
+        noiseSource.loop = true;
+        noiseSource.connect(radioNodes.noiseBp);
+
+        fadeLfo.start();
+        driftLfo.start();
+        noiseSource.start();
+
+        radioNodes.noiseSource = noiseSource;
+        radioNodes.lfos = [fadeLfo, driftLfo];
+        radioConnected = true;
+      }
+      return true;
+    }
+
+    function disconnectRadioBranchImmediate() {
+      if (!radioNodes || !radioConnected) return;
+      safeDisconnect(baseGraph.postStage2Bus, radioNodes.inputDrive);
+      safeDisconnect(radioNodes.wetGain, baseGraph.postStage3Bus);
+      safeDisconnect(radioNodes.noiseGain, baseGraph.postStage3Bus);
+      safeStopSource(radioNodes.noiseSource);
+      radioNodes.lfos.forEach(safeStopSource);
+      radioNodes.noiseSource = null;
+      radioNodes.lfos = [];
+      radioConnected = false;
+    }
+
+    function scheduleRadioDisconnect() {
+      clearTimeout(radioDisconnectTimer);
+      if (!radioConnected) return;
+      radioDisconnectTimer = setTimeout(() => {
+        radioDisconnectTimer = null;
+        if (!radioFxEnabled) disconnectRadioBranchImmediate();
+      }, BYPASS_DISCONNECT_DELAY_MS);
+    }
+
     function buildEqNodes() {
       if (eqNodes) return true;
       if (!ensureBaseGraph()) return false;
@@ -742,7 +1021,7 @@
 
     function disconnectEqBranchImmediate() {
       if (!eqNodes || !eqConnected || !baseGraph) return;
-      safeDisconnect(baseGraph.postStage2Bus, eqNodes.low);
+      safeDisconnect(baseGraph.postStage3Bus, eqNodes.low);
       safeDisconnect(eqNodes.wetGain, baseGraph.masterGain);
       eqConnected = false;
     }
@@ -762,7 +1041,7 @@
         clearTimeout(eqDisconnectTimer);
         eqDisconnectTimer = null;
         if (buildEqNodes() && !eqConnected) {
-          baseGraph.postStage2Bus.connect(eqNodes.low);
+          baseGraph.postStage3Bus.connect(eqNodes.low);
           eqNodes.wetGain.connect(baseGraph.masterGain);
           eqConnected = true;
         }
@@ -805,6 +1084,12 @@
       return BASE_VINYL_NOISE_GAIN * Math.min(1, Math.max(0, baseVol)) * mixState.vinyl;
     }
 
+    function getTargetRadioNoiseGain() {
+      if (!radioFxEnabled || audio.paused || audio.volume <= 0) return 0;
+      const baseVol = typeof options.getBaseVolume === "function" ? options.getBaseVolume() : audio.volume;
+      return BASE_RADIO_STATIC_GAIN * Math.min(1, Math.max(0, baseVol)) * mixState.radio;
+    }
+
     function applyMasterFade(immediate) {
       if (!immediate && Date.now() < fadeInUntilMs) return;
       const target = Math.max(0.015, Math.min(1, sleepFadeFactor * transitionFadeFactor));
@@ -819,6 +1104,7 @@
     function updateGraph(immediate) {
       if (synthFxEnabled && !audio.paused) connectSynthBranch();
       if (vinylFxEnabled && !audio.paused) connectVinylBranch();
+      if (radioFxEnabled && !audio.paused) connectRadioBranch();
       syncEqBranch();
       syncAnalyserBranch();
 
@@ -849,6 +1135,18 @@
         if (!vinylFxEnabled && vinylConnected) scheduleVinylDisconnect();
       }
 
+      const useRadio = !!(radioFxEnabled && radioConnected && radioNodes);
+      const rMix = Math.max(0.2, Math.min(1.5, mixState.radio));
+      baseGraph.stage3DryGain.gain.setTargetAtTime(useRadio ? 0 : 1, time, rampTime);
+      if (radioNodes) {
+        radioNodes.wetGain.gain.setTargetAtTime(useRadio ? 1 : 0, time, rampTime);
+        radioNodes.inputDrive.gain.setTargetAtTime(0.85 + 0.55 * rMix, time, rampTime);
+        radioNodes.noiseGain.gain.setTargetAtTime(getTargetRadioNoiseGain(), time, rampTime);
+        radioNodes.fadeLfoGain.gain.setTargetAtTime(0.11 * Math.min(1.25, rMix), time, rampTime);
+        radioNodes.driftGain.gain.setTargetAtTime(240 * rMix, time, rampTime);
+        if (!radioFxEnabled && radioConnected) scheduleRadioDisconnect();
+      }
+
       applyMasterFade(immediate);
     }
 
@@ -876,6 +1174,8 @@
       document.body.classList.toggle("vinyl-fx-active", vinylFxEnabled);
       setPressedButtonState(synthBtn, synthFxEnabled);
       document.body.classList.toggle("synth-fx-active", synthFxEnabled);
+      setPressedButtonState(radioBtn, radioFxEnabled);
+      document.body.classList.toggle("radio-fx-active", radioFxEnabled);
     }
 
     function toggleVinylFx() {
@@ -910,6 +1210,22 @@
       }
     }
 
+    function toggleRadioFx() {
+      radioFxEnabled = !radioFxEnabled;
+      storageSet(KEYS.RADIO_FX, radioFxEnabled ? "1" : "0");
+      if (!audio.paused) {
+        if (radioFxEnabled) connectRadioBranch();
+        ensureResumed();
+        updateGraph(false);
+      } else if (!radioFxEnabled && radioConnected) {
+        updateGraph(true);
+      }
+      syncUI();
+      if (toast) {
+        toast(radioFxEnabled ? "已开启无线电台模式 · 短波窄带失真与电离层底噪" : "已关闭无线电台模式 · 还原宽频原声");
+      }
+    }
+
     function setEqBand(band, db) {
       if (band !== "bass" && band !== "mid" && band !== "treble") return;
       eqState[band] = clampNum(db, -12, 12, 0);
@@ -934,14 +1250,14 @@
     }
 
     function setFxMix(kind, value) {
-      if (kind !== "vinyl" && kind !== "synth") return;
+      if (kind !== "vinyl" && kind !== "synth" && kind !== "radio") return;
       mixState[kind] = clampNum(value, 0.2, 1.5, 1.0);
       storageSet(KEYS.FX_MIX, JSON.stringify(mixState));
       updateGraph(false);
     }
 
     function getFxMix() {
-      return { vinyl: mixState.vinyl, synth: mixState.synth };
+      return { vinyl: mixState.vinyl, synth: mixState.synth, radio: mixState.radio };
     }
 
     function setAnalyserActive(on) {
@@ -1040,6 +1356,7 @@
       if (needsAudioGraph()) {
         if (synthFxEnabled) connectSynthBranch();
         if (vinylFxEnabled) connectVinylBranch();
+        if (radioFxEnabled) connectRadioBranch();
         ensureResumed();
       }
       updateGraph(false);
@@ -1059,8 +1376,10 @@
       EQ_PRESETS,
       isVinylEnabled: () => vinylFxEnabled,
       isSynthEnabled: () => synthFxEnabled,
+      isRadioEnabled: () => radioFxEnabled,
       isSynthConnected: () => synthConnected,
       isVinylConnected: () => vinylConnected,
+      isRadioConnected: () => radioConnected,
       isEqActive,
       isEqConnected: () => eqConnected,
       isAnalyserConnected: () => analyserConnected,
@@ -1082,6 +1401,7 @@
       syncUI,
       toggleVinylFx,
       toggleSynthFx,
+      toggleRadioFx,
       onPlay,
       onPlaying,
       onPauseOrEnd,
