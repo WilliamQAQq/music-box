@@ -145,10 +145,15 @@
   }
 
   /**
-   * 生成 6 秒无缝短波/调幅无线电静电底噪、天电突发脉冲与微弱差拍啸叫缓冲：
+   * 按指定干扰模式生成 6 秒无缝无线电静电底噪、邻频差拍哨叫、磁暴雷电或航空塔台静噪缓冲：
+   * - qrn: 天电静电 (电离层带通底噪 + 轻度天电脉冲 + 100Hz 电子管灯丝哼声)
+   * - qrm: 邻频哨叫 (双载波差拍外差啸叫 + 790Hz 莫尔斯电报 CW 滴答电码 + 底噪)
+   * - storm: 磁暴雷雨 (密集雷电静电猝发簇 + 太阳风暴深幅电离层湍流)
+   * - cockpit: 塔台底噪 (VHF 鉴频高频嘶声 + 400Hz/800Hz 航空机载交流逆变器嗡声 + PTT 静噪尾音咔哒)
    * 首尾采用等功率余弦交叉淡化，确保循环无接缝。
    */
-  function createRadioStaticBuffer(ctx) {
+  function createRadioStaticBuffer(ctx, noiseMode) {
+    const mode = noiseMode || "qrn";
     const sampleRate = ctx.sampleRate;
     const length = Math.max(sampleRate * 4, Math.floor(sampleRate * 6));
     const fadeLen = Math.min(Math.floor(sampleRate * 0.045), Math.floor(length / 8));
@@ -158,42 +163,109 @@
 
     let lp0 = 0;
     let lp1 = 0;
-    const humFreq = (2 * Math.PI * 100) / sampleRate;
-    const whistleFreqA = (2 * Math.PI * 1740) / sampleRate;
-    const whistleFreqB = (2 * Math.PI * 2460) / sampleRate;
+    const hum100 = (2 * Math.PI * 100) / sampleRate;
+    const hum400 = (2 * Math.PI * 400) / sampleRate;
+    const hum800 = (2 * Math.PI * 800) / sampleRate;
+    const whistleA = (2 * Math.PI * (mode === "qrm" ? 1140 : 1740)) / sampleRate;
+    const whistleB = (2 * Math.PI * (mode === "qrm" ? 2180 : 2460)) / sampleRate;
+    const cwFreq = (2 * Math.PI * 790) / sampleRate;
+
+    // 预生成 QRM 模式下的背景莫尔斯电报 (CW) 滴答包络时间表
+    const cwPattern = [1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0];
+    const cwUnitSamples = Math.max(1, Math.floor(sampleRate * 0.068));
 
     for (let i = 0; i < totalGen; i++) {
       const w0 = Math.random() * 2 - 1;
       const w1 = Math.random() * 2 - 1;
-      // 模拟短波中频检波带通底噪 (预加重高频沙沙声 + 慢速电离层起伏)
-      lp0 = 0.72 * lp0 + 0.28 * w0;
-      lp1 = 0.72 * lp1 + 0.28 * w1;
-      const bandNoise0 = (w0 - lp0 * 0.55) * 0.14;
-      const bandNoise1 = (w1 - lp1 * 0.55) * 0.14;
+      const sec = i / sampleRate;
 
-      const qsbEnv = 0.82 + 0.18 * Math.sin((i / sampleRate) * Math.PI * 2 * 0.33);
-      const whistleMod = Math.sin((i / sampleRate) * Math.PI * 2 * 0.42) * 18;
-      const heterodyne =
-        Math.sin(i * whistleFreqA + whistleMod) * 0.0028 +
-        Math.sin(i * whistleFreqB - whistleMod * 0.7) * 0.0016;
-      const tubeHum = Math.sin(i * humFreq) * 0.0032;
+      if (mode === "cockpit") {
+        // VHF 甚高频/塔台鉴频高频预加重白噪 + 400Hz 机载航电交流嗡声
+        lp0 = 0.52 * lp0 + 0.48 * w0;
+        lp1 = 0.52 * lp1 + 0.48 * w1;
+        const vhfHiss0 = (w0 - lp0 * 0.72) * 0.145;
+        const vhfHiss1 = (w1 - lp1 * 0.72) * 0.145;
+        const avionicsHum = Math.sin(i * hum400) * 0.0085 + Math.sin(i * hum800) * 0.0038;
+        raw0[i] = vhfHiss0 + avionicsHum;
+        raw1[i] = vhfHiss1 * 0.95 + vhfHiss0 * 0.05 + avionicsHum;
+      } else if (mode === "qrm") {
+        // 邻频双差拍哨叫 + 莫尔斯 CW 远距电报背景
+        lp0 = 0.72 * lp0 + 0.28 * w0;
+        lp1 = 0.72 * lp1 + 0.28 * w1;
+        const bandNoise0 = (w0 - lp0 * 0.55) * 0.105;
+        const bandNoise1 = (w1 - lp1 * 0.55) * 0.105;
+        const warbleA = Math.sin(sec * Math.PI * 2 * 0.55) * 26;
+        const warbleB = Math.cos(sec * Math.PI * 2 * 0.37) * 19;
+        const beatWhistle =
+          Math.sin(i * whistleA + warbleA) * 0.016 +
+          Math.sin(i * whistleB - warbleB) * 0.0095;
 
-      raw0[i] = (bandNoise0 * qsbEnv) + heterodyne + tubeHum;
-      raw1[i] = (bandNoise1 * qsbEnv * 0.96 + bandNoise0 * 0.04) + heterodyne * 0.9 + tubeHum;
+        const cwSlot = Math.floor((i % length) / cwUnitSamples) % cwPattern.length;
+        const cwPhaseInSlot = ((i % length) % cwUnitSamples) / cwUnitSamples;
+        const cwEdge = Math.min(1, cwPhaseInSlot * 10, (1 - cwPhaseInSlot) * 10);
+        const cwEnv = cwPattern[cwSlot] ? Math.max(0, cwEdge) : 0;
+        const cwTone = Math.sin(i * cwFreq) * cwEnv * 0.015;
+
+        raw0[i] = bandNoise0 + beatWhistle + cwTone;
+        raw1[i] = bandNoise1 * 0.94 + bandNoise0 * 0.06 + beatWhistle * 0.92 + cwTone * 0.88;
+      } else if (mode === "storm") {
+        // 磁暴雷雨：强电离层喘息底噪
+        lp0 = 0.76 * lp0 + 0.24 * w0;
+        lp1 = 0.76 * lp1 + 0.24 * w1;
+        const stormNoise0 = (w0 - lp0 * 0.45) * 0.165;
+        const stormNoise1 = (w1 - lp1 * 0.45) * 0.165;
+        const surgeEnv = 0.75 + 0.25 * Math.sin(sec * Math.PI * 2 * 0.62) * Math.cos(sec * Math.PI * 2 * 0.29);
+        const hum = Math.sin(i * hum100) * 0.0045;
+        raw0[i] = stormNoise0 * surgeEnv + hum;
+        raw1[i] = stormNoise1 * surgeEnv * 0.94 + stormNoise0 * 0.06 + hum;
+      } else {
+        // 默认 qrn：天电静电
+        lp0 = 0.72 * lp0 + 0.28 * w0;
+        lp1 = 0.72 * lp1 + 0.28 * w1;
+        const bandNoise0 = (w0 - lp0 * 0.55) * 0.14;
+        const bandNoise1 = (w1 - lp1 * 0.55) * 0.14;
+        const qsbEnv = 0.82 + 0.18 * Math.sin(sec * Math.PI * 2 * 0.33);
+        const whistleMod = Math.sin(sec * Math.PI * 2 * 0.42) * 18;
+        const heterodyne =
+          Math.sin(i * whistleA + whistleMod) * 0.0028 +
+          Math.sin(i * whistleB - whistleMod * 0.7) * 0.0016;
+        const tubeHum = Math.sin(i * hum100) * 0.0032;
+
+        raw0[i] = bandNoise0 * qsbEnv + heterodyne + tubeHum;
+        raw1[i] = (bandNoise1 * qsbEnv * 0.96 + bandNoise0 * 0.04) + heterodyne * 0.9 + tubeHum;
+      }
     }
 
-    // 模拟大气天电干扰 (Sferics) 短促脉冲簇
-    const burstCount = Math.max(4, Math.floor((length / sampleRate) * 2.2));
-    for (let b = 0; b < burstCount; b++) {
-      const startPos = Math.floor(Math.random() * length);
-      const burstLen = Math.floor(sampleRate * (0.006 + Math.random() * 0.022));
-      const amp = 0.09 + Math.random() * 0.16;
-      for (let j = 0; j < burstLen; j++) {
-        const idx = (startPos + j) % length;
-        const win = Math.sin((j / burstLen) * Math.PI);
-        const crack = (Math.random() * 2 - 1) * amp * win;
-        raw0[idx] += crack;
-        raw1[idx] += crack * 0.88;
+    // 注入不同干扰模式特有的瞬态脉冲簇 (雷电天电 / 塔台 PTT 静噪咔哒)
+    if (mode === "cockpit") {
+      // 模拟航空/甚高频 PTT 静噪门开关尾音 (Squelch tail kerchunk)
+      const squelchClicks = 4;
+      for (let k = 0; k < squelchClicks; k++) {
+        const pos = Math.floor(((k + 0.35) / squelchClicks) * length);
+        const tailLen = Math.floor(sampleRate * 0.018);
+        for (let j = 0; j < tailLen; j++) {
+          const idx = (pos + j) % length;
+          const env = Math.exp(-j / (tailLen * 0.28));
+          const pop = ((j < 4 ? (j % 2 === 0 ? 1 : -1) * 0.22 : (Math.random() * 2 - 1) * 0.18)) * env;
+          raw0[idx] += pop;
+          raw1[idx] += pop * 0.92;
+        }
+      }
+    } else {
+      const density = mode === "storm" ? 6.5 : mode === "qrm" ? 1.2 : 2.2;
+      const burstCount = Math.max(3, Math.floor((length / sampleRate) * density));
+      for (let b = 0; b < burstCount; b++) {
+        const startPos = Math.floor(Math.random() * length);
+        const maxDur = mode === "storm" ? 0.048 : 0.022;
+        const burstLen = Math.floor(sampleRate * (0.006 + Math.random() * maxDur));
+        const amp = (mode === "storm" ? 0.14 : 0.09) + Math.random() * (mode === "storm" ? 0.24 : 0.16);
+        for (let j = 0; j < burstLen; j++) {
+          const idx = (startPos + j) % length;
+          const win = Math.sin((j / burstLen) * Math.PI);
+          const crack = (Math.random() * 2 - 1) * amp * win;
+          raw0[idx] += crack;
+          raw1[idx] += crack * 0.88;
+        }
       }
     }
 
@@ -213,6 +285,203 @@
 
     return buffer;
   }
+
+  /**
+   * 五大无线电调频波段声学参数表：
+   * - sw: 短波 (3–30MHz 电离层天波反射、300Hz–3.5kHz 电木窄带与慢速 QSB 衰落)
+   * - lw: 长波 (148–283kHz 远距地波广播、保留 130Hz 温暖低频与 2.6kHz 柔和暗调滚降)
+   * - vhf: 甚高频 (30–300MHz 调频广播/超短波通讯、3.1kHz 预加重清脆高频与 6kHz 宽通带)
+   * - air: 航空 (118–137MHz VHF AM 塔台/机舱话音、420Hz–2.9kHz 紧致窄带与面罩麦克风高频咬字峰)
+   * - marine: 航海 (2182kHz/Ch.16 海事单边带 SSB、防风号角喇叭中频共鸣与海浪多径频偏漂移)
+   */
+  const RADIO_BAND_PROFILES = {
+    sw: {
+      id: "sw",
+      shortLabel: "短波 SW",
+      label: "短波广播 (SW 3–30MHz 天波窄带)",
+      hp1: 280,
+      hp1Q: 0.85,
+      hp2: 360,
+      hp2Q: 0.95,
+      boxFreq: 1120,
+      boxQ: 1.65,
+      boxGain: 4.6,
+      presFreq: 2100,
+      presQ: 1.85,
+      presGain: 3.4,
+      lp1: 3250,
+      lp1Q: 1.2,
+      lp2: 3600,
+      lp2Q: 1.1,
+      driveBase: 1.05,
+      driveScale: 0.65,
+      makeup: 1.92,
+      qsbRate: 0.23,
+      qsbDepth: 0.08,
+      driftRate: 0.13,
+      driftDepth: 240,
+    },
+    lw: {
+      id: "lw",
+      shortLabel: "长波 LW",
+      label: "长波电台 (LW 148–283kHz 地波暖声)",
+      hp1: 120,
+      hp1Q: 0.75,
+      hp2: 165,
+      hp2Q: 0.85,
+      boxFreq: 440,
+      boxQ: 1.35,
+      boxGain: 4.0,
+      presFreq: 1280,
+      presQ: 1.5,
+      presGain: 2.8,
+      lp1: 2400,
+      lp1Q: 1.25,
+      lp2: 2750,
+      lp2Q: 1.15,
+      driveBase: 0.98,
+      driveScale: 0.55,
+      makeup: 1.78,
+      qsbRate: 0.11,
+      qsbDepth: 0.035,
+      driftRate: 0.07,
+      driftDepth: 95,
+    },
+    vhf: {
+      id: "vhf",
+      shortLabel: "甚高频 VHF",
+      label: "甚高频调频 (VHF 30–300MHz 预加重宽带)",
+      hp1: 155,
+      hp1Q: 0.75,
+      hp2: 215,
+      hp2Q: 0.8,
+      boxFreq: 780,
+      boxQ: 1.2,
+      boxGain: 2.0,
+      presFreq: 3100,
+      presQ: 1.55,
+      presGain: 4.2,
+      lp1: 5600,
+      lp1Q: 0.95,
+      lp2: 6400,
+      lp2Q: 0.9,
+      driveBase: 0.9,
+      driveScale: 0.45,
+      makeup: 1.48,
+      qsbRate: 0.35,
+      qsbDepth: 0.02,
+      driftRate: 0.09,
+      driftDepth: 55,
+    },
+    air: {
+      id: "air",
+      shortLabel: "航空 AIR",
+      label: "航空塔台 (AIR 118–137MHz 机舱 AM 窄带)",
+      hp1: 390,
+      hp1Q: 1.0,
+      hp2: 495,
+      hp2Q: 1.1,
+      boxFreq: 1380,
+      boxQ: 1.9,
+      boxGain: 5.2,
+      presFreq: 2350,
+      presQ: 2.1,
+      presGain: 4.8,
+      lp1: 2780,
+      lp1Q: 1.45,
+      lp2: 3080,
+      lp2Q: 1.35,
+      driveBase: 1.2,
+      driveScale: 0.75,
+      makeup: 2.12,
+      qsbRate: 0.42,
+      qsbDepth: 0.03,
+      driftRate: 0.18,
+      driftDepth: 110,
+    },
+    marine: {
+      id: "marine",
+      shortLabel: "航海 SEA",
+      label: "航海通讯 (SEA 2182kHz/Ch.16 海事单边带)",
+      hp1: 315,
+      hp1Q: 0.9,
+      hp2: 410,
+      hp2Q: 1.0,
+      boxFreq: 940,
+      boxQ: 1.8,
+      boxGain: 4.5,
+      presFreq: 1860,
+      presQ: 1.9,
+      presGain: 3.9,
+      lp1: 2880,
+      lp1Q: 1.3,
+      lp2: 3250,
+      lp2Q: 1.2,
+      driveBase: 1.12,
+      driveScale: 0.68,
+      makeup: 1.98,
+      qsbRate: 0.18,
+      qsbDepth: 0.11,
+      driftRate: 0.16,
+      driftDepth: 320,
+    },
+  };
+
+  /**
+   * 五种无线电波干扰与底噪模式：
+   * - qrn: 天电静电 (大气静电嘶声与电离层脉冲)
+   * - qrm: 邻频哨叫 (外差载波差拍哨音与远距 CW 莫尔斯电报音)
+   * - storm: 磁暴雷雨 (密集雷暴静电簇与深幅磁暴起伏)
+   * - cockpit: 塔台底噪 (VHF 静噪嘶声、400Hz 机载航电交流音与 PTT 静噪咔哒)
+   * - clean: 纯净无噪 (关闭背景噪声源，仅保留所选波段频响与检波音色)
+   */
+  const RADIO_NOISE_PROFILES = {
+    qrn: {
+      id: "qrn",
+      shortLabel: "天电静电",
+      label: "天电静电 (QRN 大气电离层底噪)",
+      gainScale: 1.0,
+      bpFreq: 1480,
+      bpQ: 0.75,
+      lpFreq: 3300,
+    },
+    qrm: {
+      id: "qrm",
+      shortLabel: "邻频哨叫",
+      label: "邻频哨叫 (QRM 差拍啸叫与远距电报)",
+      gainScale: 1.08,
+      bpFreq: 1620,
+      bpQ: 0.95,
+      lpFreq: 3400,
+    },
+    storm: {
+      id: "storm",
+      shortLabel: "磁暴雷雨",
+      label: "磁暴雷雨 (强雷电静电脉冲与湍流)",
+      gainScale: 1.35,
+      bpFreq: 1320,
+      bpQ: 0.6,
+      lpFreq: 3800,
+    },
+    cockpit: {
+      id: "cockpit",
+      shortLabel: "塔台底噪",
+      label: "塔台底噪 (VHF 静噪尾音与 400Hz 航电声)",
+      gainScale: 0.95,
+      bpFreq: 2150,
+      bpQ: 0.8,
+      lpFreq: 4800,
+    },
+    clean: {
+      id: "clean",
+      shortLabel: "纯净无噪",
+      label: "纯净无噪 (仅保留波段滤波与电子管检波)",
+      gainScale: 0,
+      bpFreq: 1480,
+      bpQ: 0.75,
+      lpFreq: 3300,
+    },
+  };
 
   /**
    * 模拟矿石/二极管包络检波器非对称削波与电子管五极管交调失真曲线（严格零点无偏置）。
@@ -283,6 +552,13 @@
       radio: clampNum(savedMix.radio, 0.2, 1.5, 1.0),
     };
 
+    const savedRadioTuning = safeParseJson(storageGet(KEYS.RADIO_TUNING, ""), {});
+    const radioTuning = {
+      band: Object.hasOwn(RADIO_BAND_PROFILES, savedRadioTuning.band) ? savedRadioTuning.band : "sw",
+      noiseMode: Object.hasOwn(RADIO_NOISE_PROFILES, savedRadioTuning.noiseMode) ? savedRadioTuning.noiseMode : "qrn",
+      noiseLevel: clampNum(savedRadioTuning.noiseLevel, 0, 2.0, 1.0),
+    };
+
     let audioCtx = null;
     let baseGraph = null;
     let synthNodes = null;
@@ -291,7 +567,7 @@
     let eqNodes = null;
     let analyserNode = null;
     let vinylNoiseBuffer = null;
-    let radioStaticBuffer = null;
+    const radioNoiseBuffers = {};
 
     let synthConnected = false;
     let vinylConnected = false;
@@ -930,12 +1206,24 @@
 
         radioNodes = {
           inputDrive,
+          hp1,
+          hp2,
+          boxRes,
+          presencePeak,
+          lp1,
+          lp2,
+          agcComp,
+          fadeModGain,
           wetGain,
           driftGain,
           fadeLfoGain,
           noiseBp,
+          noiseLp,
           noiseGain,
           noiseSource: null,
+          activeNoiseMode: "",
+          fadeLfo: null,
+          driftLfo: null,
           lfos: [],
         };
         return true;
@@ -945,39 +1233,61 @@
       }
     }
 
+    function getRadioNoiseBuffer(mode) {
+      const m = Object.hasOwn(RADIO_NOISE_PROFILES, mode) ? mode : "qrn";
+      if (m === "clean") return null;
+      if (!radioNoiseBuffers[m]) {
+        radioNoiseBuffers[m] = createRadioStaticBuffer(audioCtx, m);
+      }
+      return radioNoiseBuffers[m];
+    }
+
+    function syncRadioNoiseSource() {
+      if (!radioNodes || !radioConnected || !audioCtx) return;
+      const mode = radioTuning.noiseMode;
+      if (radioNodes.activeNoiseMode === mode && (mode === "clean" || radioNodes.noiseSource)) return;
+      safeStopSource(radioNodes.noiseSource);
+      radioNodes.noiseSource = null;
+      radioNodes.activeNoiseMode = mode;
+      if (mode === "clean") return;
+      const buf = getRadioNoiseBuffer(mode);
+      if (!buf) return;
+      const noiseSource = audioCtx.createBufferSource();
+      noiseSource.buffer = buf;
+      noiseSource.loop = true;
+      noiseSource.connect(radioNodes.noiseBp);
+      noiseSource.start();
+      radioNodes.noiseSource = noiseSource;
+    }
+
     function connectRadioBranch() {
       clearTimeout(radioDisconnectTimer);
       radioDisconnectTimer = null;
       if (!buildRadioNodes()) return false;
       if (!radioConnected) {
-        if (!radioStaticBuffer) radioStaticBuffer = createRadioStaticBuffer(audioCtx);
-
+        const bp = RADIO_BAND_PROFILES[radioTuning.band] || RADIO_BAND_PROFILES.sw;
         baseGraph.postStage2Bus.connect(radioNodes.inputDrive);
         radioNodes.wetGain.connect(baseGraph.postStage3Bus);
         radioNodes.noiseGain.connect(baseGraph.postStage3Bus);
 
         const fadeLfo = audioCtx.createOscillator();
         fadeLfo.type = "sine";
-        fadeLfo.frequency.value = 0.23;
+        fadeLfo.frequency.value = bp.qsbRate;
         fadeLfo.connect(radioNodes.fadeLfoGain);
 
         const driftLfo = audioCtx.createOscillator();
         driftLfo.type = "sine";
-        driftLfo.frequency.value = 0.13;
+        driftLfo.frequency.value = bp.driftRate;
         driftLfo.connect(radioNodes.driftGain);
-
-        const noiseSource = audioCtx.createBufferSource();
-        noiseSource.buffer = radioStaticBuffer;
-        noiseSource.loop = true;
-        noiseSource.connect(radioNodes.noiseBp);
 
         fadeLfo.start();
         driftLfo.start();
-        noiseSource.start();
 
-        radioNodes.noiseSource = noiseSource;
+        radioNodes.fadeLfo = fadeLfo;
+        radioNodes.driftLfo = driftLfo;
         radioNodes.lfos = [fadeLfo, driftLfo];
         radioConnected = true;
+        syncRadioNoiseSource();
       }
       return true;
     }
@@ -990,6 +1300,9 @@
       safeStopSource(radioNodes.noiseSource);
       radioNodes.lfos.forEach(safeStopSource);
       radioNodes.noiseSource = null;
+      radioNodes.activeNoiseMode = "";
+      radioNodes.fadeLfo = null;
+      radioNodes.driftLfo = null;
       radioNodes.lfos = [];
       radioConnected = false;
     }
@@ -1104,8 +1417,10 @@
 
     function getTargetRadioNoiseGain() {
       if (!radioFxEnabled || audio.paused || audio.volume <= 0) return 0;
+      const np = RADIO_NOISE_PROFILES[radioTuning.noiseMode] || RADIO_NOISE_PROFILES.qrn;
+      if (!np.gainScale || radioTuning.noiseLevel <= 0) return 0;
       const baseVol = typeof options.getBaseVolume === "function" ? options.getBaseVolume() : audio.volume;
-      return BASE_RADIO_STATIC_GAIN * Math.min(1, Math.max(0, baseVol)) * mixState.radio;
+      return BASE_RADIO_STATIC_GAIN * Math.min(1, Math.max(0, baseVol)) * mixState.radio * radioTuning.noiseLevel * np.gainScale;
     }
 
     function applyMasterFade(immediate) {
@@ -1161,11 +1476,34 @@
       const radioWet = useRadio ? Math.min(1.38, 0.85 + 0.35 * rMix) : 0;
       baseGraph.stage3DryGain.gain.setTargetAtTime(radioDry, time, rampTime);
       if (radioNodes) {
+        if (useRadio) syncRadioNoiseSource();
+        const bp = RADIO_BAND_PROFILES[radioTuning.band] || RADIO_BAND_PROFILES.sw;
+        const np = RADIO_NOISE_PROFILES[radioTuning.noiseMode] || RADIO_NOISE_PROFILES.qrn;
         radioNodes.wetGain.gain.setTargetAtTime(radioWet, time, rampTime);
-        radioNodes.inputDrive.gain.setTargetAtTime(1.05 + 0.65 * rMix, time, rampTime);
+        radioNodes.inputDrive.gain.setTargetAtTime(bp.driveBase + bp.driveScale * rMix, time, rampTime);
+        radioNodes.hp1.frequency.setTargetAtTime(bp.hp1, time, rampTime);
+        radioNodes.hp1.Q.setTargetAtTime(bp.hp1Q, time, rampTime);
+        radioNodes.hp2.frequency.setTargetAtTime(bp.hp2, time, rampTime);
+        radioNodes.hp2.Q.setTargetAtTime(bp.hp2Q, time, rampTime);
+        radioNodes.boxRes.frequency.setTargetAtTime(bp.boxFreq, time, rampTime);
+        radioNodes.boxRes.Q.setTargetAtTime(bp.boxQ, time, rampTime);
+        radioNodes.boxRes.gain.setTargetAtTime(bp.boxGain, time, rampTime);
+        radioNodes.presencePeak.frequency.setTargetAtTime(bp.presFreq, time, rampTime);
+        radioNodes.presencePeak.Q.setTargetAtTime(bp.presQ, time, rampTime);
+        radioNodes.presencePeak.gain.setTargetAtTime(bp.presGain, time, rampTime);
+        radioNodes.lp1.frequency.setTargetAtTime(bp.lp1, time, rampTime);
+        radioNodes.lp1.Q.setTargetAtTime(bp.lp1Q, time, rampTime);
+        radioNodes.lp2.frequency.setTargetAtTime(bp.lp2, time, rampTime);
+        radioNodes.lp2.Q.setTargetAtTime(bp.lp2Q, time, rampTime);
+        radioNodes.fadeModGain.gain.setTargetAtTime(bp.makeup, time, rampTime);
+        radioNodes.fadeLfoGain.gain.setTargetAtTime(bp.qsbDepth * Math.min(1.25, rMix), time, rampTime);
+        radioNodes.driftGain.gain.setTargetAtTime(bp.driftDepth * rMix, time, rampTime);
+        if (radioNodes.fadeLfo) radioNodes.fadeLfo.frequency.setTargetAtTime(bp.qsbRate, time, rampTime);
+        if (radioNodes.driftLfo) radioNodes.driftLfo.frequency.setTargetAtTime(bp.driftRate, time, rampTime);
+        radioNodes.noiseBp.frequency.setTargetAtTime(np.bpFreq, time, rampTime);
+        radioNodes.noiseBp.Q.setTargetAtTime(np.bpQ, time, rampTime);
+        radioNodes.noiseLp.frequency.setTargetAtTime(np.lpFreq, time, rampTime);
         radioNodes.noiseGain.gain.setTargetAtTime(getTargetRadioNoiseGain(), time, rampTime);
-        radioNodes.fadeLfoGain.gain.setTargetAtTime(0.08 * Math.min(1.25, rMix), time, rampTime);
-        radioNodes.driftGain.gain.setTargetAtTime(240 * rMix, time, rampTime);
         if (!radioFxEnabled && radioConnected) scheduleRadioDisconnect();
       }
 
@@ -1244,8 +1582,80 @@
       }
       syncUI();
       if (toast) {
-        toast(radioFxEnabled ? "已开启无线电台模式 · 短波窄带失真与电离层底噪" : "已关闭无线电台模式 · 还原宽频原声");
+        const bp = RADIO_BAND_PROFILES[radioTuning.band] || RADIO_BAND_PROFILES.sw;
+        const np = RADIO_NOISE_PROFILES[radioTuning.noiseMode] || RADIO_NOISE_PROFILES.qrn;
+        toast(
+          radioFxEnabled
+            ? "已开启无线电台模式 · " + bp.shortLabel + " / " + np.shortLabel
+            : "已关闭无线电台模式 · 还原宽频原声"
+        );
       }
+    }
+
+    function persistRadioTuning() {
+      storageSet(KEYS.RADIO_TUNING, JSON.stringify(radioTuning));
+    }
+
+    function setRadioBand(bandId, showToast) {
+      if (!Object.hasOwn(RADIO_BAND_PROFILES, bandId)) return getRadioTuning();
+      radioTuning.band = bandId;
+      persistRadioTuning();
+      if (!radioFxEnabled && showToast) {
+        radioFxEnabled = true;
+        storageSet(KEYS.RADIO_FX, "1");
+        syncUI();
+      }
+      if (!audio.paused && radioFxEnabled) {
+        connectRadioBranch();
+        ensureResumed();
+      }
+      updateGraph(false);
+      if (showToast && toast) {
+        toast("无线电调频：" + RADIO_BAND_PROFILES[bandId].label);
+      }
+      return getRadioTuning();
+    }
+
+    function setRadioNoiseMode(modeId, showToast) {
+      if (!Object.hasOwn(RADIO_NOISE_PROFILES, modeId)) return getRadioTuning();
+      radioTuning.noiseMode = modeId;
+      persistRadioTuning();
+      if (!radioFxEnabled && showToast) {
+        radioFxEnabled = true;
+        storageSet(KEYS.RADIO_FX, "1");
+        syncUI();
+      }
+      if (!audio.paused && radioFxEnabled) {
+        connectRadioBranch();
+        syncRadioNoiseSource();
+        ensureResumed();
+      }
+      updateGraph(false);
+      if (showToast && toast) {
+        toast("电波干扰模式：" + RADIO_NOISE_PROFILES[modeId].label);
+      }
+      return getRadioTuning();
+    }
+
+    function setRadioNoiseLevel(level) {
+      radioTuning.noiseLevel = clampNum(level, 0, 2.0, 1.0);
+      persistRadioTuning();
+      updateGraph(false);
+      return getRadioTuning();
+    }
+
+    function getRadioTuning() {
+      const bp = RADIO_BAND_PROFILES[radioTuning.band] || RADIO_BAND_PROFILES.sw;
+      const np = RADIO_NOISE_PROFILES[radioTuning.noiseMode] || RADIO_NOISE_PROFILES.qrn;
+      return {
+        band: radioTuning.band,
+        bandLabel: bp.label,
+        bandShortLabel: bp.shortLabel,
+        noiseMode: radioTuning.noiseMode,
+        noiseLabel: np.label,
+        noiseShortLabel: np.shortLabel,
+        noiseLevel: radioTuning.noiseLevel,
+      };
     }
 
     function setEqBand(band, db) {
@@ -1422,6 +1832,8 @@
 
     return {
       EQ_PRESETS,
+      RADIO_BAND_PROFILES,
+      RADIO_NOISE_PROFILES,
       isVinylEnabled: () => vinylFxEnabled,
       isSynthEnabled: () => synthFxEnabled,
       isRadioEnabled: () => radioFxEnabled,
@@ -1439,6 +1851,10 @@
       getPreampLinear,
       getFxMix,
       setFxMix,
+      getRadioTuning,
+      setRadioBand,
+      setRadioNoiseMode,
+      setRadioNoiseLevel,
       setAnalyserActive,
       readFrequencyData,
       getFrequencyBinCount,

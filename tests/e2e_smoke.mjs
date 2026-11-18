@@ -450,6 +450,12 @@ async function run() {
     await page.locator("#radioMixRange").fill("125");
     await page.locator("#radioMixRange").dispatchEvent("input");
     assert.equal(await page.textContent("#radioMixVal"), "125%");
+    await page.click('.radio-band-btn[data-radio-band="air"]');
+    await page.click('.radio-noise-btn[data-radio-noise="qrm"]');
+    await page.locator("#radioNoiseRange").fill("140");
+    await page.locator("#radioNoiseRange").dispatchEvent("input");
+    assert.equal(await page.textContent("#radioNoiseVal"), "140%");
+    assert.equal(await page.textContent("#radioTuningMeta"), "航空 AIR · 邻频哨叫");
     await page.click('.eq-preset-btn[data-preset="warm"]');
 
     await page.click('.studio-pill-btn[data-speed="1.25"]');

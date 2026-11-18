@@ -2493,6 +2493,17 @@ body.radio-fx-active .playlist-item.playing .eq span {
   flex-wrap: wrap;
   gap: 6px;
 }
+.studio-sub-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+.studio-sub-lbl {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
 .studio-pill-btn {
   padding: 4px 10px;
   border-radius: 999px;

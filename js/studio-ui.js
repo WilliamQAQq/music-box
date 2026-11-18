@@ -130,6 +130,31 @@
       });
     }
 
+    function syncRadioTuningUI() {
+      if (typeof audioFx.getRadioTuning !== "function") return;
+      const tuning = audioFx.getRadioTuning();
+      if (els.radioBandBtns) {
+        els.radioBandBtns.forEach((btn) => {
+          setPressedButtonState(btn, btn.dataset.radioBand === tuning.band);
+        });
+      }
+      if (els.radioNoiseBtns) {
+        els.radioNoiseBtns.forEach((btn) => {
+          setPressedButtonState(btn, btn.dataset.radioNoise === tuning.noiseMode);
+        });
+      }
+      if (els.radioNoiseRange) {
+        const pct = Math.round(tuning.noiseLevel * 100);
+        els.radioNoiseRange.value = pct;
+        els.radioNoiseRange.setAttribute("aria-valuetext", pct + "%");
+        syncSlider(els.radioNoiseRange);
+        if (els.radioNoiseVal) els.radioNoiseVal.textContent = pct + "%";
+      }
+      if (els.radioTuningMeta) {
+        els.radioTuningMeta.textContent = tuning.bandShortLabel + " · " + tuning.noiseShortLabel;
+      }
+    }
+
     function syncSleepUI(snap) {
       const st = snap || userState.getSleepSnapshot();
       if (els.sleepBtns) {
@@ -516,6 +541,38 @@
         });
       }
 
+      if (els.radioBandBtns) {
+        els.radioBandBtns.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            if (typeof audioFx.setRadioBand === "function") {
+              audioFx.setRadioBand(btn.dataset.radioBand, true);
+              syncRadioTuningUI();
+            }
+          });
+        });
+      }
+
+      if (els.radioNoiseBtns) {
+        els.radioNoiseBtns.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            if (typeof audioFx.setRadioNoiseMode === "function") {
+              audioFx.setRadioNoiseMode(btn.dataset.radioNoise, true);
+              syncRadioTuningUI();
+            }
+          });
+        });
+      }
+
+      if (els.radioNoiseRange) {
+        els.radioNoiseRange.addEventListener("input", () => {
+          if (typeof audioFx.setRadioNoiseLevel === "function") {
+            const raw = parseFloat(els.radioNoiseRange.value);
+            audioFx.setRadioNoiseLevel((isFinite(raw) ? raw : 100) / 100);
+            syncRadioTuningUI();
+          }
+        });
+      }
+
       if (els.speedBtns) {
         els.speedBtns.forEach((btn) => {
           btn.addEventListener("click", () => applyPlaybackSpeed(parseFloat(btn.dataset.speed), true));
@@ -593,6 +650,7 @@
       bindEvents();
       syncEqUI();
       syncMixUI();
+      syncRadioTuningUI();
       applyPlaybackSpeed(playbackSpeed, false);
       applyCrossfadeSec(crossfadeSec, false);
       syncSleepUI();

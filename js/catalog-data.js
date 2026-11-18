@@ -21,6 +21,7 @@
     RESUME: "gh-resume-v1",
     EQ: "gh-eq-v1",
     FX_MIX: "gh-fx-mix-v1",
+    RADIO_TUNING: "gh-radio-tuning-v1",
     SPEED: "gh-speed-v1",
     CROSSFADE: "gh-crossfade-v1",
     SPECTRUM: "gh-spectrum-v1",
