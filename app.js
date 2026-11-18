@@ -29,6 +29,7 @@
   const PRELOAD_DELAY_MS = 1400;
   const PRELOAD_TIMEOUT_MS = 12000;
   const MAX_PRELOAD_CACHE = 12;
+  const SW_CACHE_DELAY_MS = 4500;
   const ZH_COLLATOR = typeof Intl !== "undefined" && typeof Intl.Collator === "function"
     ? new Intl.Collator("zh-CN")
     : null;
@@ -208,6 +209,7 @@
   let preloadAudioEl = null;
   let preloadTimer = null;
   let preloadAbortTimer = null;
+  let swCacheTimer = null;
   let activePreloadUrl = "";
   const preloadedUrls = new Set();
   const swCachedUrls = new Set();
@@ -328,7 +330,9 @@
 
   function setLoading(on) {
     if (on) {
-      els.playlist.innerHTML = '<div class="spinner"></div>';
+      const sp = document.createElement("div");
+      sp.className = "spinner";
+      els.playlist.replaceChildren(sp);
       els.trackCount.textContent = "加载中…";
       els.emptyState.hidden = true;
     } else {
@@ -875,7 +879,11 @@
       const eqEl = document.createElement("span");
       eqEl.className = "eq";
       eqEl.setAttribute("aria-hidden", "true");
-      eqEl.innerHTML = "<span></span><span></span><span></span>";
+      eqEl.append(
+        document.createElement("span"),
+        document.createElement("span"),
+        document.createElement("span")
+      );
 
       const nameEl = document.createElement("span");
       nameEl.className = "name";
@@ -1716,6 +1724,8 @@
     preloadTimer = null;
     clearTimeout(preloadAbortTimer);
     preloadAbortTimer = null;
+    clearTimeout(swCacheTimer);
+    swCacheTimer = null;
     activePreloadUrl = "";
     if (preloadAudioEl) {
       preloadAudioEl.oncanplaythrough = null;
@@ -1724,6 +1734,53 @@
       preloadAudioEl.removeAttribute("src");
       try { preloadAudioEl.load(); } catch (e) { /* ignore */ }
     }
+  }
+
+  function isSameOriginTrackUrl(url) {
+    if (!url) return false;
+    try {
+      return new URL(url, window.location.href).origin === window.location.origin;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function scheduleSwTrackCache() {
+    clearTimeout(swCacheTimer);
+    swCacheTimer = null;
+    if (
+      audio.paused ||
+      currentIndex === -1 ||
+      !tracks[currentIndex] ||
+      !canNetworkPreload() ||
+      !("serviceWorker" in navigator) ||
+      !navigator.serviceWorker.controller
+    ) {
+      return;
+    }
+    const targetUrl = tracks[currentIndex].url;
+    if (!targetUrl || swCachedUrls.has(targetUrl) || !isSameOriginTrackUrl(targetUrl)) return;
+    swCacheTimer = setTimeout(() => {
+      swCacheTimer = null;
+      if (
+        audio.paused ||
+        currentIndex === -1 ||
+        !tracks[currentIndex] ||
+        tracks[currentIndex].url !== targetUrl ||
+        swCachedUrls.has(targetUrl) ||
+        !canNetworkPreload() ||
+        !navigator.serviceWorker.controller
+      ) {
+        return;
+      }
+      swCachedUrls.add(targetUrl);
+      try {
+        navigator.serviceWorker.controller.postMessage({
+          type: "CACHE_TRACK",
+          url: targetUrl,
+        });
+      } catch (e) { /* ignore */ }
+    }, SW_CACHE_DELAY_MS);
   }
 
   function getNextPreloadTrack() {
@@ -1981,10 +2038,22 @@
         els.curTime.textContent = fmtTime(sec);
       }
 
-      // Crossfade 尾声平滑衰减（非单曲循环、存在下一曲时生效）
+      // Crossfade 尾声平滑衰减（非单曲循环、存在下一曲且非“播完本曲即停”睡眠模式时生效）
       const xfade = studioCtrl.getCrossfadeSec();
       const rem = audio.duration - cur;
-      if (xfade > 0 && !audio.paused && repeat !== "one" && !userState.getAbLoopState().active && audio.duration > xfade + 2 && rem > 0 && rem <= xfade) {
+      const hasNextTrack = order.length > 0 && (pos < order.length - 1 || repeat === "all");
+      const sleepMode = userState.getSleepSnapshot().mode;
+      if (
+        xfade > 0 &&
+        !audio.paused &&
+        repeat !== "one" &&
+        hasNextTrack &&
+        sleepMode !== "track_end" &&
+        !userState.getAbLoopState().active &&
+        audio.duration > xfade + 2 &&
+        rem > 0 &&
+        rem <= xfade
+      ) {
         inTailFade = true;
         audioFx.setTransitionFadeFactor(Math.max(0.05, rem / xfade), false);
       } else if (inTailFade) {
@@ -2025,21 +2094,7 @@
     audioFx.onPlaying();
     lyricsCtrl.updateCollapsedSubtitle();
     scheduleNextPreload();
-    if (
-      currentIndex !== -1 &&
-      tracks[currentIndex] &&
-      !swCachedUrls.has(tracks[currentIndex].url) &&
-      "serviceWorker" in navigator &&
-      navigator.serviceWorker.controller
-    ) {
-      swCachedUrls.add(tracks[currentIndex].url);
-      try {
-        navigator.serviceWorker.controller.postMessage({
-          type: "CACHE_TRACK",
-          url: tracks[currentIndex].url,
-        });
-      } catch (e) { /* ignore */ }
-    }
+    scheduleSwTrackCache();
   });
 
   audio.addEventListener("pause", () => {
@@ -2049,6 +2104,8 @@
     lyricsCtrl.updateCollapsedSubtitle();
     clearTimeout(preloadTimer);
     preloadTimer = null;
+    clearTimeout(swCacheTimer);
+    swCacheTimer = null;
     if (currentIndex !== -1 && tracks[currentIndex]) {
       userState.saveResume(tracks[currentIndex].url, audio.currentTime || 0, tracks[currentIndex].title, true);
     }

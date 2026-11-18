@@ -117,25 +117,6 @@
       return added;
     }
 
-    function pruneByAvailableUrls(validSet) {
-      if (!validSet || !validSet.size) return;
-      const normalizedSet = new Set();
-      validSet.forEach((u) => {
-        const k = toTrackKey(u);
-        if (k) normalizedSet.add(k);
-      });
-      const prevFav = favoriteList.length;
-      favoriteList = favoriteList.filter((u) => normalizedSet.has(u));
-      if (favoriteList.length !== prevFav) {
-        favoriteSet.clear();
-        favoriteList.forEach((u) => favoriteSet.add(u));
-        persistFavorites();
-      }
-      const prevRec = recentList.length;
-      recentList = recentList.filter((u) => normalizedSet.has(u));
-      if (recentList.length !== prevRec) persistRecent();
-    }
-
     function recordRecent(url) {
       const k = toTrackKey(url);
       if (!k) return;
@@ -319,7 +300,6 @@
       toggleFavorite,
       getFavoritesCount: () => favoriteList.length,
       getFavoriteUrls: () => favoriteList.slice(),
-      pruneByAvailableUrls,
       recordRecent,
       getRecentUrls: () => recentList.slice(),
       getRecentCount: () => recentList.length,

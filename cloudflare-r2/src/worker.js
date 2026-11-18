@@ -339,7 +339,8 @@ async function flushQuotaTracker(env, tracker, forceTripReason = "", now = new D
     tracker.pendingClassB = Math.max(0, tracker.pendingClassB - addClassB);
     tracker.dirtySince = tracker.pendingReqs > 0 ? now.getTime() : 0;
 
-    if ((merged.dailyKvWrites || 0) < MAX_DAILY_KV_WRITES) {
+    const kvWriteCap = forceTripReason ? MAX_DAILY_KV_WRITES + 25 : MAX_DAILY_KV_WRITES;
+    if ((merged.dailyKvWrites || 0) < kvWriteCap) {
       merged.dailyKvWrites = (merged.dailyKvWrites || 0) + 1;
       try {
         await kv.put(QUOTA_STATE_KEY, JSON.stringify(merged));
@@ -449,7 +450,7 @@ function resolveAllowedOrigin(request, env) {
   const reqOrigin = request.headers.get("origin");
   if (reqOrigin) {
     const matched = checkOrigin(reqOrigin);
-    return { allowed: !!matched, corsOrigin: matched || "" };
+    return { allowed: !!matched, corsOrigin: matched || "", explicitlyRejected: !matched };
   }
 
   const reqReferer = request.headers.get("referer");
@@ -457,18 +458,18 @@ function resolveAllowedOrigin(request, env) {
     try {
       const refOrigin = new URL(reqReferer).origin;
       const matched = checkOrigin(refOrigin);
-      return { allowed: !!matched, corsOrigin: matched || "" };
+      return { allowed: !!matched, corsOrigin: matched || "", explicitlyRejected: !matched };
     } catch {
-      return { allowed: false, corsOrigin: "" };
+      return { allowed: false, corsOrigin: "", explicitlyRejected: true };
     }
   }
 
   const secFetchSite = (request.headers.get("sec-fetch-site") || "").toLowerCase();
   if (secFetchSite === "cross-site") {
-    return { allowed: false, corsOrigin: "" };
+    return { allowed: false, corsOrigin: "", explicitlyRejected: false };
   }
 
-  return { allowed: allowMissing, corsOrigin: "" };
+  return { allowed: allowMissing, corsOrigin: "", explicitlyRejected: false };
 }
 
 function applySecurityHeaders(headers, corsOrigin) {
@@ -913,7 +914,7 @@ export async function handleRequest(request, env, ctx) {
         url.searchParams.has("sig") &&
         (await verifySignedMediaOrKey(request, url, mediaSpec.key, env))
       );
-      if (!originState.allowed && !hasValidSignedToken) {
+      if (originState.explicitlyRejected || (!originState.allowed && !hasValidSignedToken)) {
         return jsonResponse({ error: "Forbidden origin" }, 403, originState.corsOrigin);
       }
       if (secret && !hasValidSignedToken && !(await verifyOptionalAccessKey(request, env))) {
@@ -939,7 +940,7 @@ export async function handleRequest(request, env, ctx) {
 
     const hasValidSignedToken =
       secret && url.searchParams.has("sig") && (await verifySignedMediaOrKey(request, url, mediaSpec.key, env));
-    if (!originState.allowed && !hasValidSignedToken) {
+    if (originState.explicitlyRejected || (!originState.allowed && !hasValidSignedToken)) {
       await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
       return jsonResponse({ error: "Forbidden origin" }, 403, originState.corsOrigin);
     }
@@ -1119,7 +1120,11 @@ export async function handleRequest(request, env, ctx) {
 async function fetchCloudflareR2Telemetry(env, now = new Date()) {
   const token = String((env && env.CF_ANALYTICS_TOKEN) || "").trim();
   const accountId = String((env && env.CF_ACCOUNT_ID) || "").trim();
-  if (!token || !accountId) return null;
+  if (!token) return null;
+  if (!accountId) {
+    console.warn("CF_ANALYTICS_TOKEN is set but CF_ACCOUNT_ID is missing; skipping R2 GraphQL telemetry sync.");
+    return null;
+  }
 
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)).toISOString();
   const storageSince = new Date(now.getTime() - 24 * 3600 * 1000).toISOString();

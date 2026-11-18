@@ -1013,6 +1013,56 @@ test("Edge Cache serves public JSON with zero R2 reads while preserving CORS iso
     } finally {
       globalThis.caches.default.put = origPut;
     }
+
+    // 11. Signed /media/* URLs reject explicit disallowed Origin/Referer while allowing headerless or allowed-origin requests
+    const signedMediaUrl = smJson[0].url;
+    const signedEvilOriginRes = await runWithCtx(
+      new Request(signedMediaUrl, {
+        headers: { Origin: "https://evil-hotlink.example" },
+      }),
+      secretEnv
+    );
+    assert.equal(signedEvilOriginRes.status, 403, "Signed media URL must still block explicit disallowed Origin");
+
+    const signedEvilRefererRes = await runWithCtx(
+      new Request(signedMediaUrl, {
+        headers: { Referer: "https://evil-hotlink.example/embed" },
+      }),
+      secretEnv
+    );
+    assert.equal(signedEvilRefererRes.status, 403, "Signed media URL must still block explicit disallowed Referer");
+
+    // 12. Emergency KV write headroom persists tripped: true even when dailyKvWrites is at MAX_DAILY_KV_WRITES (850)
+    const kvHeadroom = makeMockKv({
+      "quota:state:v1": JSON.stringify({
+        day: "2026-11-18",
+        month: "2026-11",
+        dailyReqs: 5,
+        monthlyClassB: 0,
+        monthlyClassA: 0,
+        dailyKvWrites: 850,
+        storageBytes: 0,
+        tripped: false,
+        reason: "",
+      }),
+    });
+    const kvHeadroomEnv = makeEnv({
+      MAX_DAILY_REQUESTS: "5",
+      MUSIC_QUOTA_KV: kvHeadroom,
+    });
+    const nowDate = new Date("2026-11-18T12:00:00Z");
+    const tripAtCapRes = await handleRequest(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io" },
+      }),
+      kvHeadroomEnv,
+      null,
+      nowDate
+    );
+    assert.equal(tripAtCapRes.status, 503);
+    const persistedAfterTrip = JSON.parse(kvHeadroom.store.get("quota:state:v1"));
+    assert.equal(persistedAfterTrip.tripped, true, "Emergency KV write headroom must persist tripped state past 850 writes");
+    assert.equal(persistedAfterTrip.dailyKvWrites, 851);
   } finally {
     globalThis.caches = origCaches;
   }

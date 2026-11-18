@@ -540,14 +540,14 @@ def fetch_online_lyrics(artist, title, album, target_dur):
     # 2. Kugou LRC
     try:
         kw = ("%s %s" % (artist, title)).strip()
-        u = "http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=" + urllib.parse.quote(kw) + "&page=1&pagesize=4"
+        u = "https://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=" + urllib.parse.quote(kw) + "&page=1&pagesize=4"
         with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=8) as r:
             info = (json.loads(r.read().decode("utf-8")).get("data") or {}).get("info") or []
         for item in info[:2]:
             sdur = item.get("duration") or 0
             if target_dur > 0 and abs(sdur - target_dur) > 15:
                 continue
-            ku2 = "http://krcs.kugou.com/search?ver=1&man=yes&client=mobi&keyword=%s&duration=%d&hash=%s&album_audio_id=" % (
+            ku2 = "https://krcs.kugou.com/search?ver=1&man=yes&client=mobi&keyword=%s&duration=%d&hash=%s&album_audio_id=" % (
                 urllib.parse.quote(item.get("filename", "")),
                 int(sdur * 1000),
                 item.get("hash", ""),
@@ -555,7 +555,7 @@ def fetch_online_lyrics(artist, title, album, target_dur):
             with urllib.request.urlopen(urllib.request.Request(ku2, headers={"User-Agent": "Mozilla/5.0"}), timeout=8) as r2:
                 cands = json.loads(r2.read().decode("utf-8")).get("candidates") or []
             if cands:
-                ku3 = "http://lyrics.kugou.com/download?ver=1&client=pc&id=%s&accesskey=%s&fmt=lrc&charset=utf8" % (
+                ku3 = "https://lyrics.kugou.com/download?ver=1&client=pc&id=%s&accesskey=%s&fmt=lrc&charset=utf8" % (
                     cands[0]["id"],
                     cands[0]["accesskey"],
                 )

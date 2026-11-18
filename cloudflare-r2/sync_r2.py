@@ -93,7 +93,8 @@ def load_json_safe(path, default):
 
 
 def scan_library(root_dir, no_online=False, prev_meta=None, force_rehash=False):
-    existing_lyrics = dict(load_json_safe(os.path.join(REPO_ROOT, LYRICS_CACHE_FILENAME), {}))
+    existing_lyrics = dict(load_json_safe(os.path.join(REPO_ROOT, "lyrics.json"), {}))
+    existing_lyrics.update(load_json_safe(os.path.join(REPO_ROOT, LYRICS_CACHE_FILENAME), {}))
     existing_lyrics.update(load_json_safe(os.path.join(root_dir, LYRICS_CACHE_FILENAME), {}))
     cached_meta = prev_meta if isinstance(prev_meta, dict) else {}
     next_meta = {}

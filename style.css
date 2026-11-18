@@ -2646,12 +2646,6 @@ body.radio-fx-active .playlist-item.playing .eq span {
   .toast { bottom: calc(216px + env(safe-area-inset-bottom, 0px)); }
 }
 
-@media (pointer: coarse), (max-width: 1024px) {
-  body {
-    background-attachment: scroll;
-  }
-}
-
 @media (pointer: coarse), (hover: none) {
   .playlist-fav-btn,
   .playlist-enqueue-btn {

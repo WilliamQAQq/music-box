@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v37", () => {
+test("HTML/SW/CSS structural invariants & asset version v38", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,13 +49,13 @@ test("HTML/SW/CSS structural invariants & asset version v37", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=37",
-    "js/user-state.js?v=37",
-    "js/library-loader.js?v=37",
-    "js/audio-fx.js?v=37",
-    "js/lyrics.js?v=37",
-    "js/studio-ui.js?v=37",
-    "app.js?v=37",
+    "js/catalog-data.js?v=38",
+    "js/user-state.js?v=38",
+    "js/library-loader.js?v=38",
+    "js/audio-fx.js?v=38",
+    "js/lyrics.js?v=38",
+    "js/studio-ui.js?v=38",
+    "app.js?v=38",
   ];
 
   let lastPos = -1;
@@ -69,7 +69,7 @@ test("HTML/SW/CSS structural invariants & asset version v37", () => {
     html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
     "index.html missing R2 gateway preconnect hint"
   );
-  assert.ok(html.includes('href="style.css?v=37"'), "index.html missing style.css?v=37");
+  assert.ok(html.includes('href="style.css?v=38"'), "index.html missing style.css?v=38");
   assert.ok(html.includes('id="radioFxBtn"'), "index.html missing #radioFxBtn button");
   assert.ok(html.includes('id="radioMixRange"'), "index.html missing #radioMixRange slider");
   assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
@@ -81,7 +81,7 @@ test("HTML/SW/CSS structural invariants & asset version v37", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v37";'), "sw.js VERSION must match v37");
+  assert.ok(sw.includes('const VERSION = "v38";'), "sw.js VERSION must match v38");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
@@ -91,6 +91,9 @@ test("HTML/SW/CSS structural invariants & asset version v37", () => {
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
   assert.ok(css.includes("content-visibility: auto"), "Spectrum box must use content-visibility: auto");
   assert.equal(css.includes("background-attachment: fixed"), false, "style.css must not use paint-heavy background-attachment: fixed");
+  assert.equal(css.includes("background-attachment: scroll"), false, "style.css must not keep dead background-attachment: scroll rule");
+  assert.equal(appJs.includes(".innerHTML"), false, "app.js must not use innerHTML");
+  assert.ok(sw.includes("touchAudioCacheEntry") && sw.includes("hasCachedAudioMetadataChanged"), "sw.js must refresh LRU order and revalidate cached audio metadata");
   assert.ok(css.includes("body::before") && css.includes("contain: strict"), "style.css must isolate fixed backdrop on body::before");
   assert.ok(css.includes(".queue-item") && css.includes("@supports not (content-visibility: auto)"), "style.css must gate queue item content-visibility cleanly");
   assert.ok(appJs.includes("ZH_COLLATOR") && appJs.includes("next._canonKey") && appJs.includes("next._genreRank"), "app.js must precompute lookup keys and genre sort metadata");

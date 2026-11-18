@@ -7,7 +7,7 @@
 一个以 **GitHub 仓库为存储**的在线音乐播放器,部署在 GitHub Pages。
 
 - 在线地址:https://williamqaqq.github.io/music-box/
-- 仓库:https://github.com/WilliamQAQq/music-box (公开,曲库约 933MB)
+- 仓库:https://github.com/WilliamQAQq/music-box (公开,曲库约 941MB)
 - 纯前端静态项目,无框架、无构建步骤,按 `defer` 顺序加载模块化脚本(`window.__MusicBox`)。
 
 ## 文件结构
@@ -75,11 +75,12 @@ python cloudflare-r2/sync_r2.py --dir r2_music             # 仅上传新增/变
 # 查看当前配额占用与熔断状态：在前端右上角「设置」弹窗展开「80% 零超额熔断监控（站内查询）」；或带 Origin 头请求 https://music-box-r2-gateway.chattsun268.workers.dev/quota（浏览器地址栏直接访问无 Origin 头会被防盗链拒绝返回 403）
 npx.cmd wrangler deploy --config cloudflare-r2/wrangler.toml
 npx.cmd wrangler secret put ACCESS_KEY --config cloudflare-r2/wrangler.toml          # 可选：私人口令模式
-npx.cmd wrangler secret put CF_ANALYTICS_TOKEN --config cloudflare-r2/wrangler.toml  # 可选：Account Analytics:Read 令牌，用于每 15 分钟 Cron 对账
+npx.cmd wrangler secret put CF_ANALYTICS_TOKEN --config cloudflare-r2/wrangler.toml  # 可选：Account Analytics:Read 令牌，用于每 15 分钟 Cron 对账（需同步配置 CF_ACCOUNT_ID）
+npx.cmd wrangler secret put CF_ACCOUNT_ID --config cloudflare-r2/wrangler.toml       # 可选：Cloudflare 账号 ID（或在 wrangler.toml [vars] 配置）
 ```
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=37` / `VERSION = "v37"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=38` / `VERSION = "v38"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查
@@ -98,7 +99,7 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 
 - **工作流依赖 mutagen**:`update-music.yml` 里那行 `python -m pip install --quiet mutagen` 不能删,否则 Actions 生成的 music.json 丢失所有 ID3 歌手信息(曾因此出过事故)。
 - **无 ID3 标签的文件 / 风格归类**:在 `.github/gen_music_json.py` 的 `MANUAL_ARTIST` 补歌手,`ARTIST_GENRE` / `MANUAL_GENRE` 维护风格歌单映射(无映射时自动按 ID3 `genre` 标签推断或归入"其他典藏")。
-- **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前曲库约 933MB(单曲最大约 15.5MB,.git 约 879MB,已接近 1GB 容量阈值,后续如需大批量增补新歌建议先精简旧曲目比特率或拆分存储)。私有仓库无法免费启用 GitHub Pages,需保持公开。
+- **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前曲库约 941MB(单曲最大约 15.5MB,.git 约 952MB,已接近 1GB 容量阈值,后续如需大批量增补新歌建议优先走 Cloudflare R2 `sync_r2.py` 扩容或先精简旧曲目比特率)。私有仓库无法免费启用 GitHub Pages,需保持公开。
 - **浏览器缓存**:`music.json` 用 `no-store` 拉取(有本地缓存时先秒开缓存并后台静默更新),`sw.js` 对 HTML 导航请求采用 `networkFirst` 确保入口页不锁死旧版本;前端 JS/CSS 靠 `?v=` 版本号破缓存。
 - **`hidden` 属性**:style.css 里有全局 `[hidden]{display:none !important}`,不要删,否则带 `display` 样式的元素(如横幅)用 `hidden` 隐藏不掉。
 - **URL 编码**:前端用相对 URL(原样交给浏览器),API 兜底路径时按路径段 `encodeURIComponent`。
