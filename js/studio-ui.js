@@ -91,6 +91,7 @@
     function syncEqUI() {
       const st = audioFx.getEqState();
       const pairs = [
+        { slider: els.eqPreamp, readout: els.eqPreampVal, val: st.preamp },
         { slider: els.eqBass, readout: els.eqBassVal, val: st.bass },
         { slider: els.eqMid, readout: els.eqMidVal, val: st.mid },
         { slider: els.eqTreble, readout: els.eqTrebleVal, val: st.treble },
@@ -475,6 +476,7 @@
       audio.addEventListener("ended", syncSpectrumRunState);
 
       [
+        { el: els.eqPreamp, band: "preamp" },
         { el: els.eqBass, band: "bass" },
         { el: els.eqMid, band: "mid" },
         { el: els.eqTreble, band: "treble" },

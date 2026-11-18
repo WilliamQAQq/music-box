@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>
-<link rel="stylesheet" href="style.css?v=38">
+<link rel="stylesheet" href="style.css?v=39">
 </head>
 <body>
 
@@ -211,7 +211,7 @@
     <button type="button" id="muteBtn" class="ctrl-btn" title="静音" aria-label="静音" aria-pressed="false">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05a4.5 4.5 0 0 0 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
     </button>
-    <input type="range" id="volume" class="range vol" min="0" max="100" value="80" aria-label="音量">
+    <input type="range" id="volume" class="range vol" min="0" max="150" value="100" title="音量 100%（向右可推至 150% 响度增强）" aria-label="音量">
   </div>
 </footer>
 
@@ -384,6 +384,11 @@
       </div>
       <div class="studio-sliders">
         <label class="studio-slider-row">
+          <span class="studio-slider-lbl">前级响度</span>
+          <input type="range" id="eqPreamp" class="range studio-range" min="-6" max="12" step="0.5" value="3" aria-label="前级响度增益">
+          <span class="studio-slider-val" id="eqPreampVal">+3 dB</span>
+        </label>
+        <label class="studio-slider-row">
           <span class="studio-slider-lbl">低频 110Hz</span>
           <input type="range" id="eqBass" class="range studio-range" min="-12" max="12" step="0.5" value="0" aria-label="低频均衡增益">
           <span class="studio-slider-val" id="eqBassVal">0 dB</span>
@@ -493,12 +498,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="js/catalog-data.js?v=38"></script>
-<script defer src="js/user-state.js?v=38"></script>
-<script defer src="js/library-loader.js?v=38"></script>
-<script defer src="js/audio-fx.js?v=38"></script>
-<script defer src="js/lyrics.js?v=38"></script>
-<script defer src="js/studio-ui.js?v=38"></script>
-<script defer src="app.js?v=38"></script>
+<script defer src="js/catalog-data.js?v=39"></script>
+<script defer src="js/user-state.js?v=39"></script>
+<script defer src="js/library-loader.js?v=39"></script>
+<script defer src="js/audio-fx.js?v=39"></script>
+<script defer src="js/lyrics.js?v=39"></script>
+<script defer src="js/studio-ui.js?v=39"></script>
+<script defer src="app.js?v=39"></script>
 </body>
 </html>

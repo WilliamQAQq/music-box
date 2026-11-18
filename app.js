@@ -92,6 +92,8 @@
     spectrumCanvas: $("spectrumCanvas"),
     spectrumToggleBtn: $("spectrumToggleBtn"),
     eqPresetBtns: Array.from(document.querySelectorAll(".eq-preset-btn")),
+    eqPreamp: $("eqPreamp"),
+    eqPreampVal: $("eqPreampVal"),
     eqBass: $("eqBass"),
     eqBassVal: $("eqBassVal"),
     eqMid: $("eqMid"),
@@ -193,8 +195,8 @@
   let shelfTabsApi = null;
 
   let isSeeking = false;
-  let lastVolume = 80;
-  let baseVolume = 0.8;
+  let lastVolume = 100;
+  let baseVolume = 1.0;
   let fallbackGainFactor = 1.0;
   let errorStreak = 0;
 
@@ -2170,11 +2172,16 @@
   });
 
   function setVolume(v) {
-    v = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+    v = Math.max(0, Math.min(150, Math.round(Number(v) || 0)));
     els.volume.value = v;
+    els.volume.title = v > 100
+      ? "音量 " + v + "%（前级响度增强已开启）"
+      : "音量 " + v + "%（向右可推至 150% 响度增强）";
+    els.volume.setAttribute("aria-valuetext", v + "%");
     syncSlider(els.volume);
-    baseVolume = v / 100;
+    baseVolume = Math.min(1, v / 100);
     applyEffectiveVolume();
+    audioFx.setVolumeBoost(v > 100 ? v / 100 : 1);
     storageSet(KEYS.VOLUME, v);
     if (v > 0) lastVolume = v;
     setPressedButtonState(els.muteBtn, v === 0);
@@ -2185,7 +2192,7 @@
 
   els.muteBtn.addEventListener("click", () => {
     if (Number(els.volume.value) > 0) setVolume(0);
-    else setVolume(lastVolume || 80);
+    else setVolume(lastVolume || 100);
   });
 
   /* ---------------- media session ---------------- */
@@ -2393,12 +2400,17 @@
     setView(view);
     shelfTabsApi = initShelfTabs();
 
-    const v = parseInt(storageGet(KEYS.VOLUME, ""), 10);
+    let v = parseInt(storageGet(KEYS.VOLUME, ""), 10);
     if (!isNaN(v)) {
-      if (v > 0) lastVolume = Math.min(100, v);
+      if (v === 80 && !storageGet("gh-vol-v2-migrated", "")) {
+        v = 100;
+      }
+      storageSet("gh-vol-v2-migrated", "1");
+      if (v > 0) lastVolume = Math.min(150, v);
       setVolume(v);
     } else {
-      syncSlider(els.volume);
+      storageSet("gh-vol-v2-migrated", "1");
+      setVolume(100);
     }
     syncSlider(els.seek);
 

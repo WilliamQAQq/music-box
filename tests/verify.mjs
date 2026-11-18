@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v38", () => {
+test("HTML/SW/CSS structural invariants & asset version v39", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,13 +49,13 @@ test("HTML/SW/CSS structural invariants & asset version v38", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=38",
-    "js/user-state.js?v=38",
-    "js/library-loader.js?v=38",
-    "js/audio-fx.js?v=38",
-    "js/lyrics.js?v=38",
-    "js/studio-ui.js?v=38",
-    "app.js?v=38",
+    "js/catalog-data.js?v=39",
+    "js/user-state.js?v=39",
+    "js/library-loader.js?v=39",
+    "js/audio-fx.js?v=39",
+    "js/lyrics.js?v=39",
+    "js/studio-ui.js?v=39",
+    "app.js?v=39",
   ];
 
   let lastPos = -1;
@@ -69,9 +69,10 @@ test("HTML/SW/CSS structural invariants & asset version v38", () => {
     html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
     "index.html missing R2 gateway preconnect hint"
   );
-  assert.ok(html.includes('href="style.css?v=38"'), "index.html missing style.css?v=38");
+  assert.ok(html.includes('href="style.css?v=39"'), "index.html missing style.css?v=39");
   assert.ok(html.includes('id="radioFxBtn"'), "index.html missing #radioFxBtn button");
   assert.ok(html.includes('id="radioMixRange"'), "index.html missing #radioMixRange slider");
+  assert.ok(html.includes('id="eqPreamp"'), "index.html missing #eqPreamp preamp slider");
   assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
   assert.ok(html.includes("script-src 'self'"), "CSP must restrict script-src to 'self'");
   assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'), "index.html missing referrer policy meta");
@@ -81,7 +82,7 @@ test("HTML/SW/CSS structural invariants & asset version v38", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v38";'), "sw.js VERSION must match v38");
+  assert.ok(sw.includes('const VERSION = "v39";'), "sw.js VERSION must match v39");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
@@ -499,6 +500,14 @@ test("audio-fx: EQ & radio station DSP branches delay disconnect until gain ramp
   assert.equal(fx.isRadioConnected(), true, "Radio branch stays connected briefly during ramp-down");
   await new Promise((r) => setTimeout(r, 190));
   assert.equal(fx.isRadioConnected(), false, "Radio branch disconnects cleanly after BYPASS_DISCONNECT_DELAY_MS");
+
+  // Preamp (+3 dB default, -6..+12 dB range) and 150% volume boost combine cleanly
+  assert.equal(fx.getEqState().preamp, 3);
+  fx.setEqBand("preamp", 6);
+  assert.equal(fx.getEqState().preamp, 6);
+  fx.setVolumeBoost(1.5);
+  assert.equal(fx.getVolumeBoost(), 1.5);
+  assert.ok(fx.getPreampLinear() > 2.9 && fx.getPreampLinear() < 3.1, "6 dB preamp * 1.5x boost should yield ~2.99x gain");
 });
 
 test("audio-fx: fallback fadeInOver ramps smoothly to 1 when AudioContext is uninitialized", async () => {

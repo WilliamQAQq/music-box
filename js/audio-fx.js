@@ -134,7 +134,7 @@
     const n = 4096;
     const curve = new Float32Array(n);
     const norm = Math.tanh(1.25);
-    const rawEval = (x) => (Math.tanh(x * 1.25) / norm) * 0.94 + 0.055 * x * x;
+    const rawEval = (x) => (Math.tanh(x * 1.25) / norm) * 0.99 + 0.055 * x * x;
     const dcOffset = rawEval(0);
     for (let i = 0; i < n; i++) {
       const x = (i * 2) / (n - 1) - 1;
@@ -221,7 +221,7 @@
     const n = 4096;
     const curve = new Float32Array(n);
     const rawEval = (x) => {
-      const asym = x >= 0 ? Math.tanh(x * 2.55) * 0.88 : Math.tanh(x * 1.9) * 0.72;
+      const asym = x >= 0 ? Math.tanh(x * 2.55) * 0.98 : Math.tanh(x * 1.9) * 0.84;
       const grit = 0.08 * x * x - 0.045 * x * x * x;
       return asym + grit;
     };
@@ -270,6 +270,7 @@
 
     const savedEq = safeParseJson(storageGet(KEYS.EQ, ""), {});
     const eqState = {
+      preamp: clampNum(savedEq.preamp, -6, 12, 3),
       bass: clampNum(savedEq.bass, -12, 12, 0),
       mid: clampNum(savedEq.mid, -12, 12, 0),
       treble: clampNum(savedEq.treble, -12, 12, 0),
@@ -306,6 +307,7 @@
 
     let sleepFadeFactor = 1;
     let transitionFadeFactor = 1;
+    let volumeBoost = 1;
     let fadeOutRestoreTimer = null;
     let fallbackFadeInterval = null;
     let fadeInUntilMs = 0;
@@ -321,8 +323,16 @@
       return Math.abs(eqState.bass) >= 0.05 || Math.abs(eqState.mid) >= 0.05 || Math.abs(eqState.treble) >= 0.05;
     }
 
+    function isPreampOrBoostActive() {
+      return Math.abs(eqState.preamp) >= 0.05 || volumeBoost > 1.005;
+    }
+
+    function getPreampLinear() {
+      return Math.pow(10, clampNum(eqState.preamp, -6, 12, 0) / 20) * Math.max(0.5, Math.min(2, volumeBoost));
+    }
+
     function needsAudioGraph() {
-      return !!(vinylFxEnabled || synthFxEnabled || radioFxEnabled || isEqActive() || analyserWanted);
+      return !!(vinylFxEnabled || synthFxEnabled || radioFxEnabled || isEqActive() || isPreampOrBoostActive() || analyserWanted);
     }
 
     function ensureBaseGraph() {
@@ -358,15 +368,22 @@
         postStage2Bus.connect(stage3DryGain);
         stage3DryGain.connect(postStage3Bus);
 
-        // EQ 旁路直通增益与主淡入淡出保护增益
+        // EQ 旁路直通增益、主响度前级增益与软削峰防破音限制器
         const eqDryGain = audioCtx.createGain();
         eqDryGain.gain.value = 1;
         const masterGain = audioCtx.createGain();
-        masterGain.gain.value = 1;
+        masterGain.gain.value = getPreampLinear();
+        const masterLimiter = audioCtx.createDynamicsCompressor();
+        masterLimiter.threshold.value = -1.0;
+        masterLimiter.knee.value = 6;
+        masterLimiter.ratio.value = 14;
+        masterLimiter.attack.value = 0.002;
+        masterLimiter.release.value = 0.09;
 
         postStage3Bus.connect(eqDryGain);
         eqDryGain.connect(masterGain);
-        masterGain.connect(audioCtx.destination);
+        masterGain.connect(masterLimiter);
+        masterLimiter.connect(audioCtx.destination);
 
         baseGraph = {
           source,
@@ -378,6 +395,7 @@
           postStage3Bus,
           eqDryGain,
           masterGain,
+          masterLimiter,
         };
         return true;
       } catch (e) {
@@ -391,7 +409,7 @@
       if (!ensureBaseGraph()) return false;
       try {
         const inputTrim = audioCtx.createGain();
-        inputTrim.gain.value = 0.88;
+        inputTrim.gain.value = 1.05;
 
         const hpFilter = audioCtx.createBiquadFilter();
         hpFilter.type = "highpass";
@@ -588,7 +606,7 @@
         outComp.release.value = 0.16;
 
         const makeupGain = audioCtx.createGain();
-        makeupGain.gain.value = 0.94;
+        makeupGain.gain.value = 1.42;
 
         const wetGain = audioCtx.createGain();
         wetGain.gain.value = 0;
@@ -691,12 +709,12 @@
         const warmShelf = audioCtx.createBiquadFilter();
         warmShelf.type = "lowshelf";
         warmShelf.frequency.value = 180;
-        warmShelf.gain.value = 2.2;
+        warmShelf.gain.value = 2.6;
 
         const midRes = audioCtx.createBiquadFilter();
         midRes.type = "peaking";
         midRes.frequency.value = 2200;
-        midRes.gain.value = 1.6;
+        midRes.gain.value = 2.0;
         midRes.Q.value = 1.0;
 
         const lp = audioCtx.createBiquadFilter();
@@ -819,17 +837,17 @@
       if (!ensureBaseGraph()) return false;
       try {
         const inputDrive = audioCtx.createGain();
-        inputDrive.gain.value = 1.35;
+        inputDrive.gain.value = 1.65;
 
-        // 二阶陡峭高通 (切除 380Hz 以下低频，模拟矿石/电木小口径喇叭)
+        // 二阶陡峭高通 (切除 320Hz 以下低频，模拟矿石/电木小口径喇叭同时保留中低频饱满度)
         const hp1 = audioCtx.createBiquadFilter();
         hp1.type = "highpass";
-        hp1.frequency.value = 340;
+        hp1.frequency.value = 280;
         hp1.Q.value = 0.85;
 
         const hp2 = audioCtx.createBiquadFilter();
         hp2.type = "highpass";
-        hp2.frequency.value = 430;
+        hp2.frequency.value = 360;
         hp2.Q.value = 0.95;
 
         // 电木箱体中频腔体鼻音共振与调幅话音峰
@@ -837,13 +855,13 @@
         boxRes.type = "peaking";
         boxRes.frequency.value = 1120;
         boxRes.Q.value = 1.65;
-        boxRes.gain.value = 4.2;
+        boxRes.gain.value = 4.6;
 
         const presencePeak = audioCtx.createBiquadFilter();
         presencePeak.type = "peaking";
         presencePeak.frequency.value = 2100;
         presencePeak.Q.value = 1.85;
-        presencePeak.gain.value = 3.0;
+        presencePeak.gain.value = 3.4;
 
         // 二极管包络检波与电子管五极管过载削波
         const shaper = audioCtx.createWaveShaper();
@@ -865,19 +883,19 @@
         driftGain.gain.value = 260;
         driftGain.connect(lp1.frequency);
 
-        // 短波自动增益控制 (AGC) 压缩感與电离层天波衰落 (QSB)
+        // 短波自动增益控制 (AGC) 压缩感、补偿增益与电离层天波衰落 (QSB)
         const agcComp = audioCtx.createDynamicsCompressor();
-        agcComp.threshold.value = -20;
+        agcComp.threshold.value = -18;
         agcComp.knee.value = 10;
-        agcComp.ratio.value = 4.5;
+        agcComp.ratio.value = 3.6;
         agcComp.attack.value = 0.005;
         agcComp.release.value = 0.14;
 
         const fadeModGain = audioCtx.createGain();
-        fadeModGain.gain.value = 0.92;
+        fadeModGain.gain.value = 1.92;
 
         const fadeLfoGain = audioCtx.createGain();
-        fadeLfoGain.gain.value = 0.12;
+        fadeLfoGain.gain.value = 0.08;
         fadeLfoGain.connect(fadeModGain.gain);
 
         const wetGain = audioCtx.createGain();
@@ -1092,16 +1110,18 @@
 
     function applyMasterFade(immediate) {
       if (!immediate && Date.now() < fadeInUntilMs) return;
-      const target = Math.max(0.015, Math.min(1, sleepFadeFactor * transitionFadeFactor));
+      const fadeTarget = Math.max(0.015, Math.min(1, sleepFadeFactor * transitionFadeFactor));
       if (baseGraph && audioCtx) {
         const time = audioCtx.currentTime;
+        const target = Math.max(0.015, Math.min(4.5, fadeTarget * getPreampLinear()));
         baseGraph.masterGain.gain.setTargetAtTime(target, time, immediate ? 0.008 : 0.035);
       } else if (typeof options.onFallbackGainChange === "function") {
-        options.onFallbackGainChange(target);
+        options.onFallbackGainChange(fadeTarget);
       }
     }
 
     function updateGraph(immediate) {
+      if (!audio.paused && needsAudioGraph()) ensureBaseGraph();
       if (synthFxEnabled && !audio.paused) connectSynthBranch();
       if (vinylFxEnabled && !audio.paused) connectVinylBranch();
       if (radioFxEnabled && !audio.paused) connectRadioBranch();
@@ -1117,8 +1137,8 @@
 
       const useSynth = !!(synthFxEnabled && synthConnected && synthNodes);
       const sMix = Math.max(0.2, Math.min(1.5, mixState.synth));
-      const synthDry = useSynth ? Math.max(0, 1 - sMix) : 1;
-      const synthWet = useSynth ? Math.min(1.18, sMix) : 0;
+      const synthDry = useSynth ? Math.max(0, 1 - sMix * 0.8) : 1;
+      const synthWet = useSynth ? Math.min(1.45, 0.35 + 0.85 * sMix) : 0;
       baseGraph.stage1DryGain.gain.setTargetAtTime(synthDry, time, rampTime);
       if (synthNodes) {
         synthNodes.wetGain.gain.setTargetAtTime(synthWet, time, rampTime);
@@ -1128,7 +1148,7 @@
       const useVinyl = !!(vinylFxEnabled && vinylConnected && vinylNodes);
       baseGraph.stage2DryGain.gain.setTargetAtTime(useVinyl ? 0 : 1, time, rampTime);
       if (vinylNodes) {
-        vinylNodes.wetGain.gain.setTargetAtTime(useVinyl ? 1 : 0, time, rampTime);
+        vinylNodes.wetGain.gain.setTargetAtTime(useVinyl ? 1.22 : 0, time, rampTime);
         vinylNodes.noiseGain.gain.setTargetAtTime(getTargetNoiseGain(), time, rampTime);
         vinylNodes.wowGain.gain.setTargetAtTime(0.00028 * mixState.vinyl, time, rampTime);
         vinylNodes.flutterGain.gain.setTargetAtTime(0.00006 * mixState.vinyl, time, rampTime);
@@ -1137,12 +1157,14 @@
 
       const useRadio = !!(radioFxEnabled && radioConnected && radioNodes);
       const rMix = Math.max(0.2, Math.min(1.5, mixState.radio));
-      baseGraph.stage3DryGain.gain.setTargetAtTime(useRadio ? 0 : 1, time, rampTime);
+      const radioDry = useRadio ? Math.max(0, (1 - rMix) * 0.72) : 1;
+      const radioWet = useRadio ? Math.min(1.38, 0.85 + 0.35 * rMix) : 0;
+      baseGraph.stage3DryGain.gain.setTargetAtTime(radioDry, time, rampTime);
       if (radioNodes) {
-        radioNodes.wetGain.gain.setTargetAtTime(useRadio ? 1 : 0, time, rampTime);
-        radioNodes.inputDrive.gain.setTargetAtTime(0.85 + 0.55 * rMix, time, rampTime);
+        radioNodes.wetGain.gain.setTargetAtTime(radioWet, time, rampTime);
+        radioNodes.inputDrive.gain.setTargetAtTime(1.05 + 0.65 * rMix, time, rampTime);
         radioNodes.noiseGain.gain.setTargetAtTime(getTargetRadioNoiseGain(), time, rampTime);
-        radioNodes.fadeLfoGain.gain.setTargetAtTime(0.11 * Math.min(1.25, rMix), time, rampTime);
+        radioNodes.fadeLfoGain.gain.setTargetAtTime(0.08 * Math.min(1.25, rMix), time, rampTime);
         radioNodes.driftGain.gain.setTargetAtTime(240 * rMix, time, rampTime);
         if (!radioFxEnabled && radioConnected) scheduleRadioDisconnect();
       }
@@ -1227,6 +1249,16 @@
     }
 
     function setEqBand(band, db) {
+      if (band === "preamp") {
+        eqState.preamp = clampNum(db, -6, 12, 0);
+        storageSet(KEYS.EQ, JSON.stringify(eqState));
+        if (!audio.paused && needsAudioGraph()) {
+          ensureBaseGraph();
+          ensureResumed();
+        }
+        updateGraph(false);
+        return;
+      }
       if (band !== "bass" && band !== "mid" && band !== "treble") return;
       eqState[band] = clampNum(db, -12, 12, 0);
       storageSet(KEYS.EQ, JSON.stringify(eqState));
@@ -1246,7 +1278,22 @@
     }
 
     function getEqState() {
-      return { bass: eqState.bass, mid: eqState.mid, treble: eqState.treble, active: isEqActive() };
+      return {
+        preamp: eqState.preamp,
+        bass: eqState.bass,
+        mid: eqState.mid,
+        treble: eqState.treble,
+        active: isEqActive(),
+      };
+    }
+
+    function setVolumeBoost(mult) {
+      volumeBoost = clampNum(mult, 0.5, 2, 1);
+      if (!audio.paused && needsAudioGraph()) {
+        ensureBaseGraph();
+        ensureResumed();
+      }
+      applyMasterFade(false);
     }
 
     function setFxMix(kind, value) {
@@ -1323,7 +1370,7 @@
       const startMs = Date.now();
       fadeInUntilMs = startMs + ms;
       transitionFadeFactor = 1;
-      const target = Math.max(0.02, Math.min(1, sleepFadeFactor));
+      const target = Math.max(0.02, Math.min(4.5, sleepFadeFactor * getPreampLinear()));
       if (baseGraph && audioCtx) {
         const t = audioCtx.currentTime;
         baseGraph.masterGain.gain.cancelScheduledValues(t);
@@ -1354,6 +1401,7 @@
 
     function onPlay() {
       if (needsAudioGraph()) {
+        ensureBaseGraph();
         if (synthFxEnabled) connectSynthBranch();
         if (vinylFxEnabled) connectVinylBranch();
         if (radioFxEnabled) connectRadioBranch();
@@ -1386,6 +1434,9 @@
       getEqState,
       setEqBand,
       applyEqPreset,
+      setVolumeBoost,
+      getVolumeBoost: () => volumeBoost,
+      getPreampLinear,
       getFxMix,
       setFxMix,
       setAnalyserActive,

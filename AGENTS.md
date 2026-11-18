@@ -80,7 +80,7 @@ npx.cmd wrangler secret put CF_ACCOUNT_ID --config cloudflare-r2/wrangler.toml  
 ```
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=38` / `VERSION = "v38"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=39` / `VERSION = "v39"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查
