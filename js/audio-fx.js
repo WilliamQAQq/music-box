@@ -208,6 +208,17 @@
 
         raw0[i] = bandNoise0 + beatWhistle + cwTone;
         raw1[i] = bandNoise1 * 0.94 + bandNoise0 * 0.06 + beatWhistle * 0.92 + cwTone * 0.88;
+      } else if (mode === "obstacle") {
+        // 障碍物干扰：山体/隧道/高楼遮挡引起的瑞利多径栅栏扑哧衰落 (Picket-Fencing 14Hz–19Hz) 与临界捕获噪波
+        lp0 = 0.62 * lp0 + 0.38 * w0;
+        lp1 = 0.62 * lp1 + 0.38 * w1;
+        const multiNoise0 = (w0 - lp0 * 0.58) * 0.145;
+        const multiNoise1 = (w1 - lp1 * 0.58) * 0.145;
+        const shadowWave = Math.max(0, Math.sin(sec * Math.PI * 2 * 0.78) * 0.65 + Math.cos(sec * Math.PI * 2 * 1.35) * 0.55);
+        const picketFlutter = 0.45 + 0.55 * Math.pow(Math.max(0, Math.sin(sec * Math.PI * 2 * 15.5 + Math.sin(sec * 3.2) * 1.8)), 2);
+        const env = (0.28 + 0.92 * shadowWave) * picketFlutter;
+        raw0[i] = multiNoise0 * env;
+        raw1[i] = (multiNoise1 * 0.92 + multiNoise0 * 0.08) * env;
       } else if (mode === "storm") {
         // 磁暴雷雨：强电离层喘息底噪
         lp0 = 0.76 * lp0 + 0.24 * w0;
@@ -236,7 +247,7 @@
       }
     }
 
-    // 注入不同干扰模式特有的瞬态脉冲簇 (雷电天电 / 塔台 PTT 静噪咔哒)
+    // 注入不同干扰模式特有的瞬态脉冲簇 (雷电天电 / 障碍物遮挡反射刮擦 / 塔台 PTT 静噪咔哒)
     if (mode === "cockpit") {
       // 模拟航空/甚高频 PTT 静噪门开关尾音 (Squelch tail kerchunk)
       const squelchClicks = 4;
@@ -249,6 +260,26 @@
           const pop = ((j < 4 ? (j % 2 === 0 ? 1 : -1) * 0.22 : (Math.random() * 2 - 1) * 0.18)) * env;
           raw0[idx] += pop;
           raw1[idx] += pop * 0.92;
+        }
+      }
+    } else if (mode === "obstacle") {
+      // 模拟穿行隧道/高楼遮挡时的多径反射栅栏连发刮擦簇 (Picket-fence multipath burst clusters)
+      const clusterCount = 5;
+      for (let c = 0; c < clusterCount; c++) {
+        const clusterStart = Math.floor(((c + 0.18) / clusterCount) * length);
+        const pulses = 4 + (c % 3);
+        const pulseStep = Math.floor(sampleRate * 0.055);
+        const pulseLen = Math.floor(sampleRate * 0.028);
+        for (let p = 0; p < pulses; p++) {
+          const pos = (clusterStart + p * pulseStep) % length;
+          const amp = 0.13 + 0.08 * Math.sin(((p + 1) / pulses) * Math.PI);
+          for (let j = 0; j < pulseLen; j++) {
+            const idx = (pos + j) % length;
+            const win = Math.sin((j / pulseLen) * Math.PI);
+            const chuff = (Math.random() * 2 - 1) * amp * win;
+            raw0[idx] += chuff;
+            raw1[idx] += chuff * 0.86;
+          }
         }
       }
     } else {
@@ -287,10 +318,11 @@
   }
 
   /**
-   * 五大无线电调频波段声学参数表：
+   * 六大无线电调频波段声学参数表：
    * - sw: 短波 (3–30MHz 电离层天波反射、300Hz–3.5kHz 电木窄带与慢速 QSB 衰落)
    * - lw: 长波 (148–283kHz 远距地波广播、保留 130Hz 温暖低频与 2.6kHz 柔和暗调滚降)
-   * - vhf: 甚高频 (30–300MHz 调频广播/超短波通讯、3.1kHz 预加重清脆高频与 6kHz 宽通带)
+   * - fm: 调频 (87.5–108MHz 经典电子管调频广播、92Hz–10.5kHz 宽频温暖去加重与立体声导频切频)
+   * - vhf: 甚高频 (30–300MHz 超短波对讲通讯、3.1kHz 预加重清脆高频与 6kHz 宽通带)
    * - air: 航空 (118–137MHz VHF AM 塔台/机舱话音、420Hz–2.9kHz 紧致窄带与面罩麦克风高频咬字峰)
    * - marine: 航海 (2182kHz/Ch.16 海事单边带 SSB、防风号角喇叭中频共鸣与海浪多径频偏漂移)
    */
@@ -347,10 +379,36 @@
       driftRate: 0.07,
       driftDepth: 95,
     },
+    fm: {
+      id: "fm",
+      shortLabel: "调频 FM",
+      label: "调频广播 (FM 87.5–108MHz 胆机宽频)",
+      hp1: 88,
+      hp1Q: 0.72,
+      hp2: 125,
+      hp2Q: 0.78,
+      boxFreq: 240,
+      boxQ: 1.15,
+      boxGain: 2.6,
+      presFreq: 3600,
+      presQ: 1.3,
+      presGain: 2.8,
+      lp1: 9200,
+      lp1Q: 0.85,
+      lp2: 11200,
+      lp2Q: 0.8,
+      driveBase: 0.82,
+      driveScale: 0.35,
+      makeup: 1.38,
+      qsbRate: 0.28,
+      qsbDepth: 0.015,
+      driftRate: 0.08,
+      driftDepth: 45,
+    },
     vhf: {
       id: "vhf",
       shortLabel: "甚高频 VHF",
-      label: "甚高频调频 (VHF 30–300MHz 预加重宽带)",
+      label: "甚高频通讯 (VHF 30–300MHz 预加重通带)",
       hp1: 155,
       hp1Q: 0.75,
       hp2: 215,
@@ -428,9 +486,10 @@
   };
 
   /**
-   * 五种无线电波干扰与底噪模式：
+   * 六种无线电波干扰与底噪模式：
    * - qrn: 天电静电 (大气静电嘶声与电离层脉冲)
    * - qrm: 邻频哨叫 (外差载波差拍哨音与远距 CW 莫尔斯电报音)
+   * - obstacle: 障碍物干扰 (山体/隧道/高楼遮挡：多径瑞利栅栏扑哧猝发簇 + 遮挡瞬间信号高频收缩与电平下陷)
    * - storm: 磁暴雷雨 (密集雷暴静电簇与深幅磁暴起伏)
    * - cockpit: 塔台底噪 (VHF 静噪嘶声、400Hz 机载航电交流音与 PTT 静噪咔哒)
    * - clean: 纯净无噪 (关闭背景噪声源，仅保留所选波段频响与检波音色)
@@ -453,6 +512,15 @@
       bpFreq: 1620,
       bpQ: 0.95,
       lpFreq: 3400,
+    },
+    obstacle: {
+      id: "obstacle",
+      shortLabel: "障碍遮挡",
+      label: "障碍物干扰 (隧道/山体遮挡与多径栅栏衰落)",
+      gainScale: 1.22,
+      bpFreq: 1760,
+      bpQ: 0.72,
+      lpFreq: 4200,
     },
     storm: {
       id: "storm",
@@ -959,6 +1027,9 @@
       synthNodes.lfos.forEach(safeStopSource);
       synthNodes.lfos = [];
       synthConnected = false;
+      if (baseGraph && baseGraph.stage1DryGain) {
+        baseGraph.stage1DryGain.gain.value = 1;
+      }
     }
 
     function scheduleSynthDisconnect() {
@@ -1097,6 +1168,9 @@
       vinylNodes.noiseSource = null;
       vinylNodes.lfos = [];
       vinylConnected = false;
+      if (baseGraph && baseGraph.stage2DryGain) {
+        baseGraph.stage2DryGain.gain.value = 1;
+      }
     }
 
     function scheduleVinylDisconnect() {
@@ -1305,6 +1379,9 @@
       radioNodes.driftLfo = null;
       radioNodes.lfos = [];
       radioConnected = false;
+      if (baseGraph && baseGraph.stage3DryGain) {
+        baseGraph.stage3DryGain.gain.value = 1;
+      }
     }
 
     function scheduleRadioDisconnect() {
@@ -1355,6 +1432,9 @@
       safeDisconnect(baseGraph.postStage3Bus, eqNodes.low);
       safeDisconnect(eqNodes.wetGain, baseGraph.masterGain);
       eqConnected = false;
+      if (baseGraph.eqDryGain) {
+        baseGraph.eqDryGain.gain.value = 1;
+      }
     }
 
     function scheduleEqDisconnect() {
@@ -1479,6 +1559,19 @@
         if (useRadio) syncRadioNoiseSource();
         const bp = RADIO_BAND_PROFILES[radioTuning.band] || RADIO_BAND_PROFILES.sw;
         const np = RADIO_NOISE_PROFILES[radioTuning.noiseMode] || RADIO_NOISE_PROFILES.qrn;
+        const isObstacle = radioTuning.noiseMode === "obstacle";
+        const obstacleFactor = isObstacle ? Math.max(0.35, Math.min(1.6, radioTuning.noiseLevel)) : 0;
+        const effLp1 = isObstacle ? Math.max(1500, bp.lp1 * (1 - 0.16 * obstacleFactor)) : bp.lp1;
+        const effLp2 = isObstacle ? Math.max(1850, bp.lp2 * (1 - 0.14 * obstacleFactor)) : bp.lp2;
+        const effQsbRate = isObstacle ? 1.18 : bp.qsbRate;
+        const effQsbDepth = isObstacle
+          ? Math.min(0.34, (bp.qsbDepth + 0.17 * obstacleFactor) * Math.min(1.3, rMix))
+          : bp.qsbDepth * Math.min(1.25, rMix);
+        const effDriftRate = isObstacle ? 0.84 : bp.driftRate;
+        const effDriftDepth = isObstacle
+          ? Math.max(bp.driftDepth, 460 * obstacleFactor) * rMix
+          : bp.driftDepth * rMix;
+
         radioNodes.wetGain.gain.setTargetAtTime(radioWet, time, rampTime);
         radioNodes.inputDrive.gain.setTargetAtTime(bp.driveBase + bp.driveScale * rMix, time, rampTime);
         radioNodes.hp1.frequency.setTargetAtTime(bp.hp1, time, rampTime);
@@ -1491,15 +1584,15 @@
         radioNodes.presencePeak.frequency.setTargetAtTime(bp.presFreq, time, rampTime);
         radioNodes.presencePeak.Q.setTargetAtTime(bp.presQ, time, rampTime);
         radioNodes.presencePeak.gain.setTargetAtTime(bp.presGain, time, rampTime);
-        radioNodes.lp1.frequency.setTargetAtTime(bp.lp1, time, rampTime);
+        radioNodes.lp1.frequency.setTargetAtTime(effLp1, time, rampTime);
         radioNodes.lp1.Q.setTargetAtTime(bp.lp1Q, time, rampTime);
-        radioNodes.lp2.frequency.setTargetAtTime(bp.lp2, time, rampTime);
+        radioNodes.lp2.frequency.setTargetAtTime(effLp2, time, rampTime);
         radioNodes.lp2.Q.setTargetAtTime(bp.lp2Q, time, rampTime);
         radioNodes.fadeModGain.gain.setTargetAtTime(bp.makeup, time, rampTime);
-        radioNodes.fadeLfoGain.gain.setTargetAtTime(bp.qsbDepth * Math.min(1.25, rMix), time, rampTime);
-        radioNodes.driftGain.gain.setTargetAtTime(bp.driftDepth * rMix, time, rampTime);
-        if (radioNodes.fadeLfo) radioNodes.fadeLfo.frequency.setTargetAtTime(bp.qsbRate, time, rampTime);
-        if (radioNodes.driftLfo) radioNodes.driftLfo.frequency.setTargetAtTime(bp.driftRate, time, rampTime);
+        radioNodes.fadeLfoGain.gain.setTargetAtTime(effQsbDepth, time, rampTime);
+        radioNodes.driftGain.gain.setTargetAtTime(effDriftDepth, time, rampTime);
+        if (radioNodes.fadeLfo) radioNodes.fadeLfo.frequency.setTargetAtTime(effQsbRate, time, rampTime);
+        if (radioNodes.driftLfo) radioNodes.driftLfo.frequency.setTargetAtTime(effDriftRate, time, rampTime);
         radioNodes.noiseBp.frequency.setTargetAtTime(np.bpFreq, time, rampTime);
         radioNodes.noiseBp.Q.setTargetAtTime(np.bpQ, time, rampTime);
         radioNodes.noiseLp.frequency.setTargetAtTime(np.lpFreq, time, rampTime);
@@ -1697,13 +1790,13 @@
       };
     }
 
-    function setVolumeBoost(mult) {
+    function setVolumeBoost(mult, skipApply) {
       volumeBoost = clampNum(mult, 0.5, 2, 1);
       if (!audio.paused && needsAudioGraph()) {
         ensureBaseGraph();
         ensureResumed();
       }
-      applyMasterFade(false);
+      if (!skipApply) applyMasterFade(false);
     }
 
     function setFxMix(kind, value) {

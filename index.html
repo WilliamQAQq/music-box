@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>
-<link rel="stylesheet" href="style.css?v=40">
+<link rel="stylesheet" href="style.css?v=41">
 </head>
 <body>
 
@@ -439,6 +439,7 @@
         <div class="studio-pills">
           <button type="button" class="studio-pill-btn radio-band-btn on" data-radio-band="sw" aria-pressed="true">短波 SW</button>
           <button type="button" class="studio-pill-btn radio-band-btn" data-radio-band="lw" aria-pressed="false">长波 LW</button>
+          <button type="button" class="studio-pill-btn radio-band-btn" data-radio-band="fm" aria-pressed="false">调频 FM</button>
           <button type="button" class="studio-pill-btn radio-band-btn" data-radio-band="vhf" aria-pressed="false">甚高频 VHF</button>
           <button type="button" class="studio-pill-btn radio-band-btn" data-radio-band="air" aria-pressed="false">航空 AIR</button>
           <button type="button" class="studio-pill-btn radio-band-btn" data-radio-band="marine" aria-pressed="false">航海 SEA</button>
@@ -449,6 +450,7 @@
         <div class="studio-pills">
           <button type="button" class="studio-pill-btn radio-noise-btn on" data-radio-noise="qrn" aria-pressed="true">天电静电</button>
           <button type="button" class="studio-pill-btn radio-noise-btn" data-radio-noise="qrm" aria-pressed="false">邻频哨叫</button>
+          <button type="button" class="studio-pill-btn radio-noise-btn" data-radio-noise="obstacle" aria-pressed="false">障碍遮挡</button>
           <button type="button" class="studio-pill-btn radio-noise-btn" data-radio-noise="storm" aria-pressed="false">磁暴雷雨</button>
           <button type="button" class="studio-pill-btn radio-noise-btn" data-radio-noise="cockpit" aria-pressed="false">塔台底噪</button>
           <button type="button" class="studio-pill-btn radio-noise-btn" data-radio-noise="clean" aria-pressed="false">纯净无噪</button>
@@ -532,12 +534,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="js/catalog-data.js?v=40"></script>
-<script defer src="js/user-state.js?v=40"></script>
-<script defer src="js/library-loader.js?v=40"></script>
-<script defer src="js/audio-fx.js?v=40"></script>
-<script defer src="js/lyrics.js?v=40"></script>
-<script defer src="js/studio-ui.js?v=40"></script>
-<script defer src="app.js?v=40"></script>
+<script defer src="js/catalog-data.js?v=41"></script>
+<script defer src="js/user-state.js?v=41"></script>
+<script defer src="js/library-loader.js?v=41"></script>
+<script defer src="js/audio-fx.js?v=41"></script>
+<script defer src="js/lyrics.js?v=41"></script>
+<script defer src="js/studio-ui.js?v=41"></script>
+<script defer src="app.js?v=41"></script>
 </body>
 </html>

@@ -1033,10 +1033,11 @@ test("Edge Cache serves public JSON with zero R2 reads while preserving CORS iso
     assert.equal(signedEvilRefererRes.status, 403, "Signed media URL must still block explicit disallowed Referer");
 
     // 12. Emergency KV write headroom persists tripped: true even when dailyKvWrites is at MAX_DAILY_KV_WRITES (850)
+    const nowDate = new Date("2026-11-18T12:00:00Z");
     const kvHeadroom = makeMockKv({
       "quota:state:v1": JSON.stringify({
-        day: "2026-11-18",
-        month: "2026-11",
+        day: nowDate.toISOString().slice(0, 10),
+        month: nowDate.toISOString().slice(0, 7),
         dailyReqs: 5,
         monthlyClassB: 0,
         monthlyClassA: 0,
@@ -1050,7 +1051,6 @@ test("Edge Cache serves public JSON with zero R2 reads while preserving CORS iso
       MAX_DAILY_REQUESTS: "5",
       MUSIC_QUOTA_KV: kvHeadroom,
     });
-    const nowDate = new Date("2026-11-18T12:00:00Z");
     const tripAtCapRes = await handleRequest(
       new Request("https://worker.example/manifest.json", {
         headers: { Origin: "https://williamqaqq.github.io" },

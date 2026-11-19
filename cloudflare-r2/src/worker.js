@@ -821,11 +821,10 @@ async function servePublicJsonEndpoint(request, env, ctx, tracker, originState, 
   return new Response(payload, { status: 200, headers });
 }
 
-export async function handleRequest(request, env, ctx) {
+export async function handleRequest(request, env, ctx, now = new Date()) {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   const originState = resolveAllowedOrigin(request, env);
-  const now = new Date();
   const tracker = await loadQuotaSnapshot(env, now);
 
   if (url.pathname === "/health") {

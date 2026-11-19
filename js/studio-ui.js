@@ -83,7 +83,14 @@
       const eq = audioFx.getEqState();
       const sleep = userState.getSleepSnapshot();
       const ab = userState.getAbLoopState();
-      const hasCustom = eq.active || Math.abs(playbackSpeed - 1) >= 0.01 || crossfadeSec > 0 || sleep.mode !== "off" || ab.active;
+      const hasCustomPreamp = typeof eq.preamp === "number" && Math.abs(eq.preamp - 3) >= 0.05;
+      const hasCustom =
+        eq.active ||
+        hasCustomPreamp ||
+        Math.abs(playbackSpeed - 1) >= 0.01 ||
+        crossfadeSec > 0 ||
+        sleep.mode !== "off" ||
+        ab.active;
       els.studioBtn.classList.toggle("has-active-fx", hasCustom);
       if (els.studioBadgeDot) els.studioBadgeDot.hidden = !hasCustom;
     }

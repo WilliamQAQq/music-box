@@ -1,20 +1,22 @@
-const VERSION = "v40";
+const VERSION = "v41";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v2";
 const MAX_CACHED_AUDIO = 18;
+const audioLruMap = new Map();
+let audioLruTick = 0;
 
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=40",
-  "./js/catalog-data.js?v=40",
-  "./js/user-state.js?v=40",
-  "./js/library-loader.js?v=40",
-  "./js/audio-fx.js?v=40",
-  "./js/lyrics.js?v=40",
-  "./js/studio-ui.js?v=40",
-  "./app.js?v=40",
+  "./style.css?v=41",
+  "./js/catalog-data.js?v=41",
+  "./js/user-state.js?v=41",
+  "./js/library-loader.js?v=41",
+  "./js/audio-fx.js?v=41",
+  "./js/lyrics.js?v=41",
+  "./js/studio-ui.js?v=41",
+  "./app.js?v=41",
   "./manifest.webmanifest",
 ];
 
@@ -122,12 +124,11 @@ function buildRangeResponse(fullRes, rangeHeader) {
   });
 }
 
-async function touchAudioCacheEntry(cache, req, res) {
-  try {
-    const cloned = res.clone();
-    await cache.delete(req);
-    await cache.put(req, cloned);
-  } catch (e) { /* ignore LRU touch error */ }
+function touchAudioCacheEntry(reqOrUrl) {
+  const keyUrl = typeof reqOrUrl === "string" ? reqOrUrl : (reqOrUrl && reqOrUrl.url) || "";
+  if (keyUrl) {
+    audioLruMap.set(keyUrl, ++audioLruTick);
+  }
 }
 
 function hasCachedAudioMetadataChanged(cachedRes, headRes) {
@@ -152,7 +153,7 @@ async function handleAudioRequest(request) {
   const cached = await cache.match(cleanReq);
   if (cached && cached.status === 200) {
     if (!rangeHeader || /^bytes=0-\d*$/i.test(rangeHeader.trim())) {
-      touchAudioCacheEntry(cache, cleanReq, cached);
+      touchAudioCacheEntry(cleanReq);
     }
     return rangeHeader ? buildRangeResponse(cached, rangeHeader) : cached;
   }
@@ -160,6 +161,7 @@ async function handleAudioRequest(request) {
   try {
     const netRes = await fetch(request);
     if (!rangeHeader && netRes && netRes.status === 200 && netRes.type === "basic") {
+      touchAudioCacheEntry(cleanReq);
       cache.put(cleanReq, netRes.clone()).then(() => trimAudioCache(cache)).catch(() => {});
     }
     return netRes;
@@ -173,8 +175,16 @@ async function trimAudioCache(cache) {
   const keys = await cache.keys();
   const excess = keys.length - MAX_CACHED_AUDIO;
   if (excess <= 0) return;
+  const ranked = keys.map((req, index) => ({
+    req,
+    index,
+    tick: audioLruMap.get(req.url) || 0,
+  }));
+  ranked.sort((a, b) => (a.tick !== b.tick ? a.tick - b.tick : a.index - b.index));
   for (let i = 0; i < excess; i++) {
-    await cache.delete(keys[i]);
+    const victim = ranked[i].req;
+    audioLruMap.delete(victim.url);
+    await cache.delete(victim);
   }
 }
 
@@ -218,6 +228,7 @@ self.addEventListener("message", (event) => {
         if (!existing) {
           const res = await fetch(absUrl);
           if (res && res.status === 200 && (res.type === "basic" || res.type === "cors")) {
+            touchAudioCacheEntry(absUrl);
             await cache.put(absUrl, res);
             await trimAudioCache(cache);
           }
@@ -227,17 +238,18 @@ self.addEventListener("message", (event) => {
         if (hasCachedAudioMetadataChanged(existing, headRes)) {
           const freshRes = await fetch(absUrl, { cache: "no-cache" });
           if (freshRes && freshRes.status === 200 && (freshRes.type === "basic" || freshRes.type === "cors")) {
-            await cache.delete(absUrl);
+            touchAudioCacheEntry(absUrl);
             await cache.put(absUrl, freshRes);
             await trimAudioCache(cache);
           }
         } else {
-          await touchAudioCacheEntry(cache, absUrl, existing);
+          touchAudioCacheEntry(absUrl);
         }
       } catch (e) { /* ignore offline cache error */ }
     })());
   }
   if (data.type === "CLEAR_AUDIO_CACHE") {
+    audioLruMap.clear();
     event.waitUntil(
       caches.delete(AUDIO_CACHE).then(() => {
         if (event.ports && event.ports[0]) event.ports[0].postMessage({ cleared: true });

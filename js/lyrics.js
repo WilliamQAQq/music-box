@@ -161,6 +161,7 @@
     let externalLyricsKey = "";
     let externalSourceMode = "hybrid";
     let lyricsReqSeq = 0;
+    let catalogSeq = 0;
     let liveLyricsCache = {};
     let liveCacheLoaded = false;
     let currentLyricState = null;
@@ -295,6 +296,7 @@
       externalLyricsUrl = nextUrl;
       externalLyricsKey = nextKey;
       externalSourceMode = nextMode;
+      catalogSeq++;
       lyricsCatalog = {};
       lyricsCatalogLoaded = false;
       lyricsCatalogPromise = null;
@@ -308,11 +310,15 @@
         lyricsCatalogLoaded = false;
       }
       if (lyricsCatalogPromise) return lyricsCatalogPromise;
-      lyricsCatalogPromise = (async () => {
+      const seq = ++catalogSeq;
+      const activeMode = externalSourceMode;
+      const activeUrl = externalLyricsUrl;
+      const activeKey = externalLyricsKey;
+      const pendingPromise = (async () => {
         const cacheMode = force ? "no-store" : "no-cache";
         const tasks = [];
 
-        if (externalSourceMode !== "r2") {
+        if (activeMode !== "r2") {
           tasks.push(
             fetch("lyrics.json", { cache: cacheMode })
               .then(async (res) => (res.ok ? { ok: true, data: await res.json() } : { ok: false, data: null }))
@@ -322,11 +328,11 @@
           tasks.push(Promise.resolve({ ok: false, data: null }));
         }
 
-        if (externalLyricsUrl && externalSourceMode !== "github") {
+        if (activeUrl && activeMode !== "github") {
           const headers = {};
-          if (externalLyricsKey) headers["X-Music-Key"] = externalLyricsKey;
+          if (activeKey) headers["X-Music-Key"] = activeKey;
           tasks.push(
-            fetch(externalLyricsUrl + "/lyrics.json", { cache: cacheMode, headers })
+            fetch(activeUrl + "/lyrics.json", { cache: cacheMode, headers })
               .then(async (res) => (res.ok ? { ok: true, data: await res.json() } : { ok: false, data: null }))
               .catch(() => ({ ok: false, data: null }))
           );
@@ -337,6 +343,7 @@
         let anyOk = false;
         try {
           const [localRes, r2Res] = await Promise.all(tasks);
+          if (seq !== catalogSeq) return;
           const merged = {};
           if (localRes && localRes.ok) {
             anyOk = true;
@@ -348,11 +355,14 @@
           }
           lyricsCatalog = merged;
         } catch (e) { /* 若缺失则走在线兜底 */ } finally {
-          lyricsCatalogLoaded = anyOk;
-          if (!anyOk) lyricsCatalogPromise = null;
+          if (seq === catalogSeq) {
+            lyricsCatalogLoaded = anyOk;
+            if (!anyOk) lyricsCatalogPromise = null;
+          }
         }
       })();
-      return lyricsCatalogPromise;
+      lyricsCatalogPromise = pendingPromise;
+      return pendingPromise;
     }
 
     function applyLyricSearchFilter() {

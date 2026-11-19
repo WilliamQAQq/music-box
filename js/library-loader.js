@@ -584,7 +584,7 @@
             isPartialDegraded = true;
             const errMsg = (ghRes.reason && ghRes.reason.message) || "加载失败";
             const r2Tracks = (r2Res.value && Array.isArray(r2Res.value.tracks)) ? r2Res.value.tracks : [];
-            if (useCache && r2Tracks.length === 0) {
+            if (useCache && (!force || r2Tracks.length === 0)) {
               toast("GitHub 曲库刷新失败（" + errMsg + "），当前显示缓存歌单", true);
               onBannerChange(false, settings);
               return;

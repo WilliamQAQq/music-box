@@ -2186,7 +2186,7 @@
     syncSlider(els.volume);
     baseVolume = Math.min(1, v / 100);
     applyEffectiveVolume();
-    audioFx.setVolumeBoost(v > 100 ? v / 100 : 1);
+    audioFx.setVolumeBoost(v > 100 ? v / 100 : 1, true);
     storageSet(KEYS.VOLUME, v);
     if (v > 0) lastVolume = v;
     setPressedButtonState(els.muteBtn, v === 0);
