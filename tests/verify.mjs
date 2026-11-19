@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v41", () => {
+test("HTML/SW/CSS structural invariants & asset version v42", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,13 +49,13 @@ test("HTML/SW/CSS structural invariants & asset version v41", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=41",
-    "js/user-state.js?v=41",
-    "js/library-loader.js?v=41",
-    "js/audio-fx.js?v=41",
-    "js/lyrics.js?v=41",
-    "js/studio-ui.js?v=41",
-    "app.js?v=41",
+    "js/catalog-data.js?v=42",
+    "js/user-state.js?v=42",
+    "js/library-loader.js?v=42",
+    "js/audio-fx.js?v=42",
+    "js/lyrics.js?v=42",
+    "js/studio-ui.js?v=42",
+    "app.js?v=42",
   ];
 
   let lastPos = -1;
@@ -69,7 +69,7 @@ test("HTML/SW/CSS structural invariants & asset version v41", () => {
     html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
     "index.html missing R2 gateway preconnect hint"
   );
-  assert.ok(html.includes('href="style.css?v=41"'), "index.html missing style.css?v=41");
+  assert.ok(html.includes('href="style.css?v=42"'), "index.html missing style.css?v=42");
   assert.ok(html.includes('id="radioFxBtn"'), "index.html missing #radioFxBtn button");
   assert.ok(html.includes('id="radioMixRange"'), "index.html missing #radioMixRange slider");
   assert.ok(
@@ -84,6 +84,14 @@ test("HTML/SW/CSS structural invariants & asset version v41", () => {
     html.includes('id="radioNoiseRange"'),
     "index.html missing radio noise controls"
   );
+  assert.ok(
+    html.includes('data-ambient="rain"') &&
+    html.includes('data-ambient="thunder"') &&
+    html.includes('data-ambient="wild"') &&
+    html.includes('data-ambient="city"') &&
+    html.includes('id="ambientLevelRange"'),
+    "index.html missing ambient soundscape controls"
+  );
   assert.ok(html.includes('id="eqPreamp"'), "index.html missing #eqPreamp preamp slider");
   assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
   assert.ok(html.includes("script-src 'self'"), "CSP must restrict script-src to 'self'");
@@ -94,7 +102,7 @@ test("HTML/SW/CSS structural invariants & asset version v41", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v41";'), "sw.js VERSION must match v41");
+  assert.ok(sw.includes('const VERSION = "v42";'), "sw.js VERSION must match v42");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
@@ -529,6 +537,19 @@ test("audio-fx: EQ & radio station DSP branches delay disconnect until gain ramp
   fx.setVolumeBoost(1.5);
   assert.equal(fx.getVolumeBoost(), 1.5);
   assert.ok(fx.getPreampLinear() > 2.9 && fx.getPreampLinear() < 3.1, "6 dB preamp * 1.5x boost should yield ~2.99x gain");
+
+  // Ambient soundscape branch connects on rain/thunder/wild/city and disconnects after ramp-down when set to 'off'
+  for (const amb of ["rain", "thunder", "wild", "city"]) {
+    const st = fx.setAmbientMode(amb, false);
+    assert.equal(st.mode, amb);
+    assert.equal(fx.isAmbientConnected(), true);
+  }
+  assert.equal(fx.setAmbientLevel(1.4).level, 1.4);
+  fx.setAmbientMode("off", false);
+  assert.equal(fx.getAmbientState().mode, "off");
+  assert.equal(fx.isAmbientConnected(), true, "Ambient branch stays connected briefly during ramp-down");
+  await new Promise((r) => setTimeout(r, 190));
+  assert.equal(fx.isAmbientConnected(), false, "Ambient branch disconnects cleanly after BYPASS_DISCONNECT_DELAY_MS");
 });
 
 test("audio-fx: fallback fadeInOver ramps smoothly to 1 when AudioContext is uninitialized", async () => {

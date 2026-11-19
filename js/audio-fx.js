@@ -6,6 +6,7 @@
 
   const BASE_VINYL_NOISE_GAIN = 0.045;
   const BASE_RADIO_STATIC_GAIN = 0.036;
+  const BASE_AMBIENT_GAIN = 0.19;
   const BYPASS_DISCONNECT_DELAY_MS = 140;
 
   function safeDisconnect(fromNode, toNode) {
@@ -552,6 +553,299 @@
   };
 
   /**
+   * 沙龙环境背景音声景配置表：
+   * - off: 关闭环境声景
+   * - rain: 雨天 (窗外绵密细雨、微风起伏与屋檐雨滴敲击)
+   * - thunder: 雷暴 (夜雨滂沱、疾风呼啸与远近低频滚雷)
+   * - wild: 野外声 (林间微风、潺潺溪流与虫鸣鸟啭)
+   * - city: 城市声 (远街湿滑路面车流掠过、市井微响与远处钟楼/电车铜铃)
+   */
+  const AMBIENT_PROFILES = {
+    off: {
+      id: "off",
+      shortLabel: "未开启",
+      label: "已关闭环境背景音",
+      gainScale: 0,
+      hpFreq: 80,
+      lpFreq: 5000,
+    },
+    rain: {
+      id: "rain",
+      shortLabel: "雨天 · 窗外细雨",
+      label: "雨天声景 · 窗外绵密细雨与屋檐滴落",
+      gainScale: 1.0,
+      hpFreq: 135,
+      lpFreq: 4600,
+    },
+    thunder: {
+      id: "thunder",
+      shortLabel: "雷暴 · 夜雨惊雷",
+      label: "雷暴声景 · 疾风骤雨与远近滚雷轰鸣",
+      gainScale: 1.18,
+      hpFreq: 38,
+      lpFreq: 4800,
+    },
+    wild: {
+      id: "wild",
+      shortLabel: "野外声 · 林溪虫鸟",
+      label: "野外声景 · 林间微风、溪流与虫鸣鸟啭",
+      gainScale: 0.96,
+      hpFreq: 120,
+      lpFreq: 5600,
+    },
+    city: {
+      id: "city",
+      shortLabel: "城市声 · 夜街车流",
+      label: "城市声景 · 街角车流掠过与远处钟铃",
+      gainScale: 1.04,
+      hpFreq: 55,
+      lpFreq: 3900,
+    },
+  };
+
+  /**
+   * 按指定声景模式生成 8 秒无缝立体声环境背景音缓冲（首尾等功率余弦交叉淡化确保零接缝循环）：
+   * - rain: 粉红/丝绒雨幕基底 + 立体声随机分布的屋檐/窗玻璃雨滴谐振脉冲
+   * - thunder: 暴雨狂风基底 + 多段远近立体声非线性低频滚雷 (35Hz–190Hz 余韵)
+   * - wild: 林间风吹树叶与溪水潺潺基底 + 立体声夏夜蟋蟀鸣叫 (3.9kHz) 与林鸟双音婉转啼鸣
+   * - city: 城市远景低频底噪 + 左右双向多普勒平移驶过的车流声 + 远方有轨电车/钟楼泛音铜铃
+   */
+  function createAmbientBuffer(ctx, ambientMode) {
+    const mode = ambientMode || "rain";
+    const sampleRate = ctx.sampleRate;
+    const durationSec = 8;
+    const length = Math.max(sampleRate * 4, Math.floor(sampleRate * durationSec));
+    const fadeLen = Math.min(Math.floor(sampleRate * 0.06), Math.floor(length / 8));
+    const totalGen = length + fadeLen;
+    const raw0 = new Float32Array(totalGen);
+    const raw1 = new Float32Array(totalGen);
+
+    let b0_0 = 0, b1_0 = 0, b2_0 = 0;
+    let b0_1 = 0, b1_1 = 0, b2_1 = 0;
+    for (let w = 0; w < 2048; w++) {
+      const n0 = Math.random() * 2 - 1;
+      const n1 = Math.random() * 2 - 1;
+      b0_0 = 0.992 * b0_0 + n0 * 0.055;
+      b1_0 = 0.95 * b1_0 + n0 * 0.085;
+      b2_0 = 0.82 * b2_0 + n0 * 0.16;
+      b0_1 = 0.992 * b0_1 + n1 * 0.055;
+      b1_1 = 0.95 * b1_1 + n1 * 0.085;
+      b2_1 = 0.82 * b2_1 + n1 * 0.16;
+    }
+
+    for (let i = 0; i < totalGen; i++) {
+      const w0 = Math.random() * 2 - 1;
+      const w1 = Math.random() * 2 - 1;
+      const sec = i / sampleRate;
+
+      b0_0 = 0.992 * b0_0 + w0 * 0.055;
+      b1_0 = 0.95 * b1_0 + w0 * 0.085;
+      b2_0 = 0.82 * b2_0 + w0 * 0.16;
+      const pink0 = (b0_0 + b1_0 + b2_0) * 0.08;
+
+      b0_1 = 0.992 * b0_1 + w1 * 0.055;
+      b1_1 = 0.95 * b1_1 + w1 * 0.085;
+      b2_1 = 0.82 * b2_1 + w1 * 0.16;
+      const pink1 = (b0_1 + b1_1 + b2_1) * 0.08;
+
+      if (mode === "rain" || mode === "thunder") {
+        const isThunder = mode === "thunder";
+        const windL = 0.84 + 0.16 * Math.sin(sec * Math.PI * 2 * 0.18 + 0.4);
+        const windR = 0.84 + 0.16 * Math.cos(sec * Math.PI * 2 * 0.21);
+        const patter0 = (w0 - b2_0 * 0.35) * (isThunder ? 0.068 : 0.052);
+        const patter1 = (w1 - b2_1 * 0.35) * (isThunder ? 0.068 : 0.052);
+        const gustSwell = isThunder
+          ? b0_0 * 0.075 * (0.65 + 0.35 * Math.sin(sec * Math.PI * 2 * 0.34))
+          : 0;
+        raw0[i] = (pink0 * (isThunder ? 1.15 : 0.92) + patter0) * windL + gustSwell;
+        raw1[i] = (pink1 * (isThunder ? 1.15 : 0.92) + patter1) * windR + gustSwell * 0.92;
+      } else if (mode === "wild") {
+        // 林间微风吹拂树叶 + 潺潺溪流声
+        const breezeL = 0.68 + 0.32 * Math.sin(sec * Math.PI * 2 * 0.14) * Math.cos(sec * Math.PI * 2 * 0.23);
+        const breezeR = 0.68 + 0.32 * Math.cos(sec * Math.PI * 2 * 0.16) * Math.sin(sec * Math.PI * 2 * 0.19 + 0.8);
+        const leaves0 = (b2_0 * 0.55 + w0 * 0.12) * 0.055 * breezeL;
+        const leaves1 = (b2_1 * 0.55 + w1 * 0.12) * 0.055 * breezeR;
+        const brook0 = b1_0 * 0.055 * thebrookRipple(sec);
+        const brook1 = b1_1 * 0.055 * thebrookRipple(sec + 0.17);
+        raw0[i] = leaves0 + brook0;
+        raw1[i] = leaves1 + brook1;
+      } else if (mode === "city") {
+        // 城市远景低频嗡鸣与街角微风
+        const citySwell = 0.86 + 0.14 * Math.sin(sec * Math.PI * 2 * 0.15);
+        const rumble = Math.sin(sec * Math.PI * 2 * 64) * 0.008 + Math.sin(sec * Math.PI * 2 * 96) * 0.0045;
+        raw0[i] = (b0_0 * 0.095 + b1_0 * 0.038) * citySwell + rumble;
+        raw1[i] = (b0_1 * 0.095 + b1_1 * 0.038) * citySwell + rumble * 0.94;
+      }
+    }
+
+    function thebrookRipple(t) {
+      return 0.78 + 0.22 * Math.sin(t * Math.PI * 2 * 3.2 + Math.sin(t * 6.5) * 1.2);
+    }
+
+    // 叠加各环境声景的标志性离散声学事件
+    if (mode === "rain" || mode === "thunder") {
+      // 屋檐/窗玻璃随机水滴敲击声
+      const dropCount = Math.floor((length / sampleRate) * (mode === "thunder" ? 26 : 18));
+      for (let d = 0; d < dropCount; d++) {
+        const startPos = Math.floor(Math.random() * length);
+        const dropLen = Math.floor(sampleRate * (0.007 + Math.random() * 0.011));
+        const freq = 750 + Math.random() * 1450;
+        const pan = 0.15 + Math.random() * 0.7;
+        const amp = (0.045 + Math.random() * 0.075) * (mode === "thunder" ? 1.15 : 1.0);
+        for (let j = 0; j < dropLen; j++) {
+          const idx = (startPos + j) % length;
+          const t = j / sampleRate;
+          const env = Math.exp(-j / (dropLen * 0.24));
+          const pitchDrop = freq * (1 + 0.28 * (j / dropLen));
+          const val = Math.sin(2 * Math.PI * pitchDrop * t) * amp * env;
+          raw0[idx] += val * (1 - pan);
+          raw1[idx] += val * pan;
+        }
+      }
+    }
+
+    if (mode === "thunder") {
+      // 注入 2 场立体声滚雷：初段霹雳裂响 + 远距离低频多峰隆隆回荡
+      const strikes = [
+        { posRatio: 0.12, durSec: 2.6, pan: 0.32, strength: 0.36 },
+        { posRatio: 0.56, durSec: 3.1, pan: 0.72, strength: 0.32 },
+      ];
+      strikes.forEach((st) => {
+        const startPos = Math.floor(st.posRatio * length);
+        const thunderLen = Math.min(length - 1, Math.floor(sampleRate * st.durSec));
+        let lpT0 = 0;
+        let lpT1 = 0;
+        for (let j = 0; j < thunderLen; j++) {
+          const idx = (startPos + j) % length;
+          const normT = j / thunderLen;
+          const secT = j / sampleRate;
+          const crackEnv = Math.exp(-normT * 24) * 0.55;
+          const rollEnv =
+            Math.sin(Math.min(1, normT * 4.5) * Math.PI * 0.5) *
+            Math.exp(-normT * 2.2) *
+            (0.62 + 0.38 * Math.sin(secT * Math.PI * 2 * 2.4 + Math.cos(secT * 5.2)));
+          const n0 = Math.random() * 2 - 1;
+          const n1 = Math.random() * 2 - 1;
+          lpT0 = 0.968 * lpT0 + 0.032 * n0;
+          lpT1 = 0.968 * lpT1 + 0.032 * n1;
+          const subBoom =
+            Math.sin(2 * Math.PI * (46 - 14 * normT) * secT) * 0.42 +
+            Math.sin(2 * Math.PI * (82 - 22 * normT) * secT) * 0.26;
+          const wave0 = Math.tanh((lpT0 * 2.6 + subBoom) * (crackEnv + rollEnv) * 1.6) * st.strength;
+          const wave1 = Math.tanh((lpT1 * 2.6 + subBoom * 0.95) * (crackEnv + rollEnv) * 1.6) * st.strength;
+          raw0[idx] += wave0 * (1.15 - st.pan * 0.5);
+          raw1[idx] += wave1 * (0.65 + st.pan * 0.5);
+        }
+      });
+    } else if (mode === "wild") {
+      // 1) 夏夜林间蟋蟀立体声节律鸣叫 (3.85kHz / 4.15kHz)
+      const cricketBursts = 14;
+      for (let c = 0; c < cricketBursts; c++) {
+        const basePos = Math.floor(((c + 0.2) / cricketBursts) * length);
+        const pan = c % 2 === 0 ? 0.22 : 0.78;
+        const carrier = c % 2 === 0 ? 3860 : 4120;
+        const pulses = 3 + (c % 2);
+        const pulseGap = Math.floor(sampleRate * 0.034);
+        const pulseDur = Math.floor(sampleRate * 0.022);
+        for (let p = 0; p < pulses; p++) {
+          const pStart = (basePos + p * pulseGap) % length;
+          for (let j = 0; j < pulseDur; j++) {
+            const idx = (pStart + j) % length;
+            const win = Math.sin((j / pulseDur) * Math.PI);
+            const sig = Math.sin((2 * Math.PI * carrier * j) / sampleRate) * 0.026 * win;
+            raw0[idx] += sig * (1 - pan);
+            raw1[idx] += sig * pan;
+          }
+        }
+      }
+      // 2) 清脆林鸟婉转啼鸣 (1.9kHz–3.1kHz 滑音与颤音)
+      const birdCalls = [
+        { ratio: 0.09, fStart: 2150, fEnd: 2780, dur: 0.14, pan: 0.28 },
+        { ratio: 0.12, fStart: 2720, fEnd: 2320, dur: 0.16, pan: 0.28 },
+        { ratio: 0.42, fStart: 1920, fEnd: 2560, dur: 0.18, pan: 0.74 },
+        { ratio: 0.45, fStart: 2580, fEnd: 2980, dur: 0.15, pan: 0.74 },
+        { ratio: 0.74, fStart: 2380, fEnd: 1980, dur: 0.17, pan: 0.46 },
+      ];
+      birdCalls.forEach((bc) => {
+        const startPos = Math.floor(bc.ratio * length);
+        const callLen = Math.floor(sampleRate * bc.dur);
+        let phase = 0;
+        for (let j = 0; j < callLen; j++) {
+          const idx = (startPos + j) % length;
+          const prog = j / callLen;
+          const env = Math.sin(prog * Math.PI) * Math.pow(1 - prog * 0.3, 1.4);
+          const trill = Math.sin(prog * Math.PI * 2 * 18) * 65;
+          const instFreq = bc.fStart + (bc.fEnd - bc.fStart) * prog + trill;
+          phase += (2 * Math.PI * instFreq) / sampleRate;
+          const birdSample = (Math.sin(phase) + 0.22 * Math.sin(phase * 2)) * 0.052 * env;
+          raw0[idx] += birdSample * (1 - bc.pan);
+          raw1[idx] += birdSample * bc.pan;
+        }
+      });
+    } else if (mode === "city") {
+      // 1) 双向多普勒平移驶过的街角车辆 (平滑左右声像移动 + 轮胎摩擦频段)
+      const passes = [
+        { ratio: 0.08, dur: 2.1, leftToRight: true, speedFreq: 340 },
+        { ratio: 0.44, dur: 2.4, leftToRight: false, speedFreq: 285 },
+        { ratio: 0.76, dur: 1.9, leftToRight: true, speedFreq: 390 },
+      ];
+      passes.forEach((ps) => {
+        const startPos = Math.floor(ps.ratio * length);
+        const passLen = Math.floor(sampleRate * ps.dur);
+        let lpCar = 0;
+        for (let j = 0; j < passLen; j++) {
+          const idx = (startPos + j) % length;
+          const prog = j / passLen;
+          const env = Math.pow(Math.sin(prog * Math.PI), 1.6);
+          const pan = ps.leftToRight ? prog : 1 - prog;
+          const dopplerShift = 1.12 - 0.24 * prog;
+          const w = Math.random() * 2 - 1;
+          lpCar = 0.82 * lpCar + 0.18 * w;
+          const engine = Math.sin((2 * Math.PI * ps.speedFreq * dopplerShift * j) / sampleRate) * 0.12;
+          const tire = (lpCar + engine) * 0.135 * env;
+          raw0[idx] += tire * Math.cos(pan * Math.PI * 0.5);
+          raw1[idx] += tire * Math.sin(pan * Math.PI * 0.5);
+        }
+      });
+      // 2) 远处有轨电车/钟楼双声泛音铜铃 (528Hz + 792Hz + 1056Hz)
+      const chimes = [0.29, 0.33];
+      chimes.forEach((ratio) => {
+        const startPos = Math.floor(ratio * length);
+        const chimeLen = Math.floor(sampleRate * 0.55);
+        for (let j = 0; j < chimeLen; j++) {
+          const idx = (startPos + j) % length;
+          const secC = j / sampleRate;
+          const env = Math.exp(-secC * 7.5);
+          const bell =
+            (Math.sin(2 * Math.PI * 528 * secC) * 0.55 +
+              Math.sin(2 * Math.PI * 792 * secC) * 0.3 +
+              Math.sin(2 * Math.PI * 1056 * secC) * 0.15) *
+            0.036 *
+            env;
+          raw0[idx] += bell * 0.62;
+          raw1[idx] += bell * 0.38;
+        }
+      });
+    }
+
+    const buffer = ctx.createBuffer(2, length, sampleRate);
+    const ch0 = buffer.getChannelData(0);
+    const ch1 = buffer.getChannelData(1);
+    ch0.set(raw0.subarray(0, length));
+    ch1.set(raw1.subarray(0, length));
+
+    for (let i = 0; i < fadeLen; i++) {
+      const t = i / fadeLen;
+      const fadeIn = Math.sin(t * Math.PI * 0.5);
+      const fadeOut = Math.cos(t * Math.PI * 0.5);
+      ch0[i] = ch0[i] * fadeIn + raw0[length + i] * fadeOut;
+      ch1[i] = ch1[i] * fadeIn + raw1[length + i] * fadeOut;
+    }
+
+    return buffer;
+  }
+
+  /**
    * 模拟矿石/二极管包络检波器非对称削波与电子管五极管交调失真曲线（严格零点无偏置）。
    */
   function makeRadioDistortionCurve() {
@@ -627,25 +921,35 @@
       noiseLevel: clampNum(savedRadioTuning.noiseLevel, 0, 2.0, 1.0),
     };
 
+    const savedAmbient = safeParseJson(storageGet(KEYS.AMBIENT, ""), {});
+    const ambientState = {
+      mode: Object.hasOwn(AMBIENT_PROFILES, savedAmbient.mode) ? savedAmbient.mode : "off",
+      level: clampNum(savedAmbient.level, 0.1, 2.0, 1.0),
+    };
+
     let audioCtx = null;
     let baseGraph = null;
     let synthNodes = null;
     let vinylNodes = null;
     let radioNodes = null;
+    let ambientNodes = null;
     let eqNodes = null;
     let analyserNode = null;
     let vinylNoiseBuffer = null;
     const radioNoiseBuffers = {};
+    const ambientBuffers = {};
 
     let synthConnected = false;
     let vinylConnected = false;
     let radioConnected = false;
+    let ambientConnected = false;
     let eqConnected = false;
     let analyserWanted = false;
     let analyserConnected = false;
     let synthDisconnectTimer = null;
     let vinylDisconnectTimer = null;
     let radioDisconnectTimer = null;
+    let ambientDisconnectTimer = null;
     let eqDisconnectTimer = null;
     let audioSuspendTimer = null;
 
@@ -667,6 +971,10 @@
       return Math.abs(eqState.bass) >= 0.05 || Math.abs(eqState.mid) >= 0.05 || Math.abs(eqState.treble) >= 0.05;
     }
 
+    function isAmbientActive() {
+      return ambientState.mode !== "off" && Object.hasOwn(AMBIENT_PROFILES, ambientState.mode);
+    }
+
     function isPreampOrBoostActive() {
       return Math.abs(eqState.preamp) >= 0.05 || volumeBoost > 1.005;
     }
@@ -676,7 +984,15 @@
     }
 
     function needsAudioGraph() {
-      return !!(vinylFxEnabled || synthFxEnabled || radioFxEnabled || isEqActive() || isPreampOrBoostActive() || analyserWanted);
+      return !!(
+        vinylFxEnabled ||
+        synthFxEnabled ||
+        radioFxEnabled ||
+        isAmbientActive() ||
+        isEqActive() ||
+        isPreampOrBoostActive() ||
+        analyserWanted
+      );
     }
 
     function ensureBaseGraph() {
@@ -1393,6 +1709,96 @@
       }, BYPASS_DISCONNECT_DELAY_MS);
     }
 
+    function buildAmbientNodes() {
+      if (ambientNodes) return true;
+      if (!ensureBaseGraph()) return false;
+      try {
+        const hp = audioCtx.createBiquadFilter();
+        hp.type = "highpass";
+        hp.frequency.value = 120;
+        hp.Q.value = 0.707;
+
+        const lp = audioCtx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.value = 4800;
+        lp.Q.value = 0.707;
+
+        const outGain = audioCtx.createGain();
+        outGain.gain.value = 0;
+
+        hp.connect(lp);
+        lp.connect(outGain);
+
+        ambientNodes = {
+          hp,
+          lp,
+          outGain,
+          source: null,
+          activeMode: "",
+        };
+        return true;
+      } catch (e) {
+        console.warn("Ambient soundscape emulation unavailable:", e);
+        return false;
+      }
+    }
+
+    function getAmbientBuffer(mode) {
+      if (!Object.hasOwn(AMBIENT_PROFILES, mode) || mode === "off") return null;
+      if (!ambientBuffers[mode]) {
+        ambientBuffers[mode] = createAmbientBuffer(audioCtx, mode);
+      }
+      return ambientBuffers[mode];
+    }
+
+    function syncAmbientSource() {
+      if (!ambientNodes || !ambientConnected || !audioCtx) return;
+      const mode = ambientState.mode;
+      if (ambientNodes.activeMode === mode && (!isAmbientActive() || ambientNodes.source)) return;
+      safeStopSource(ambientNodes.source);
+      ambientNodes.source = null;
+      ambientNodes.activeMode = mode;
+      if (!isAmbientActive()) return;
+      const buf = getAmbientBuffer(mode);
+      if (!buf) return;
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(ambientNodes.hp);
+      src.start();
+      ambientNodes.source = src;
+    }
+
+    function connectAmbientBranch() {
+      clearTimeout(ambientDisconnectTimer);
+      ambientDisconnectTimer = null;
+      if (!buildAmbientNodes()) return false;
+      if (!ambientConnected) {
+        ambientNodes.outGain.connect(baseGraph.masterGain);
+        ambientConnected = true;
+      }
+      syncAmbientSource();
+      return true;
+    }
+
+    function disconnectAmbientBranchImmediate() {
+      if (!ambientNodes || !ambientConnected) return;
+      safeDisconnect(ambientNodes.outGain, baseGraph.masterGain);
+      safeStopSource(ambientNodes.source);
+      ambientNodes.source = null;
+      ambientNodes.activeMode = "";
+      ambientConnected = false;
+    }
+
+    function scheduleAmbientDisconnect() {
+      clearTimeout(ambientDisconnectTimer);
+      if (!ambientConnected) return;
+      ambientDisconnectTimer = setTimeout(() => {
+        ambientDisconnectTimer = null;
+        if (!isAmbientActive()) disconnectAmbientBranchImmediate();
+      }, BYPASS_DISCONNECT_DELAY_MS);
+    }
+
     function buildEqNodes() {
       if (eqNodes) return true;
       if (!ensureBaseGraph()) return false;
@@ -1503,6 +1909,14 @@
       return BASE_RADIO_STATIC_GAIN * Math.min(1, Math.max(0, baseVol)) * mixState.radio * radioTuning.noiseLevel * np.gainScale;
     }
 
+    function getTargetAmbientGain() {
+      if (!isAmbientActive() || audio.paused || audio.volume <= 0) return 0;
+      const ap = AMBIENT_PROFILES[ambientState.mode] || AMBIENT_PROFILES.off;
+      if (!ap.gainScale || ambientState.level <= 0) return 0;
+      const baseVol = typeof options.getBaseVolume === "function" ? options.getBaseVolume() : audio.volume;
+      return BASE_AMBIENT_GAIN * Math.min(1, Math.max(0, baseVol)) * ambientState.level * ap.gainScale;
+    }
+
     function applyMasterFade(immediate) {
       if (!immediate && Date.now() < fadeInUntilMs) return;
       const fadeTarget = Math.max(0.015, Math.min(1, sleepFadeFactor * transitionFadeFactor));
@@ -1520,6 +1934,7 @@
       if (synthFxEnabled && !audio.paused) connectSynthBranch();
       if (vinylFxEnabled && !audio.paused) connectVinylBranch();
       if (radioFxEnabled && !audio.paused) connectRadioBranch();
+      if (isAmbientActive() && !audio.paused) connectAmbientBranch();
       syncEqBranch();
       syncAnalyserBranch();
 
@@ -1598,6 +2013,15 @@
         radioNodes.noiseLp.frequency.setTargetAtTime(np.lpFreq, time, rampTime);
         radioNodes.noiseGain.gain.setTargetAtTime(getTargetRadioNoiseGain(), time, rampTime);
         if (!radioFxEnabled && radioConnected) scheduleRadioDisconnect();
+      }
+
+      if (ambientNodes) {
+        if (isAmbientActive() && ambientConnected) syncAmbientSource();
+        const ap = AMBIENT_PROFILES[ambientState.mode] || AMBIENT_PROFILES.off;
+        ambientNodes.hp.frequency.setTargetAtTime(ap.hpFreq, time, rampTime);
+        ambientNodes.lp.frequency.setTargetAtTime(ap.lpFreq, time, rampTime);
+        ambientNodes.outGain.gain.setTargetAtTime(getTargetAmbientGain(), time, rampTime);
+        if (!isAmbientActive() && ambientConnected) scheduleAmbientDisconnect();
       }
 
       applyMasterFade(immediate);
@@ -1748,6 +2172,49 @@
         noiseLabel: np.label,
         noiseShortLabel: np.shortLabel,
         noiseLevel: radioTuning.noiseLevel,
+      };
+    }
+
+    function persistAmbientState() {
+      storageSet(KEYS.AMBIENT, JSON.stringify(ambientState));
+    }
+
+    function setAmbientMode(modeId, showToast) {
+      if (!Object.hasOwn(AMBIENT_PROFILES, modeId)) return getAmbientState();
+      ambientState.mode = modeId;
+      persistAmbientState();
+      if (!audio.paused && isAmbientActive()) {
+        connectAmbientBranch();
+        ensureResumed();
+      } else if (!isAmbientActive() && ambientConnected) {
+        updateGraph(true);
+      }
+      updateGraph(false);
+      if (showToast && toast) {
+        toast(
+          modeId === "off"
+            ? "已关闭沙龙环境背景音"
+            : "已开启环境背景音：" + AMBIENT_PROFILES[modeId].label
+        );
+      }
+      return getAmbientState();
+    }
+
+    function setAmbientLevel(level) {
+      ambientState.level = clampNum(level, 0.1, 2.0, 1.0);
+      persistAmbientState();
+      updateGraph(false);
+      return getAmbientState();
+    }
+
+    function getAmbientState() {
+      const ap = AMBIENT_PROFILES[ambientState.mode] || AMBIENT_PROFILES.off;
+      return {
+        mode: ambientState.mode,
+        label: ap.label,
+        shortLabel: ap.shortLabel,
+        level: ambientState.level,
+        active: isAmbientActive(),
       };
     }
 
@@ -1908,6 +2375,7 @@
         if (synthFxEnabled) connectSynthBranch();
         if (vinylFxEnabled) connectVinylBranch();
         if (radioFxEnabled) connectRadioBranch();
+        if (isAmbientActive()) connectAmbientBranch();
         ensureResumed();
       }
       updateGraph(false);
@@ -1927,12 +2395,15 @@
       EQ_PRESETS,
       RADIO_BAND_PROFILES,
       RADIO_NOISE_PROFILES,
+      AMBIENT_PROFILES,
       isVinylEnabled: () => vinylFxEnabled,
       isSynthEnabled: () => synthFxEnabled,
       isRadioEnabled: () => radioFxEnabled,
+      isAmbientActive,
       isSynthConnected: () => synthConnected,
       isVinylConnected: () => vinylConnected,
       isRadioConnected: () => radioConnected,
+      isAmbientConnected: () => ambientConnected,
       isEqActive,
       isEqConnected: () => eqConnected,
       isAnalyserConnected: () => analyserConnected,
@@ -1948,6 +2419,9 @@
       setRadioBand,
       setRadioNoiseMode,
       setRadioNoiseLevel,
+      getAmbientState,
+      setAmbientMode,
+      setAmbientLevel,
       setAnalyserActive,
       readFrequencyData,
       getFrequencyBinCount,

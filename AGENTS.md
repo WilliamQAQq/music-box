@@ -80,7 +80,7 @@ npx.cmd wrangler secret put CF_ACCOUNT_ID --config cloudflare-r2/wrangler.toml  
 ```
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=41` / `VERSION = "v41"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=42` / `VERSION = "v42"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查
@@ -117,8 +117,8 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 - 系统媒体键:Media Session API(初始化时注册一次,play/pause 分开处理);键盘:空格/方向键/N/P/M/L/V/S/R/Q/E/F/`[`/`]`/`\`,带 Ctrl/Alt/⌘ 时不拦截,设置弹窗打开时只响应 Esc。
 - 搜索匹配标题/歌手/专辑/风格/路径,支持空格分隔多关键词 AND 防抖检索与一键清空/定位当前曲目。
 - 生成脚本用 `mutagen.File(..., easy=True)`,mp3/m4a/flac/ogg 都能读歌手与风格标签。
-- 模拟黑胶/合成器/无线电台/均衡 DSP: Web Audio API 延迟创建上下文与节点,关闭后 140ms 自动断开节点与停振 LFO,零空转开销;无线电台模式支持六大调频波段(短波 SW / 长波 LW / 调频 FM / 甚高频 VHF / 航空 AIR / 航海 SEA)与六种电波干扰噪声模式(天电静电 / 邻频哨叫 / 障碍遮挡 / 磁暴雷雨 / 塔台底噪 / 纯净无噪);并通过 `masterGain` 与软削峰限制器(`masterLimiter`)实现前级响度增益、150% 音量扩展、Crossfade 与睡眠定时 10 秒柔顺渐弱。
-- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`、`gh-lyrics-open`、`gh-lyrics-trans`、`gh-lyrics-live-v1`、`gh-vinyl-fx`、`gh-synth-fx`、`gh-radio-fx`、`gh-radio-tuning-v1`、`gh-favorites-v1`、`gh-recent-v1`、`gh-resume-v1`、`gh-eq-v1`、`gh-fx-mix-v1`、`gh-speed-v1`、`gh-crossfade-v1`、`gh-spectrum-v1`。
+- 模拟黑胶/合成器/无线电台/环境声景/均衡 DSP: Web Audio API 延迟创建上下文与节点,关闭后 140ms 自动断开节点与停振 LFO,零空转开销;无线电台模式支持六大调频波段(短波 SW / 长波 LW / 调频 FM / 甚高频 VHF / 航空 AIR / 航海 SEA)与六种电波干扰噪声模式(天电静电 / 邻频哨叫 / 障碍遮挡 / 磁暴雷雨 / 塔台底噪 / 纯净无噪);环境背景音支持四大声景(雨天 / 雷暴 / 野外声 / 城市声);并通过 `masterGain` 与软削峰限制器(`masterLimiter`)实现前级响度增益、150% 音量扩展、Crossfade 与睡眠定时 10 秒柔顺渐弱。
+- localStorage 键:`gh-music-box-settings-v2`、`gh-music-box-cache-v2`、`gh-shuffle`、`gh-repeat`、`gh-view-v2`、`gh-volume`、`gh-lyrics-open`、`gh-lyrics-trans`、`gh-lyrics-live-v1`、`gh-vinyl-fx`、`gh-synth-fx`、`gh-radio-fx`、`gh-radio-tuning-v1`、`gh-ambient-v1`、`gh-favorites-v1`、`gh-recent-v1`、`gh-resume-v1`、`gh-eq-v1`、`gh-fx-mix-v1`、`gh-speed-v1`、`gh-crossfade-v1`、`gh-spectrum-v1`。
 
 ## 交接对象
 

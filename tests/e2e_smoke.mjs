@@ -459,6 +459,12 @@ async function run() {
     await page.locator("#radioNoiseRange").dispatchEvent("input");
     assert.equal(await page.textContent("#radioNoiseVal"), "140%");
     assert.equal(await page.textContent("#radioTuningMeta"), "航空 AIR · 邻频哨叫");
+    await page.click('.ambient-mode-btn[data-ambient="rain"]');
+    await page.locator("#ambientLevelRange").fill("130");
+    await page.locator("#ambientLevelRange").dispatchEvent("input");
+    assert.equal(await page.textContent("#ambientLevelVal"), "130%");
+    assert.equal(await page.textContent("#ambientStatusMeta"), "雨天 · 窗外细雨");
+    await page.click('.ambient-mode-btn[data-ambient="off"]');
     await page.click('.eq-preset-btn[data-preset="warm"]');
 
     await page.click('.studio-pill-btn[data-speed="1.25"]');

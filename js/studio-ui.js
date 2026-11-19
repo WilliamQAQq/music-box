@@ -83,10 +83,12 @@
       const eq = audioFx.getEqState();
       const sleep = userState.getSleepSnapshot();
       const ab = userState.getAbLoopState();
+      const ambient = typeof audioFx.getAmbientState === "function" ? audioFx.getAmbientState() : { mode: "off" };
       const hasCustomPreamp = typeof eq.preamp === "number" && Math.abs(eq.preamp - 3) >= 0.05;
       const hasCustom =
         eq.active ||
         hasCustomPreamp ||
+        ambient.mode !== "off" ||
         Math.abs(playbackSpeed - 1) >= 0.01 ||
         crossfadeSec > 0 ||
         sleep.mode !== "off" ||
@@ -160,6 +162,27 @@
       if (els.radioTuningMeta) {
         els.radioTuningMeta.textContent = tuning.bandShortLabel + " · " + tuning.noiseShortLabel;
       }
+    }
+
+    function syncAmbientUI() {
+      if (typeof audioFx.getAmbientState !== "function") return;
+      const amb = audioFx.getAmbientState();
+      if (els.ambientModeBtns) {
+        els.ambientModeBtns.forEach((btn) => {
+          setPressedButtonState(btn, btn.dataset.ambient === amb.mode);
+        });
+      }
+      if (els.ambientLevelRange) {
+        const pct = Math.round(amb.level * 100);
+        els.ambientLevelRange.value = pct;
+        els.ambientLevelRange.setAttribute("aria-valuetext", pct + "%");
+        syncSlider(els.ambientLevelRange);
+        if (els.ambientLevelVal) els.ambientLevelVal.textContent = pct + "%";
+      }
+      if (els.ambientStatusMeta) {
+        els.ambientStatusMeta.textContent = amb.shortLabel;
+      }
+      syncStudioBadge();
     }
 
     function syncSleepUI(snap) {
@@ -580,6 +603,27 @@
         });
       }
 
+      if (els.ambientModeBtns) {
+        els.ambientModeBtns.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            if (typeof audioFx.setAmbientMode === "function") {
+              audioFx.setAmbientMode(btn.dataset.ambient, true);
+              syncAmbientUI();
+            }
+          });
+        });
+      }
+
+      if (els.ambientLevelRange) {
+        els.ambientLevelRange.addEventListener("input", () => {
+          if (typeof audioFx.setAmbientLevel === "function") {
+            const raw = parseFloat(els.ambientLevelRange.value);
+            audioFx.setAmbientLevel((isFinite(raw) ? raw : 100) / 100);
+            syncAmbientUI();
+          }
+        });
+      }
+
       if (els.speedBtns) {
         els.speedBtns.forEach((btn) => {
           btn.addEventListener("click", () => applyPlaybackSpeed(parseFloat(btn.dataset.speed), true));
@@ -658,6 +702,7 @@
       syncEqUI();
       syncMixUI();
       syncRadioTuningUI();
+      syncAmbientUI();
       applyPlaybackSpeed(playbackSpeed, false);
       applyCrossfadeSec(crossfadeSec, false);
       syncSleepUI();
