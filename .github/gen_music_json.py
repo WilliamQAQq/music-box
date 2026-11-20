@@ -179,6 +179,7 @@ ARTIST_GENRE = {
     # 10. 国歌军乐 · 美国 (National Anthems & Military Marches - USA)
     "the united states military ensemble": "国歌军乐 · 美国",
     "john philip sousa": "国歌军乐 · 美国",
+    "john philip sousa, mormon tabernacle choir": "国歌军乐 · 美国",
     "the sandpiper chorus": "国歌军乐 · 美国",
     "united states marine band": "国歌军乐 · 美国",
     "united states naval academy band": "国歌军乐 · 美国",

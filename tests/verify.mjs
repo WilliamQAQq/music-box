@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v42", () => {
+test("HTML/SW/CSS structural invariants & asset version v43", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,13 +49,13 @@ test("HTML/SW/CSS structural invariants & asset version v42", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=42",
-    "js/user-state.js?v=42",
-    "js/library-loader.js?v=42",
-    "js/audio-fx.js?v=42",
-    "js/lyrics.js?v=42",
-    "js/studio-ui.js?v=42",
-    "app.js?v=42",
+    "js/catalog-data.js?v=43",
+    "js/user-state.js?v=43",
+    "js/library-loader.js?v=43",
+    "js/audio-fx.js?v=43",
+    "js/lyrics.js?v=43",
+    "js/studio-ui.js?v=43",
+    "app.js?v=43",
   ];
 
   let lastPos = -1;
@@ -69,7 +69,7 @@ test("HTML/SW/CSS structural invariants & asset version v42", () => {
     html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
     "index.html missing R2 gateway preconnect hint"
   );
-  assert.ok(html.includes('href="style.css?v=42"'), "index.html missing style.css?v=42");
+  assert.ok(html.includes('href="style.css?v=43"'), "index.html missing style.css?v=43");
   assert.ok(html.includes('id="radioFxBtn"'), "index.html missing #radioFxBtn button");
   assert.ok(html.includes('id="radioMixRange"'), "index.html missing #radioMixRange slider");
   assert.ok(
@@ -102,7 +102,7 @@ test("HTML/SW/CSS structural invariants & asset version v42", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v42";'), "sw.js VERSION must match v42");
+  assert.ok(sw.includes('const VERSION = "v43";'), "sw.js VERSION must match v43");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
