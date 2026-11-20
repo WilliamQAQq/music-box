@@ -704,9 +704,9 @@ async function run() {
     await r2Page.goto(`${baseUrl}/index.html`, { waitUntil: "networkidle" });
     await r2Page.waitForSelector(".playlist-item");
 
-    // Open Settings and validate R2 URL inline feedback before submission
+    // Open Settings and validate native <dialog> + R2 URL inline feedback before submission
     await r2Page.click("#settingsBtn");
-    await r2Page.waitForSelector("#settingsModal:not([hidden])");
+    await r2Page.waitForSelector("#settingsModal[open]");
     await r2Page.click('input[name="sourceMode"][value="r2"]');
     await r2Page.fill("#setR2Url", "not-a-valid-url");
     await r2Page.click('#settingsForm button[type="submit"]');
@@ -714,14 +714,17 @@ async function run() {
     const validationState = await r2Page.evaluate(() => {
       const inp = document.getElementById("setR2Url");
       const err = document.getElementById("r2UrlError");
+      const dlg = document.getElementById("settingsModal");
       return {
-        modalOpen: !document.getElementById("settingsModal").hidden,
+        isNativeDialog: dlg.tagName === "DIALOG",
+        modalOpen: !!dlg.open,
         ariaInvalid: inp.getAttribute("aria-invalid"),
         describedBy: inp.getAttribute("aria-describedby") || "",
         errorVisible: !err.hidden,
         focused: document.activeElement === inp,
       };
     });
+    assert.equal(validationState.isNativeDialog, true, "#settingsModal must be a native <dialog>");
     assert.equal(validationState.modalOpen, true, "Invalid R2 URL must keep settings modal open");
     assert.equal(validationState.ariaInvalid, "true");
     assert.ok(validationState.describedBy.includes("r2UrlError"));
@@ -757,8 +760,43 @@ async function run() {
     assert.equal(refreshBtnState.focused, true, "#refreshR2QuotaBtn must preserve keyboard focus on click");
 
     await r2Page.click('#settingsForm button[type="submit"]');
-    await r2Page.waitForFunction(() => document.getElementById("settingsModal").hidden);
+    await r2Page.waitForFunction(() => !document.getElementById("settingsModal").open);
     await r2Page.waitForFunction(() => document.querySelectorAll(".playlist-item").length === 1);
+
+    // Verify Eye-Care Dark Mode toggle (#themeToggleBtn) + Studio theme selector (eyecare / light / dark / system)
+    await r2Page.click("#themeToggleBtn");
+    const eyeCareState = await r2Page.evaluate(() => ({
+      eyeCareAttr: document.documentElement.getAttribute("data-eye-care"),
+      metaScheme: document.querySelector('meta[name="color-scheme"]').content,
+      bg: getComputedStyle(document.documentElement).backgroundColor,
+      pressed: document.getElementById("themeToggleBtn").getAttribute("aria-pressed"),
+    }));
+    assert.equal(eyeCareState.eyeCareAttr, "1", "Clicking #themeToggleBtn must enable eye-care dark mode");
+    assert.equal(eyeCareState.metaScheme, "dark");
+    assert.equal(eyeCareState.pressed, "true");
+    assert.equal(eyeCareState.bg, "rgb(19, 18, 16)", "Eye-care dark mode root background must be matte charcoal #131210");
+
+    await r2Page.click("#studioBtn");
+    await r2Page.click('.theme-mode-btn[data-theme="light"]');
+    const lightState = await r2Page.evaluate(() => ({
+      eyeCareAttr: document.documentElement.getAttribute("data-eye-care"),
+      metaScheme: document.querySelector('meta[name="color-scheme"]').content,
+      bg: getComputedStyle(document.documentElement).backgroundColor,
+    }));
+    assert.equal(lightState.eyeCareAttr, null, "Switching to light mode must clear data-eye-care");
+    assert.equal(lightState.metaScheme, "light");
+    assert.equal(lightState.bg, "rgb(242, 234, 217)", "Light mode root background must be warm parchment #f2ead9");
+
+    await r2Page.click('.theme-mode-btn[data-theme="dark"]');
+    const darkState = await r2Page.evaluate(() => ({
+      metaScheme: document.querySelector('meta[name="color-scheme"]').content,
+      bg: getComputedStyle(document.documentElement).backgroundColor,
+    }));
+    assert.equal(darkState.metaScheme, "dark");
+    assert.equal(darkState.bg, "rgb(17, 10, 7)", "Classic dark mode root background must be mahogany #110a07");
+
+    await r2Page.click('.theme-mode-btn[data-theme="system"]');
+    await r2Page.click("#studioCloseBtn");
 
     // Favorite the R2 track, play it + verify R2 /lyrics.json timed lyrics
     await r2Page.click(".playlist-item .playlist-fav-btn");

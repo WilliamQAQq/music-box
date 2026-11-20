@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v45", () => {
+test("HTML/SW/CSS structural invariants & asset version v46", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,13 +49,14 @@ test("HTML/SW/CSS structural invariants & asset version v45", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=45",
-    "js/user-state.js?v=45",
-    "js/library-loader.js?v=45",
-    "js/audio-fx.js?v=45",
-    "js/lyrics.js?v=45",
-    "js/studio-ui.js?v=45",
-    "app.js?v=45",
+    "js/theme-init.js?v=46",
+    "js/catalog-data.js?v=46",
+    "js/user-state.js?v=46",
+    "js/library-loader.js?v=46",
+    "js/audio-fx.js?v=46",
+    "js/lyrics.js?v=46",
+    "js/studio-ui.js?v=46",
+    "app.js?v=46",
   ];
 
   let lastPos = -1;
@@ -69,7 +70,11 @@ test("HTML/SW/CSS structural invariants & asset version v45", () => {
     html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
     "index.html missing R2 gateway preconnect hint"
   );
-  assert.ok(html.includes('href="style.css?v=45"'), "index.html missing style.css?v=45");
+  assert.ok(html.includes('<meta name="color-scheme" content="light dark">'), "index.html missing light dark color-scheme meta");
+  assert.ok(html.includes('href="style.css?v=46"'), "index.html missing style.css?v=46");
+  assert.ok(html.includes('id="themeToggleBtn"'), "index.html missing #themeToggleBtn eye-care dark toggle button");
+  assert.ok(html.includes('data-theme="eyecare"') && html.includes('data-theme="light"') && html.includes('data-theme="dark"') && html.includes('data-theme="system"'), "index.html missing studio theme selector pills");
+  assert.ok(html.includes('<dialog class="modal" id="settingsModal" closedby="any"'), "index.html must use native <dialog closedby=\"any\"> for settingsModal");
   assert.ok(html.includes('id="radioFxBtn"'), "index.html missing #radioFxBtn button");
   assert.ok(html.includes('id="radioMixRange"'), "index.html missing #radioMixRange slider");
   assert.ok(
@@ -102,11 +107,18 @@ test("HTML/SW/CSS structural invariants & asset version v45", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v45";'), "sw.js VERSION must match v45");
+  assert.ok(sw.includes('const VERSION = "v46";'), "sw.js VERSION must match v46");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
   assert.equal(lyricsJs.includes("innerHTML"), false, "lyrics.js must use replaceChildren() instead of innerHTML");
+  assert.ok(css.includes("color-scheme: light dark;"), "style.css must declare color-scheme: light dark");
+  assert.ok(css.includes('meta[name="color-scheme"][content="dark"]') && css.includes('meta[name="color-scheme"][content="light"]'), "style.css must map meta[name=color-scheme] back to :root");
+  assert.ok(css.includes("light-dark("), "style.css must progressively enhance palette tokens with light-dark()");
+  assert.ok(css.includes(':root[data-eye-care="1"]'), "style.css must define eye-care low-glare dark mode palette");
+  assert.ok(css.includes("dialog.modal[open]") && css.includes("dialog:modal") && css.includes("dialog.modal::backdrop"), "style.css must scope native dialog layout to [open] and prevent modal/backdrop scroll chaining");
+  assert.ok(css.includes("@media (forced-colors: active)"), "style.css must support forced-colors high contrast mode");
+  assert.ok(css.includes("scrollbar-width: auto;"), "style.css must reset scrollbar-width inside @supports not (scrollbar-color: auto)");
   assert.ok(css.includes(".radio-fx-btn") && css.includes("body.radio-fx-active"), "style.css must style .radio-fx-btn and body.radio-fx-active");
   assert.ok(css.includes("[hidden] { display: none !important; }"), "style.css must preserve [hidden] override");
   assert.ok(css.includes(".studio-popover:is(:popover-open, .\\:popover-open, .studio-open)"), "Dialog display must be scoped to open state");
@@ -114,6 +126,9 @@ test("HTML/SW/CSS structural invariants & asset version v45", () => {
   assert.equal(css.includes("background-attachment: fixed"), false, "style.css must not use paint-heavy background-attachment: fixed");
   assert.equal(css.includes("background-attachment: scroll"), false, "style.css must not keep dead background-attachment: scroll rule");
   assert.equal(appJs.includes(".innerHTML"), false, "app.js must not use innerHTML");
+  assert.ok(appJs.includes("e.isComposing || e.keyCode === 229"), "app.js must guard CJK IME composition on keydown");
+  assert.ok(lyricsJs.includes("e.isComposing || e.keyCode === 229"), "lyrics.js must guard CJK IME composition on search keydown");
+  assert.ok(appJs.includes("order.toSorted("), "app.js must use non-mutating Array.prototype.toSorted()");
   assert.ok(sw.includes("touchAudioCacheEntry") && sw.includes("hasCachedAudioMetadataChanged"), "sw.js must refresh LRU order and revalidate cached audio metadata");
   assert.ok(css.includes("body::before") && css.includes("contain: strict"), "style.css must isolate fixed backdrop on body::before");
   assert.ok(css.includes(".queue-item") && css.includes("@supports not (content-visibility: auto)"), "style.css must gate queue item content-visibility cleanly");
@@ -727,4 +742,92 @@ test("library-loader & lyrics: root-level path dir and async loadForTrack state 
   assert.equal(({}).polluted, undefined, "External lyrics.json must never pollute Object.prototype");
   if (resolveLyricsB) resolveLyricsB();
   await pendingB;
+});
+
+test("theme-init: system/light/dark/eyecare modes, OS change persistence & cross-tab sync", () => {
+  const { sandbox, store } = createBrowserSandbox();
+  let osIsDark = true;
+  let schemeChangeCb = null;
+  let storageCb = null;
+  const attrs = new Map();
+  const metaScheme = { content: "light dark" };
+  const metaThemeColor = { content: "#190f0a" };
+
+  sandbox.document = {
+    documentElement: {
+      setAttribute(k, v) { attrs.set(k, String(v)); },
+      removeAttribute(k) { attrs.delete(k); },
+      getAttribute(k) { return attrs.has(k) ? attrs.get(k) : null; },
+    },
+    querySelector(sel) {
+      if (sel === 'meta[name="color-scheme"]') return metaScheme;
+      if (sel === 'meta[name="theme-color"]') return metaThemeColor;
+      return null;
+    },
+  };
+  sandbox.matchMedia = () => ({
+    get matches() { return osIsDark; },
+    addEventListener(ev, fn) { if (ev === "change") schemeChangeCb = fn; },
+  });
+  sandbox.addEventListener = (ev, fn) => {
+    if (ev === "storage") storageCb = fn;
+  };
+
+  loadScriptIntoSandbox(sandbox, "js/theme-init.js");
+  const api = sandbox.__MusicBox.theme;
+  assert.ok(api, "theme-init must expose window.__MusicBox.theme");
+
+  // Default: follows OS (dark) without storing a key
+  let snap = api.getSnapshot();
+  assert.equal(snap.mode, "system");
+  assert.equal(snap.effective, "dark");
+  assert.equal(metaScheme.content, "light dark");
+  assert.equal(attrs.get("data-eye-care"), undefined);
+  assert.equal(store.has(api.KEY), false);
+
+  // Toggle eye-care dark mode ON
+  let notified = null;
+  api.subscribe((s) => { notified = s; });
+  snap = api.toggleEyeCareDark();
+  assert.equal(snap.mode, "eyecare");
+  assert.equal(snap.effective, "eyecare");
+  assert.equal(snap.isEyeCare, true);
+  assert.equal(metaScheme.content, "dark");
+  assert.equal(metaThemeColor.content, "#131210");
+  assert.equal(attrs.get("data-eye-care"), "1");
+  assert.equal(store.get(api.KEY), "eyecare");
+  assert.equal(notified && notified.mode, "eyecare");
+
+  // OS switches to light: pinned eyecare override MUST NOT be deleted!
+  osIsDark = false;
+  assert.equal(typeof schemeChangeCb, "function");
+  schemeChangeCb();
+  snap = api.getSnapshot();
+  assert.equal(snap.mode, "eyecare", "OS color-scheme change must never discard pinned user theme override");
+  assert.equal(snap.systemScheme, "light");
+  assert.equal(store.get(api.KEY), "eyecare");
+  assert.equal(attrs.get("data-eye-care"), "1");
+
+  // Switch explicitly to light
+  snap = api.setMode("light");
+  assert.equal(snap.mode, "light");
+  assert.equal(metaScheme.content, "light");
+  assert.equal(metaThemeColor.content, "#ebe0ca");
+  assert.equal(attrs.get("data-eye-care"), undefined);
+  assert.equal(store.get(api.KEY), "light");
+
+  // Switch back to system removes localStorage key and follows OS (light)
+  snap = api.setMode("system");
+  assert.equal(snap.mode, "system");
+  assert.equal(snap.effective, "light");
+  assert.equal(metaScheme.content, "light dark");
+  assert.equal(metaThemeColor.content, "#ebe0ca");
+  assert.equal(store.has(api.KEY), false);
+
+  // Cross-tab storage event updates live state
+  store.set(api.KEY, "eyecare");
+  assert.equal(typeof storageCb, "function");
+  storageCb({ key: api.KEY });
+  assert.equal(api.getSnapshot().mode, "eyecare");
+  assert.equal(attrs.get("data-eye-care"), "1");
 });

@@ -100,10 +100,13 @@
     if (track.album && track.album.toLowerCase() !== "unknown album") {
       params.set("album", track.album);
     }
-    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    const useNativeTimeout = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function";
+    const ctrl = !useNativeTimeout && typeof AbortController === "function" ? new AbortController() : null;
     const timer = ctrl ? setTimeout(() => ctrl.abort(), LIVE_LYRICS_TIMEOUT_MS) : null;
     try {
-      const fetchOpts = ctrl ? { signal: ctrl.signal } : undefined;
+      const fetchOpts = useNativeTimeout
+        ? { signal: AbortSignal.timeout(LIVE_LYRICS_TIMEOUT_MS) }
+        : (ctrl ? { signal: ctrl.signal } : undefined);
       const res = await fetch("https://api.lrc.cx/lyrics?" + params.toString(), fetchOpts);
       if (!res.ok) return null;
       const text = await res.text();
@@ -739,6 +742,7 @@
           debouncedLyricSearch();
         });
         els.lyricsSearchInput.addEventListener("keydown", (e) => {
+          if (e.isComposing || e.keyCode === 229) return;
           if (e.key === "Escape") {
             e.stopPropagation();
             if (els.lyricsSearchInput.value) {

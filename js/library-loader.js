@@ -198,6 +198,15 @@
       resetQuotaDisplay();
     }
 
+    function isNativeDialog() {
+      return !!(els.settingsModal && typeof els.settingsModal.showModal === "function");
+    }
+
+    function isModalOpen() {
+      if (!els.settingsModal) return false;
+      return isNativeDialog() ? !!els.settingsModal.open : !els.settingsModal.hidden;
+    }
+
     function setBackgroundInert(isInert) {
       [els.topbar, els.content, els.player, els.queueDrawer, els.studioPanel].forEach((el) => {
         if (!el) return;
@@ -208,14 +217,18 @@
 
     function openSettings(triggerEl) {
       if (onBeforeModalOpen) onBeforeModalOpen();
-      const active = document.activeElement;
-      lastModalTrigger = (triggerEl && triggerEl.nodeType === 1)
-        ? triggerEl
-        : (active && active !== document.body ? active : els.settingsBtn);
       fillSettingsForm();
       els.formError.textContent = "";
-      els.settingsModal.hidden = false;
-      setBackgroundInert(true);
+      if (isNativeDialog()) {
+        if (!els.settingsModal.open) els.settingsModal.showModal();
+      } else {
+        const active = document.activeElement;
+        lastModalTrigger = (triggerEl && triggerEl.nodeType === 1)
+          ? triggerEl
+          : (active && active !== document.body ? active : els.settingsBtn);
+        els.settingsModal.hidden = false;
+        setBackgroundInert(true);
+      }
       const focusTarget = settings.sourceMode === "github" || !els.setR2Url
         ? els.setOwner
         : els.setR2Url;
@@ -223,7 +236,11 @@
     }
 
     function closeSettings() {
-      if (els.settingsModal.hidden) return;
+      if (!isModalOpen()) return;
+      if (isNativeDialog()) {
+        els.settingsModal.close();
+        return;
+      }
       els.settingsModal.hidden = true;
       setBackgroundInert(false);
       const target = (lastModalTrigger && lastModalTrigger !== document.body && !lastModalTrigger.hidden)
@@ -710,11 +727,13 @@
       }
       if (els.r2QuotaSummary) els.r2QuotaSummary.textContent = "正在通过当前页面 Origin 向网关请求额度状态…";
 
-      const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+      const useNativeTimeout = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function";
+      const ctrl = !useNativeTimeout && typeof AbortController === "function" ? new AbortController() : null;
       const quotaTimeout = ctrl ? setTimeout(() => ctrl.abort(), 10000) : null;
       try {
         const fetchOpts = { cache: "no-store", headers };
-        if (ctrl) fetchOpts.signal = ctrl.signal;
+        if (useNativeTimeout) fetchOpts.signal = AbortSignal.timeout(10000);
+        else if (ctrl) fetchOpts.signal = ctrl.signal;
         const res = await fetch(r2Base + "/quota", fetchOpts);
         if (reqSeq !== quotaReqSeq) return;
         if (!res.ok) {
@@ -794,7 +813,7 @@
           els.r2QuotaBadge.setAttribute("data-state", "warn");
         }
         if (els.r2QuotaSummary) {
-          const isTimeout = err && err.name === "AbortError";
+          const isTimeout = err && (err.name === "TimeoutError" || err.name === "AbortError");
           els.r2QuotaSummary.textContent = "额度查询失败：" + (isTimeout ? "网关连接超时，请检查地址或网络" : ((err && err.message) || "网络异常"));
         }
       } finally {
@@ -818,9 +837,31 @@
         else openSettings(els.bannerCta);
       });
       els.closeModalBtn.addEventListener("click", closeSettings);
-      els.settingsModal.addEventListener("click", (e) => {
-        if (e.target === els.settingsModal) closeSettings();
-      });
+      if (isNativeDialog()) {
+        els.settingsModal.addEventListener("close", () => {
+          els.settingsModal.returnValue = "";
+        });
+        // Safari fallback for <dialog closedby="any"> using pointerdown + pointerup outside bounding rect
+        if (!("HTMLDialogElement" in global && "closedBy" in global.HTMLDialogElement.prototype)) {
+          const isOutsideDialog = (e) => {
+            const box = els.settingsModal.querySelector(".modal-box") || els.settingsModal;
+            const r = box.getBoundingClientRect();
+            return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+          };
+          let pressedOutside = false;
+          els.settingsModal.addEventListener("pointerdown", (e) => {
+            pressedOutside = isOutsideDialog(e);
+          });
+          els.settingsModal.addEventListener("pointerup", (e) => {
+            if (pressedOutside && isOutsideDialog(e)) closeSettings();
+            pressedOutside = false;
+          });
+        }
+      } else {
+        els.settingsModal.addEventListener("click", (e) => {
+          if (e.target === els.settingsModal) closeSettings();
+        });
+      }
 
       getModeRadios().forEach((radio) => {
         radio.addEventListener("change", () => {
@@ -922,7 +963,8 @@
       getSettings: () => settings,
       openSettings,
       closeSettings,
-      isModalOpen: () => !els.settingsModal.hidden,
+      isModalOpen,
+      isNativeModal: isNativeDialog,
       loadLibrary,
       lookupCover(coversMap, dir) {
         let d = dir;

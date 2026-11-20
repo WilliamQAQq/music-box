@@ -26,6 +26,7 @@
     SPEED: "gh-speed-v1",
     CROSSFADE: "gh-crossfade-v1",
     SPECTRUM: "gh-spectrum-v1",
+    THEME: "gh-theme-mode-v1",
   };
 
   const COLLECTION_FAVORITES = "__favorites__";

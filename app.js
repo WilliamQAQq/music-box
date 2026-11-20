@@ -45,6 +45,7 @@
     bannerTitle: $("bannerTitle"),
     bannerSub: $("bannerSub"),
     bannerCta: $("bannerCta"),
+    themeToggleBtn: $("themeToggleBtn"),
     reloadBtn: $("reloadBtn"),
     settingsBtn: $("settingsBtn"),
     genreShelfTabs: $("genreShelfTabs"),
@@ -115,6 +116,8 @@
     ambientModeBtns: Array.from(document.querySelectorAll(".ambient-mode-btn")),
     ambientLevelRange: $("ambientLevelRange"),
     ambientLevelVal: $("ambientLevelVal"),
+    themeStatusMeta: $("themeStatusMeta"),
+    themeModeBtns: Array.from(document.querySelectorAll(".theme-mode-btn")),
     speedBtns: Array.from(document.querySelectorAll(".studio-pill-btn[data-speed]")),
     crossfadeBtns: Array.from(document.querySelectorAll(".studio-pill-btn[data-xfade]")),
     sleepBtns: Array.from(document.querySelectorAll(".studio-pill-btn[data-sleep]")),
@@ -799,8 +802,12 @@
   });
 
   els.searchInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") debouncedFilter.flush();
-    else if (e.key === "Escape" && els.searchInput.value) {
+    // IME composition guard (including WebKit bug 165004 keyCode === 229 fallback)
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      debouncedFilter.flush();
+    } else if (e.key === "Escape" && els.searchInput.value) {
       e.stopPropagation();
       debouncedFilter.cancel();
       clearSearchValue();
@@ -1971,7 +1978,7 @@
       } else if (filteredTracks.length && (cur === null || filteredTracks.indexOf(cur) !== -1)) {
         order = filteredTracks.slice();
       } else {
-        order = order.slice().sort((a, b) => a - b);
+        order = order.toSorted((a, b) => a - b);
       }
       pos = cur == null ? -1 : order.indexOf(cur);
     }
@@ -2259,8 +2266,11 @@
   /* ---------------- keyboard ---------------- */
 
   document.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
     if (libraryLoader.isModalOpen()) {
-      if (e.key === "Escape") libraryLoader.closeSettings();
+      if (e.key === "Escape" && !(typeof libraryLoader.isNativeModal === "function" && libraryLoader.isNativeModal())) {
+        libraryLoader.closeSettings();
+      }
       return;
     }
     if (e.key === "Escape") {
@@ -2321,6 +2331,7 @@
       case "r": case "R": audioFx.toggleRadioFx(); break;
       case "q": case "Q": toggleQueueDrawer(els.queueToggleBtn); break;
       case "e": case "E": studioCtrl.toggleStudio(els.studioBtn); break;
+      case "d": case "D": studioCtrl.toggleEyeCareTheme(); break;
       case "f": case "F":
         if (currentIndex !== -1) toggleTrackFavoriteByIndex(currentIndex);
         else toast("请先选择一首曲目再收藏", true);

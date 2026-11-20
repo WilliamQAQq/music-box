@@ -84,11 +84,13 @@
       const sleep = userState.getSleepSnapshot();
       const ab = userState.getAbLoopState();
       const ambient = typeof audioFx.getAmbientState === "function" ? audioFx.getAmbientState() : { mode: "off" };
+      const themeSnap = ns.theme && typeof ns.theme.getSnapshot === "function" ? ns.theme.getSnapshot() : { mode: "system" };
       const hasCustomPreamp = typeof eq.preamp === "number" && Math.abs(eq.preamp - 3) >= 0.05;
       const hasCustom =
         eq.active ||
         hasCustomPreamp ||
         ambient.mode !== "off" ||
+        themeSnap.mode === "eyecare" ||
         Math.abs(playbackSpeed - 1) >= 0.01 ||
         crossfadeSec > 0 ||
         sleep.mode !== "off" ||
@@ -184,6 +186,68 @@
         els.ambientStatusMeta.textContent = amb.shortLabel;
       }
       syncStudioBadge();
+    }
+
+    const THEME_TOAST_TEXT = {
+      system: "外观主题：已恢复跟随系统配色",
+      light: "外观主题：已切换为浅色暖纸沙龙",
+      dark: "外观主题：已切换为维多利亚深色沙龙",
+      eyecare: "已开启护眼暗夜模式 · 低蓝光柔光防眩",
+    };
+
+    function syncThemeUI(snap) {
+      const api = ns.theme;
+      const st = snap || (api && typeof api.getSnapshot === "function"
+        ? api.getSnapshot()
+        : { mode: "system", systemScheme: "dark", effective: "dark", isEyeCare: false });
+
+      const sysTag = st.systemScheme === "dark" ? "深" : "浅";
+      if (els.themeModeBtns) {
+        els.themeModeBtns.forEach((btn) => {
+          const m = btn.dataset.theme;
+          setPressedButtonState(btn, m === st.mode);
+          if (m === "system") {
+            btn.textContent = "跟随系统 (" + sysTag + ")";
+          }
+        });
+      }
+      if (els.themeStatusMeta) {
+        if (st.mode === "eyecare") els.themeStatusMeta.textContent = "护眼暗夜 · 低蓝光柔光";
+        else if (st.mode === "dark") els.themeStatusMeta.textContent = "深色沙龙";
+        else if (st.mode === "light") els.themeStatusMeta.textContent = "浅色暖纸";
+        else els.themeStatusMeta.textContent = "跟随系统 (当前" + (st.systemScheme === "dark" ? "深色" : "浅色") + ")";
+      }
+      if (els.themeToggleBtn) {
+        setPressedButtonState(els.themeToggleBtn, st.isEyeCare);
+        els.themeToggleBtn.title = st.isEyeCare
+          ? "已开启护眼暗夜模式（点击恢复跟随系统，快捷键 D）"
+          : "开启护眼暗夜模式 · 低蓝光柔光 (快捷键 D)";
+        els.themeToggleBtn.setAttribute(
+          "aria-label",
+          st.isEyeCare ? "关闭护眼暗夜模式并跟随系统" : "开启护眼暗夜模式"
+        );
+      }
+      syncStudioBadge();
+    }
+
+    function applyThemeMode(mode, showToast) {
+      const api = ns.theme;
+      if (!api || typeof api.setMode !== "function") return;
+      const next = api.setMode(mode);
+      syncThemeUI(next);
+      if (showToast && toast) {
+        toast(THEME_TOAST_TEXT[next.mode] || "已切换主题");
+      }
+    }
+
+    function toggleEyeCareTheme() {
+      const api = ns.theme;
+      if (!api || typeof api.toggleEyeCareDark !== "function") return;
+      const next = api.toggleEyeCareDark();
+      syncThemeUI(next);
+      if (toast) {
+        toast(next.isEyeCare ? THEME_TOAST_TEXT.eyecare : "已退出护眼暗夜，恢复跟随系统配色");
+      }
     }
 
     function syncSleepUI(snap) {
@@ -628,6 +692,20 @@
         });
       }
 
+      if (els.themeModeBtns) {
+        els.themeModeBtns.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            applyThemeMode(btn.dataset.theme, true);
+          });
+        });
+      }
+      if (els.themeToggleBtn) {
+        els.themeToggleBtn.addEventListener("click", toggleEyeCareTheme);
+      }
+      if (ns.theme && typeof ns.theme.subscribe === "function") {
+        ns.theme.subscribe(syncThemeUI);
+      }
+
       if (els.speedBtns) {
         els.speedBtns.forEach((btn) => {
           btn.addEventListener("click", () => applyPlaybackSpeed(parseFloat(btn.dataset.speed), true));
@@ -710,6 +788,7 @@
       syncMixUI();
       syncRadioTuningUI();
       syncAmbientUI();
+      syncThemeUI();
       applyPlaybackSpeed(playbackSpeed, false);
       applyCrossfadeSec(crossfadeSec, false);
       syncSleepUI();
@@ -728,6 +807,8 @@
       applyPlaybackSpeed,
       handleShareClick,
       syncStudioBadge,
+      applyThemeMode,
+      toggleEyeCareTheme,
     };
   }
 
