@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v46", () => {
+test("HTML/SW/CSS structural invariants & asset version v47", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,14 +49,14 @@ test("HTML/SW/CSS structural invariants & asset version v46", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/theme-init.js?v=46",
-    "js/catalog-data.js?v=46",
-    "js/user-state.js?v=46",
-    "js/library-loader.js?v=46",
-    "js/audio-fx.js?v=46",
-    "js/lyrics.js?v=46",
-    "js/studio-ui.js?v=46",
-    "app.js?v=46",
+    "js/theme-init.js?v=47",
+    "js/catalog-data.js?v=47",
+    "js/user-state.js?v=47",
+    "js/library-loader.js?v=47",
+    "js/audio-fx.js?v=47",
+    "js/lyrics.js?v=47",
+    "js/studio-ui.js?v=47",
+    "app.js?v=47",
   ];
 
   let lastPos = -1;
@@ -71,7 +71,12 @@ test("HTML/SW/CSS structural invariants & asset version v46", () => {
     "index.html missing R2 gateway preconnect hint"
   );
   assert.ok(html.includes('<meta name="color-scheme" content="light dark">'), "index.html missing light dark color-scheme meta");
-  assert.ok(html.includes('href="style.css?v=46"'), "index.html missing style.css?v=46");
+  assert.ok(html.includes('href="style.css?v=47"'), "index.html missing style.css?v=47");
+  assert.ok(html.includes('class="skip-link visually-hidden"'), "index.html missing skip link for keyboard users");
+  assert.ok(html.includes('<search class="toolbar" id="mainCatalog"'), "index.html must use semantic <search> landmark for toolbar");
+  assert.ok(html.includes('id="lyricsScroll" role="region"'), "Scrollable #lyricsScroll must have role=region when aria-label is set");
+  assert.ok(html.includes('<div class="queue-drawer" id="queueDrawer" role="dialog"'), "#queueDrawer should not override <aside> landmark with role=dialog");
+  assert.ok(html.includes('<h3 class="studio-sec-title">'), "#studioPanel sections must use semantic <h3> headings");
   assert.ok(html.includes('id="themeToggleBtn"'), "index.html missing #themeToggleBtn eye-care dark toggle button");
   assert.ok(html.includes('data-theme="eyecare"') && html.includes('data-theme="light"') && html.includes('data-theme="dark"') && html.includes('data-theme="system"'), "index.html missing studio theme selector pills");
   assert.ok(html.includes('<dialog class="modal" id="settingsModal" closedby="any"'), "index.html must use native <dialog closedby=\"any\"> for settingsModal");
@@ -107,12 +112,15 @@ test("HTML/SW/CSS structural invariants & asset version v46", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v46";'), "sw.js VERSION must match v46");
+  assert.ok(sw.includes('const VERSION = "v47";'), "sw.js VERSION must match v47");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
   assert.equal(lyricsJs.includes("innerHTML"), false, "lyrics.js must use replaceChildren() instead of innerHTML");
   assert.ok(css.includes("color-scheme: light dark;"), "style.css must declare color-scheme: light dark");
+  assert.ok(css.includes("scroll-padding-bottom:") && css.includes("scroll-padding-top:"), "style.css must set scroll-padding on html so fixed bars never obscure focused controls");
+  assert.ok(css.includes(".r2-quota-toggle::before") && css.includes(".r2-quota-panel[open] > .r2-quota-toggle::before"), "style.css must provide directional disclosure cue when hiding native summary marker");
+  assert.ok(css.includes(".playlist-play-btn") && css.includes(".lyric-line-btn"), "style.css must style sibling native buttons for playlist rows and timed lyrics");
   assert.ok(css.includes('meta[name="color-scheme"][content="dark"]') && css.includes('meta[name="color-scheme"][content="light"]'), "style.css must map meta[name=color-scheme] back to :root");
   assert.ok(css.includes("light-dark("), "style.css must progressively enhance palette tokens with light-dark()");
   assert.ok(css.includes(':root[data-eye-care="1"]'), "style.css must define eye-care low-glare dark mode palette");
@@ -129,6 +137,7 @@ test("HTML/SW/CSS structural invariants & asset version v46", () => {
   assert.ok(appJs.includes("e.isComposing || e.keyCode === 229"), "app.js must guard CJK IME composition on keydown");
   assert.ok(lyricsJs.includes("e.isComposing || e.keyCode === 229"), "lyrics.js must guard CJK IME composition on search keydown");
   assert.ok(appJs.includes("order.toSorted("), "app.js must use non-mutating Array.prototype.toSorted()");
+  assert.ok(appJs.includes("playlist-play-btn") && lyricsJs.includes("lyric-line-btn"), "Track rows and timed lyrics must expose native sibling buttons instead of nested/non-button interactive li elements");
   assert.ok(sw.includes("touchAudioCacheEntry") && sw.includes("hasCachedAudioMetadataChanged"), "sw.js must refresh LRU order and revalidate cached audio metadata");
   assert.ok(css.includes("body::before") && css.includes("contain: strict"), "style.css must isolate fixed backdrop on body::before");
   assert.ok(css.includes(".queue-item") && css.includes("@supports not (content-visibility: auto)"), "style.css must gate queue item content-visibility cleanly");

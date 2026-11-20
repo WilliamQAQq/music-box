@@ -5,18 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#190f0a">
-<script src="js/theme-init.js?v=46"></script>
+<script src="js/theme-init.js?v=47"></script>
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; media-src 'self' blob: https: http:; connect-src 'self' https: http:; object-src 'none'; base-uri 'self'; form-action 'self';">
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>
-<link rel="stylesheet" href="style.css?v=46">
+<link rel="stylesheet" href="style.css?v=47">
 </head>
 <body>
 
 <header class="topbar">
+  <a href="#mainCatalog" class="skip-link visually-hidden">跳至曲库检索与歌单</a>
   <div class="brand">
     <span class="logo" aria-hidden="true">
       <svg viewBox="0 0 32 32" width="23" height="23" aria-hidden="true">
@@ -33,7 +34,7 @@
     </span>
     <div class="brand-text">
       <h1>GitHub 音乐盒</h1>
-      <span class="brand-sub">VICTORIAN PHONOGRAPH SALON</span>
+      <span class="brand-sub" lang="en">VICTORIAN PHONOGRAPH SALON</span>
     </div>
   </div>
   <div class="topbar-actions">
@@ -57,7 +58,7 @@
           <h2 id="bannerTitle">设置你的 GitHub 音乐仓库</h2>
           <p id="bannerSub">填入仓库信息后即可在线播放仓库里的音乐</p>
         </div>
-        <button id="bannerCta" class="primary-btn">打开设置</button>
+        <button type="button" id="bannerCta" class="primary-btn">打开设置</button>
       </section>
 
       <div class="parlor-ornament" aria-hidden="true">
@@ -67,15 +68,15 @@
       </div>
 
       <div class="genre-shelf-tabs" id="genreShelfTabs" role="tablist" aria-label="唱片专区分类">
-        <button type="button" class="shelf-tab on" data-category="all" role="tab" aria-selected="true">全部专区 (20)</button>
-        <button type="button" class="shelf-tab" data-category="personal" role="tab" aria-selected="false">&#9829; 我的雅集 (0)</button>
-        <button type="button" class="shelf-tab" data-category="salon" role="tab" aria-selected="false">&#127927; 沙龙流派 (11)</button>
-        <button type="button" class="shelf-tab" data-category="military" role="tab" aria-selected="false">&#127930; 国歌军乐 (7)</button>
+        <button type="button" id="shelfTabAll" class="shelf-tab on" data-category="all" role="tab" aria-selected="true" aria-controls="genreShelf">全部专区 (20)</button>
+        <button type="button" id="shelfTabPersonal" class="shelf-tab" data-category="personal" role="tab" aria-selected="false" aria-controls="genreShelf">&#9829; 我的雅集 (0)</button>
+        <button type="button" id="shelfTabSalon" class="shelf-tab" data-category="salon" role="tab" aria-selected="false" aria-controls="genreShelf">&#127927; 沙龙流派 (11)</button>
+        <button type="button" id="shelfTabMilitary" class="shelf-tab" data-category="military" role="tab" aria-selected="false" aria-controls="genreShelf">&#127930; 国歌军乐 (7)</button>
       </div>
 
-      <section class="genre-shelf" id="genreShelf" aria-label="风格歌单" hidden></section>
+      <section class="genre-shelf" id="genreShelf" role="tabpanel" aria-labelledby="shelfTabAll" hidden></section>
 
-      <div class="toolbar">
+      <search class="toolbar" id="mainCatalog" aria-label="曲库检索与视图筛选">
         <div class="search-wrap">
           <input type="search" id="searchInput" class="search" placeholder="检索曲目、歌者、风格或专辑…" aria-label="搜索曲目">
           <button type="button" id="searchClearBtn" class="search-clear-btn" title="清空搜索" aria-label="清空搜索" hidden>&times;</button>
@@ -87,7 +88,7 @@
         </div>
         <button type="button" id="locateTrackBtn" class="ghost-btn sm-btn locate-btn" title="定位当前正在播放的曲目" hidden>&#8982; 定位</button>
         <span class="count" id="trackCount">0 首</span>
-      </div>
+      </search>
 
       <section class="genre-stage" id="genreStage" hidden>
         <div class="genre-stage-main">
@@ -115,7 +116,7 @@
         </div>
       </div>
 
-      <ul class="playlist" id="playlist" aria-label="播放列表"></ul>
+      <ul class="playlist" id="playlist" role="list" aria-label="播放列表"></ul>
       <div class="empty" id="emptyState" hidden>
         <p>唱片柜中暂无匹配的曲目</p>
         <p class="hint">可尝试清空搜索词或切换回「全部馆藏」</p>
@@ -125,13 +126,13 @@
     <aside class="lyrics-panel" id="lyricsPanel" aria-label="滚动唱词">
       <header class="lyrics-head">
         <div class="lyrics-head-text">
-          <span class="lyrics-kicker">&#10086; LIBRETTO · 唱词卷轴</span>
+          <span class="lyrics-kicker" aria-hidden="true">&#10086; LIBRETTO · 唱词卷轴</span>
           <h2 class="lyrics-track-name" id="lyricsTrackName">轻触曲目，落针展卷</h2>
         </div>
         <div class="lyrics-actions">
-          <button type="button" id="lyricsSearchBtn" class="lyrics-pill-btn" title="检索唱词关键词" aria-label="检索唱词关键词" aria-pressed="false" hidden>搜</button>
+          <button type="button" id="lyricsSearchBtn" class="lyrics-pill-btn" title="搜索唱词关键词" aria-label="搜索唱词关键词" aria-pressed="false" hidden>搜</button>
           <button type="button" id="lyricsExportBtn" class="lyrics-pill-btn" title="导出 .lrc 歌词文件" aria-label="导出 .lrc 歌词文件" hidden>导</button>
-          <button type="button" id="lyricsTransBtn" class="lyrics-pill-btn on" title="切换双语译文" aria-pressed="true" hidden>译</button>
+          <button type="button" id="lyricsTransBtn" class="lyrics-pill-btn on" title="译文显示切换" aria-label="译文显示切换" aria-pressed="true" hidden>译</button>
           <button type="button" id="lyricsCloseBtn" class="icon-btn sm-icon-btn" title="收起唱词面板" aria-label="收起唱词面板">&times;</button>
         </div>
       </header>
@@ -141,8 +142,8 @@
         <button type="button" id="lyricsSearchClearBtn" class="icon-btn xs-icon-btn" title="清除歌词检索" aria-label="清除歌词检索">&times;</button>
       </div>
       <div class="lyrics-body">
-        <div class="lyrics-scroll" id="lyricsScroll" tabindex="0" aria-label="滚动歌词，可上下自由滚动或点击句子跳转">
-          <ul class="lyrics-list" id="lyricsList">
+        <div class="lyrics-scroll" id="lyricsScroll" role="region" tabindex="0" aria-label="滚动歌词，可上下自由滚动或点击句子跳转">
+          <ul class="lyrics-list" id="lyricsList" role="list">
             <li class="lyric-empty">选择任意唱片或曲目播放，唱词将随旋律徐徐展开</li>
           </ul>
         </div>
@@ -152,7 +153,7 @@
   </div>
 </main>
 
-<footer class="player" id="player">
+<footer class="player" id="player" aria-label="留声机播控台">
   <div class="player-track">
     <div class="vinyl-stage">
       <div class="vinyl-disc">
@@ -337,10 +338,10 @@
 </dialog>
 
 <div class="drawer-backdrop" id="queueBackdrop" hidden></div>
-<aside class="queue-drawer" id="queueDrawer" role="dialog" aria-modal="false" aria-labelledby="queueDrawerTitle" hidden>
+<div class="queue-drawer" id="queueDrawer" role="dialog" aria-modal="false" aria-labelledby="queueDrawerTitle" hidden>
   <header class="queue-head">
     <div class="queue-head-text">
-      <span class="lyrics-kicker">&#10086; PLAYBACK QUEUE · 留声队列</span>
+      <span class="lyrics-kicker" aria-hidden="true">&#10086; PLAYBACK QUEUE · 留声队列</span>
       <h2 class="queue-title" id="queueDrawerTitle">播放队列 (0 首)</h2>
     </div>
     <div class="queue-actions">
@@ -350,15 +351,15 @@
     </div>
   </header>
   <div class="queue-body">
-    <ul class="queue-list" id="queueList" aria-label="播放队列曲目"></ul>
+    <ul class="queue-list" id="queueList" role="list" aria-label="播放队列曲目"></ul>
     <div class="queue-empty" id="queueEmpty" hidden>暂无待播曲目，可点击歌单或曲目开始起奏</div>
   </div>
-</aside>
+</div>
 
 <dialog id="studioPanel" class="studio-popover" popover="auto" aria-labelledby="studioTitle">
   <div class="studio-head">
     <div class="studio-head-text">
-      <span class="lyrics-kicker">&#10086; GRAMOPHONE STUDIO · 留声机调音台</span>
+      <span class="lyrics-kicker" aria-hidden="true">&#10086; GRAMOPHONE STUDIO · 留声机调音台</span>
       <h2 class="studio-title" id="studioTitle">声学调音与演奏工具</h2>
     </div>
     <button type="button" id="studioCloseBtn" class="icon-btn sm-icon-btn" title="收起调音台" aria-label="收起调音台">&times;</button>
@@ -367,17 +368,17 @@
   <div class="studio-scroll">
     <section class="studio-section">
       <div class="studio-sec-head">
-        <span>实时黄铜频谱分析</span>
+        <h3 class="studio-sec-title">实时黄铜频谱分析</h3>
         <button type="button" id="spectrumToggleBtn" class="studio-pill-btn on" aria-pressed="true">频谱开启</button>
       </div>
       <div class="spectrum-box" id="spectrumBox">
-        <canvas id="spectrumCanvas" class="spectrum-canvas" aria-label="实时音频频谱"></canvas>
+        <canvas id="spectrumCanvas" class="spectrum-canvas" role="img" aria-label="实时音频频谱"></canvas>
       </div>
     </section>
 
     <section class="studio-section">
       <div class="studio-sec-head">
-        <span>三段经典均衡器 (EQ)</span>
+        <h3 class="studio-sec-title">三段经典均衡器 (EQ)</h3>
         <div class="studio-pills">
           <button type="button" class="studio-pill-btn eq-preset-btn on" data-preset="flat" aria-pressed="true">原声</button>
           <button type="button" class="studio-pill-btn eq-preset-btn" data-preset="warm" aria-pressed="false">暖箱</button>
@@ -387,22 +388,22 @@
         </div>
       </div>
       <div class="studio-sliders">
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="eqPreamp">
           <span class="studio-slider-lbl">前级响度</span>
           <input type="range" id="eqPreamp" class="range studio-range" min="-6" max="12" step="0.5" value="3" aria-label="前级响度增益">
           <span class="studio-slider-val" id="eqPreampVal">+3 dB</span>
         </label>
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="eqBass">
           <span class="studio-slider-lbl">低频 110Hz</span>
           <input type="range" id="eqBass" class="range studio-range" min="-12" max="12" step="0.5" value="0" aria-label="低频均衡增益">
           <span class="studio-slider-val" id="eqBassVal">0 dB</span>
         </label>
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="eqMid">
           <span class="studio-slider-lbl">中频 1.1kHz</span>
           <input type="range" id="eqMid" class="range studio-range" min="-12" max="12" step="0.5" value="0" aria-label="中频均衡增益">
           <span class="studio-slider-val" id="eqMidVal">0 dB</span>
         </label>
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="eqTreble">
           <span class="studio-slider-lbl">高频 7.5kHz</span>
           <input type="range" id="eqTreble" class="range studio-range" min="-12" max="12" step="0.5" value="0" aria-label="高频均衡增益">
           <span class="studio-slider-val" id="eqTrebleVal">0 dB</span>
@@ -412,20 +413,20 @@
 
     <section class="studio-section">
       <div class="studio-sec-head">
-        <span>模拟机芯混合比例</span>
+        <h3 class="studio-sec-title">模拟机芯混合比例</h3>
       </div>
       <div class="studio-sliders">
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="vinylMixRange">
           <span class="studio-slider-lbl">黑胶氛围度</span>
           <input type="range" id="vinylMixRange" class="range studio-range" min="20" max="150" step="5" value="100" aria-label="黑胶音效混合比例">
           <span class="studio-slider-val" id="vinylMixVal">100%</span>
         </label>
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="synthMixRange">
           <span class="studio-slider-lbl">合成器浓淡</span>
           <input type="range" id="synthMixRange" class="range studio-range" min="20" max="150" step="5" value="100" aria-label="合成器音效混合比例">
           <span class="studio-slider-val" id="synthMixVal">100%</span>
         </label>
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="radioMixRange">
           <span class="studio-slider-lbl">电台失真度</span>
           <input type="range" id="radioMixRange" class="range studio-range" min="20" max="150" step="5" value="100" aria-label="无线电台音效混合比例">
           <span class="studio-slider-val" id="radioMixVal">100%</span>
@@ -435,7 +436,7 @@
 
     <section class="studio-section">
       <div class="studio-sec-head">
-        <span>无线电台调频与干扰模式 (快捷键 R)</span>
+        <h3 class="studio-sec-title">无线电台调频与干扰模式 (快捷键 R)</h3>
         <span class="studio-meta" id="radioTuningMeta">短波 SW · 天电静电</span>
       </div>
       <div class="studio-sub-group">
@@ -461,7 +462,7 @@
         </div>
       </div>
       <div class="studio-sliders">
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="radioNoiseRange">
           <span class="studio-slider-lbl">干扰噪声度</span>
           <input type="range" id="radioNoiseRange" class="range studio-range" min="0" max="200" step="5" value="100" aria-label="无线电台干扰噪声强度">
           <span class="studio-slider-val" id="radioNoiseVal">100%</span>
@@ -471,7 +472,7 @@
 
     <section class="studio-section">
       <div class="studio-sec-head">
-        <span>沙龙环境背景音 (智能融乐伴奏)</span>
+        <h3 class="studio-sec-title">沙龙环境背景音 (智能融乐伴奏)</h3>
         <span class="studio-meta" id="ambientStatusMeta">未开启</span>
       </div>
       <div class="studio-sub-group">
@@ -485,7 +486,7 @@
         </div>
       </div>
       <div class="studio-sliders">
-        <label class="studio-slider-row">
+        <label class="studio-slider-row" for="ambientLevelRange">
           <span class="studio-slider-lbl">背景音浓度</span>
           <input type="range" id="ambientLevelRange" class="range studio-range" min="10" max="200" step="5" value="100" aria-label="环境背景音音量比例">
           <span class="studio-slider-val" id="ambientLevelVal">100%</span>
@@ -495,7 +496,7 @@
 
     <section class="studio-section">
       <div class="studio-sec-head">
-        <span>显示主题与护眼模式 (快捷键 D)</span>
+        <h3 class="studio-sec-title">显示主题与护眼模式 (快捷键 D)</h3>
         <span class="studio-meta" id="themeStatusMeta">跟随系统</span>
       </div>
       <div class="studio-pills">
@@ -508,7 +509,7 @@
 
     <section class="studio-section studio-two-col">
       <div>
-        <div class="studio-sec-head"><span>唱盘倍速</span></div>
+        <div class="studio-sec-head"><h3 class="studio-sec-title">唱盘倍速</h3></div>
         <div class="studio-pills">
           <button type="button" class="studio-pill-btn" data-speed="0.75" aria-pressed="false">0.75x</button>
           <button type="button" class="studio-pill-btn" data-speed="0.9" aria-pressed="false">0.9x</button>
@@ -519,7 +520,7 @@
         </div>
       </div>
       <div>
-        <div class="studio-sec-head"><span>曲间过渡 (Crossfade)</span></div>
+        <div class="studio-sec-head"><h3 class="studio-sec-title">曲间过渡 (Crossfade)</h3></div>
         <div class="studio-pills">
           <button type="button" class="studio-pill-btn on" data-xfade="0" aria-pressed="true">关</button>
           <button type="button" class="studio-pill-btn" data-xfade="2" aria-pressed="false">2s</button>
@@ -531,7 +532,7 @@
 
     <section class="studio-section">
       <div class="studio-sec-head">
-        <span>睡眠定时停播</span>
+        <h3 class="studio-sec-title">睡眠定时停播</h3>
         <span class="studio-meta" id="sleepStatusText">未开启</span>
       </div>
       <div class="studio-pills">
@@ -545,7 +546,7 @@
 
     <section class="studio-section">
       <div class="studio-sec-head">
-        <span>A-B 区间精听复读 (快捷键 [ / ] / \)</span>
+        <h3 class="studio-sec-title">A-B 区间精听复读 (快捷键 [ / ] / \)</h3>
         <span class="studio-meta" id="abReadout">未设定区间</span>
       </div>
       <div class="studio-pills">
@@ -575,12 +576,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="js/catalog-data.js?v=46"></script>
-<script defer src="js/user-state.js?v=46"></script>
-<script defer src="js/library-loader.js?v=46"></script>
-<script defer src="js/audio-fx.js?v=46"></script>
-<script defer src="js/lyrics.js?v=46"></script>
-<script defer src="js/studio-ui.js?v=46"></script>
-<script defer src="app.js?v=46"></script>
+<script defer src="js/catalog-data.js?v=47"></script>
+<script defer src="js/user-state.js?v=47"></script>
+<script defer src="js/library-loader.js?v=47"></script>
+<script defer src="js/audio-fx.js?v=47"></script>
+<script defer src="js/lyrics.js?v=47"></script>
+<script defer src="js/studio-ui.js?v=47"></script>
+<script defer src="app.js?v=47"></script>
 </body>
 </html>

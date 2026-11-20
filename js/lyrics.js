@@ -504,29 +504,39 @@
 
       els.lyricsTransBtn.hidden = !st.hasTrans;
       const frag = document.createDocumentFragment();
+      let firstTimedAssigned = false;
 
       st.lines.forEach((ln, idx) => {
         const li = document.createElement("li");
         li.className = "lyric-line" + (ln.time !== null ? " timed" : "");
         li.dataset.idx = idx;
 
+        const container = ln.time !== null ? document.createElement("button") : li;
+        if (ln.time !== null) {
+          container.type = "button";
+          container.className = "lyric-line-btn";
+          container.tabIndex = firstTimedAssigned ? -1 : 0;
+          firstTimedAssigned = true;
+        }
+
         const mainSpan = document.createElement("span");
         mainSpan.className = "lyric-main";
         mainSpan.textContent = ln.text;
-        li.appendChild(mainSpan);
+        container.appendChild(mainSpan);
 
         if (ln.trans) {
           const trSpan = document.createElement("span");
           trSpan.className = "lyric-trans";
           trSpan.textContent = ln.trans;
-          li.appendChild(trSpan);
+          container.appendChild(trSpan);
         }
 
         if (ln.time !== null) {
           const tmSpan = document.createElement("span");
           tmSpan.className = "lyric-time";
           tmSpan.textContent = fmtTime(ln.time);
-          li.appendChild(tmSpan);
+          container.appendChild(tmSpan);
+          li.appendChild(container);
         }
 
         lyricLineEls.push(li);
@@ -627,8 +637,11 @@
       activeLyricIndex = nextIdx;
 
       const len = lyricLineEls.length;
+      const getLineBtn = (el) => (el && typeof el.querySelector === "function" ? el.querySelector(".lyric-line-btn") : null);
       if (lastStyledActive >= 0 && lastStyledActive < len && lastStyledActive !== nextIdx) {
         lyricLineEls[lastStyledActive].classList.remove("active");
+        const prevBtn = getLineBtn(lyricLineEls[lastStyledActive]);
+        if (prevBtn) prevBtn.removeAttribute("aria-current");
       }
       const nextPastEnd = Math.max(0, Math.min(len, nextIdx));
       if (nextPastEnd > lastStyledPastEnd) {
@@ -644,6 +657,8 @@
       if (nextIdx >= 0 && nextIdx < len) {
         lyricLineEls[nextIdx].classList.add("active");
         lyricLineEls[nextIdx].classList.remove("past");
+        const activeBtn = getLineBtn(lyricLineEls[nextIdx]);
+        if (activeBtn) activeBtn.setAttribute("aria-current", "true");
       }
       lastStyledActive = nextIdx;
 
@@ -792,6 +807,26 @@
         exitUserScrollMode(true);
         syncToTime(ln.time, false);
         if (audio.paused && getCurrentTrack()) safePlay();
+      });
+
+      els.lyricsList.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
+        const curBtn = e.target && typeof e.target.closest === "function" ? e.target.closest(".lyric-line-btn") : null;
+        if (!curBtn) return;
+        const btns = Array.from(els.lyricsList.querySelectorAll(".lyric-line-btn"));
+        const idx = btns.indexOf(curBtn);
+        if (idx === -1 || !btns.length) return;
+        e.preventDefault();
+        let nextIdx = idx;
+        if (e.key === "ArrowDown") nextIdx = Math.min(btns.length - 1, idx + 1);
+        else if (e.key === "ArrowUp") nextIdx = Math.max(0, idx - 1);
+        else if (e.key === "Home") nextIdx = 0;
+        else if (e.key === "End") nextIdx = btns.length - 1;
+        if (nextIdx !== idx) {
+          curBtn.tabIndex = -1;
+          btns[nextIdx].tabIndex = 0;
+          btns[nextIdx].focus();
+        }
       });
 
       els.lyricsFollowBtn.addEventListener("click", () => exitUserScrollMode(false));

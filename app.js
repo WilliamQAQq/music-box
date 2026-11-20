@@ -345,13 +345,19 @@
 
   function setLoading(on) {
     if (on) {
+      const li = document.createElement("li");
+      li.className = "spinner-item";
+      li.setAttribute("role", "status");
+      li.setAttribute("aria-label", "正在加载曲库");
       const sp = document.createElement("div");
       sp.className = "spinner";
-      els.playlist.replaceChildren(sp);
+      sp.setAttribute("aria-hidden", "true");
+      li.appendChild(sp);
+      els.playlist.replaceChildren(li);
       els.trackCount.textContent = "加载中…";
       els.emptyState.hidden = true;
     } else {
-      const sp = els.playlist.querySelector(".spinner");
+      const sp = els.playlist.querySelector(".spinner-item, .spinner");
       if (sp) sp.remove();
     }
   }
@@ -867,7 +873,7 @@
   function setRowRovingState(entry, isTarget) {
     if (!entry || !entry.li || entry._roving === isTarget) return;
     const tab = isTarget ? 0 : -1;
-    entry.li.tabIndex = tab;
+    if (entry.playBtn) entry.playBtn.tabIndex = tab;
     if (entry.favBtn) entry.favBtn.tabIndex = tab;
     if (entry.enqueueBtn) entry.enqueueBtn.tabIndex = tab;
     entry._roving = isTarget;
@@ -892,6 +898,10 @@
       const li = document.createElement("li");
       li.className = "playlist-item";
 
+      const playBtn = document.createElement("button");
+      playBtn.type = "button";
+      playBtn.className = "playlist-play-btn";
+
       const idxEl = document.createElement("span");
       idxEl.className = "idx";
 
@@ -910,6 +920,8 @@
       const metaEl = document.createElement("span");
       metaEl.className = "meta";
 
+      playBtn.append(idxEl, eqEl, nameEl, metaEl);
+
       const favBtn = document.createElement("button");
       favBtn.type = "button";
       favBtn.className = "playlist-fav-btn";
@@ -920,9 +932,10 @@
       enqueueBtn.title = "添加到下一首播放";
       enqueueBtn.textContent = "+";
 
-      li.append(idxEl, eqEl, nameEl, metaEl, favBtn, enqueueBtn);
+      li.append(playBtn, favBtn, enqueueBtn);
       entry = {
         li,
+        playBtn,
         idxEl,
         eqEl,
         nameEl,
@@ -955,7 +968,12 @@
     const isPlaying = isActive && !audio.paused;
     if (entry.li.classList.contains("active") !== isActive) entry.li.classList.toggle("active", isActive);
     if (entry.li.classList.contains("playing") !== isPlaying) entry.li.classList.toggle("playing", isPlaying);
-    if (isActive) activePlaylistEl = entry.li;
+    if (isActive) {
+      entry.playBtn.setAttribute("aria-current", "true");
+      activePlaylistEl = entry.li;
+    } else {
+      entry.playBtn.removeAttribute("aria-current");
+    }
     if (isRovingTarget) rovingPlaylistEntry = entry;
 
     if (entry._title !== t.title) {
@@ -984,9 +1002,10 @@
       setRowRovingState(nextEntry, true);
       rovingPlaylistEntry = nextEntry;
     } else {
+      const playBtn = activeLi.querySelector(".playlist-play-btn");
       const favBtn = activeLi.querySelector(".playlist-fav-btn");
       const enqBtn = activeLi.querySelector(".playlist-enqueue-btn");
-      const fallback = { li: activeLi, favBtn, enqueueBtn: enqBtn, _roving: null };
+      const fallback = { li: activeLi, playBtn, favBtn, enqueueBtn: enqBtn, _roving: null };
       setRowRovingState(fallback, true);
       rovingPlaylistEntry = fallback;
     }
@@ -1067,19 +1086,22 @@
     const enqueueBtn = e.target.closest(".playlist-enqueue-btn");
     const li = e.target.closest(".playlist-item");
     if (!li) return;
+    const playBtn = li.querySelector(".playlist-play-btn");
 
     if (enqueueBtn) {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         const fb = li.querySelector(".playlist-fav-btn");
         if (fb) fb.focus();
-        else li.focus();
+        else if (playBtn) playBtn.focus();
       }
       return;
     }
     if (favBtn) {
-      if (e.key === "ArrowLeft") { e.preventDefault(); li.focus(); }
-      else if (e.key === "ArrowRight") {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (playBtn) playBtn.focus();
+      } else if (e.key === "ArrowRight") {
         const eb = li.querySelector(".playlist-enqueue-btn");
         if (eb) { e.preventDefault(); eb.focus(); }
       }
@@ -1091,14 +1113,7 @@
       if (btn) { e.preventDefault(); btn.focus(); }
       return;
     }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      setPlaylistRovingTabIndex(li);
-      const tIndex = Number(li.dataset.index);
-      if (!isNaN(tIndex)) playTrackByIndex(tIndex);
-    } else if (e.key === " ") {
-      e.preventDefault();
-    } else if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
       const len = filteredTracks.length;
       const curIdx = Number(li.dataset.posK);
       if (isNaN(curIdx) || curIdx < 0 || curIdx >= len || !len) return;
@@ -1113,24 +1128,17 @@
       const targetLi = targetEntry && targetEntry.li.isConnected ? targetEntry.li : null;
       if (targetLi) {
         setPlaylistRovingTabIndex(targetLi);
-        targetLi.focus();
+        const focusEl = targetEntry.playBtn || targetLi.querySelector(".playlist-play-btn");
+        if (focusEl) focusEl.focus();
       }
     }
-  });
-
-  els.playlist.addEventListener("keyup", (e) => {
-    if (e.key !== " ") return;
-    if (e.target.closest(".playlist-enqueue-btn") || e.target.closest(".playlist-fav-btn")) return;
-    const li = e.target.closest(".playlist-item");
-    if (!li) return;
-    setPlaylistRovingTabIndex(li);
-    const tIndex = Number(li.dataset.index);
-    if (!isNaN(tIndex)) playTrackByIndex(tIndex);
   });
 
   function highlightActive(scroll) {
     if (activePlaylistEl && activePlaylistEl.isConnected) {
       activePlaylistEl.classList.remove("active", "playing");
+      const prevBtn = activePlaylistEl.querySelector(".playlist-play-btn");
+      if (prevBtn) prevBtn.removeAttribute("aria-current");
     }
     activePlaylistEl = null;
     if (currentIndex !== -1 && tracks[currentIndex]) {
@@ -1142,6 +1150,8 @@
       if (curEl) {
         curEl.classList.add("active");
         if (!audio.paused) curEl.classList.add("playing");
+        const curBtn = (cached && cached.playBtn) || curEl.querySelector(".playlist-play-btn");
+        if (curBtn) curBtn.setAttribute("aria-current", "true");
         activePlaylistEl = curEl;
         setPlaylistRovingTabIndex(curEl);
       }
@@ -1180,8 +1190,9 @@
       applyFilter();
     }
     highlightActive(true);
-    if (activePlaylistEl && typeof activePlaylistEl.focus === "function") {
-      activePlaylistEl.focus({ preventScroll: true });
+    const focusTarget = activePlaylistEl && activePlaylistEl.querySelector(".playlist-play-btn");
+    if (focusTarget && typeof focusTarget.focus === "function") {
+      focusTarget.focus();
     }
   }
 
@@ -1550,6 +1561,7 @@
         li.append(playRowBtn, actions);
         entry = {
           li,
+          playRowBtn,
           num,
           titleEl,
           subEl,
@@ -1571,6 +1583,10 @@
         entry._qidx = i;
       }
       if (entry.li.classList.contains("active") !== isActive) entry.li.classList.toggle("active", isActive);
+      if (entry.playRowBtn) {
+        if (isActive) entry.playRowBtn.setAttribute("aria-current", "true");
+        else entry.playRowBtn.removeAttribute("aria-current");
+      }
       if (entry.li.classList.contains("past") !== isPast) entry.li.classList.toggle("past", isPast);
       if (entry._numText !== numText) {
         entry.num.textContent = numText;
@@ -1698,6 +1714,10 @@
     document.body.classList.toggle("is-playing", playing);
     els.iconPlay.style.display = playing ? "none" : "";
     els.iconPause.style.display = playing ? "" : "none";
+    if (els.playBtn) {
+      els.playBtn.setAttribute("aria-label", playing ? "暂停" : "播放");
+      els.playBtn.title = playing ? "暂停 (空格)" : "播放 (空格)";
+    }
 
     if (activePlaylistEl && activePlaylistEl.isConnected) {
       activePlaylistEl.classList.toggle("playing", playing && Number(activePlaylistEl.dataset.index) === currentIndex);
@@ -2002,7 +2022,16 @@
     if (["none", "all", "one"].indexOf(repeat) === -1) repeat = "none";
     els.repeatBtn.classList.toggle("on", repeat !== "none");
     els.repeatBtn.classList.toggle("repeat-one", repeat === "one");
-    els.repeatBtn.title = repeat === "none" ? "循环模式：关闭" : repeat === "all" ? "循环模式：列表循环" : "循环模式：单曲循环";
+    const repeatLabel = repeat === "none" ? "循环模式：关闭" : repeat === "all" ? "循环模式：列表循环" : "循环模式：单曲循环";
+    els.repeatBtn.title = repeatLabel;
+    els.repeatBtn.setAttribute("aria-label", repeatLabel);
+    els.repeatBtn.setAttribute("aria-pressed", repeat !== "none" ? "true" : "false");
+  }
+
+  function syncSeekAriaText(curSec) {
+    if (!els.seek) return;
+    const dur = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+    els.seek.setAttribute("aria-valuetext", fmtTime(curSec) + " / " + fmtTime(dur));
   }
 
   /* ---------------- audio events ---------------- */
@@ -2025,6 +2054,7 @@
     }
     syncSlider(els.seek);
     els.durTime.textContent = fmtTime(audio.duration);
+    syncSeekAriaText(audio.currentTime || 0);
     updateMediaSessionPosition();
   }
 
@@ -2058,6 +2088,7 @@
       if (sec !== lastShownCurSec) {
         lastShownCurSec = sec;
         els.curTime.textContent = fmtTime(sec);
+        syncSeekAriaText(sec);
       }
 
       // Crossfade 尾声平滑衰减（非单曲循环、存在下一曲且非“播完本曲即停”睡眠模式时生效）
@@ -2181,6 +2212,7 @@
     syncSlider(els.seek);
     const v = parseFloat(els.seek.value);
     els.curTime.textContent = fmtTime(v);
+    syncSeekAriaText(v);
     lyricsCtrl.syncToTime(v, true);
   });
   els.seek.addEventListener("change", () => {
@@ -2373,6 +2405,9 @@
         b.classList.toggle("on", on);
         b.setAttribute("aria-selected", on ? "true" : "false");
         b.tabIndex = on ? 0 : -1;
+        if (on && els.genreShelf && b.id) {
+          els.genreShelf.setAttribute("aria-labelledby", b.id);
+        }
         if (on && focusTab) b.focus();
       });
     }

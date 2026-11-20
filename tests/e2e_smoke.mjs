@@ -798,6 +798,30 @@ async function run() {
     await r2Page.click('.theme-mode-btn[data-theme="system"]');
     await r2Page.click("#studioCloseBtn");
 
+    // Verify zero nested interactive controls & keyboard-accessible playlist/lyric buttons + dynamic ARIA states
+    const a11yChecks = await r2Page.evaluate(() => {
+      const nested = [];
+      for (const el of document.querySelectorAll("button, a, input, select, textarea, [role='button']")) {
+        const anc = el.parentElement && el.parentElement.closest("button, a, [role='button'], li[tabindex='0']");
+        if (anc) nested.push(`${el.className} inside ${anc.tagName}.${anc.className}`);
+      }
+      const playRowBtn = document.querySelector(".playlist-item .playlist-play-btn");
+      return {
+        nested,
+        hasSkipLink: !!document.querySelector("a.skip-link[href='#mainCatalog']"),
+        hasSearchLandmark: !!document.querySelector("search#mainCatalog"),
+        hasPlayRowBtn: !!playRowBtn,
+        playRowTabIndex: playRowBtn ? playRowBtn.tabIndex : -99,
+        repeatAriaLabel: document.getElementById("repeatBtn").getAttribute("aria-label") || "",
+      };
+    });
+    assert.deepEqual(a11yChecks.nested, [], "Must have zero nested interactive elements");
+    assert.equal(a11yChecks.hasSkipLink, true, "Must include skip link to main catalog");
+    assert.equal(a11yChecks.hasSearchLandmark, true, "Must use native <search> landmark");
+    assert.equal(a11yChecks.hasPlayRowBtn, true, "Playlist rows must use sibling .playlist-play-btn buttons");
+    assert.equal(a11yChecks.playRowTabIndex, 0, "First/active playlist row button must have roving tabIndex=0");
+    assert.ok(a11yChecks.repeatAriaLabel.includes("循环模式："), "Repeat button must announce current mode via aria-label");
+
     // Favorite the R2 track, play it + verify R2 /lyrics.json timed lyrics
     await r2Page.click(".playlist-item .playlist-fav-btn");
     await r2Page.click(".playlist-item");
