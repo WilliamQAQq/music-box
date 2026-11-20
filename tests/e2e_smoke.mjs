@@ -463,7 +463,13 @@ async function run() {
     await page.locator("#ambientLevelRange").fill("130");
     await page.locator("#ambientLevelRange").dispatchEvent("input");
     assert.equal(await page.textContent("#ambientLevelVal"), "130%");
-    assert.equal(await page.textContent("#ambientStatusMeta"), "雨天 · 窗外细雨");
+    assert.equal(await page.textContent("#ambientStatusMeta"), "雨天 · 窗外暖雨");
+    await page.click('.ambient-mode-btn[data-ambient="thunder"]');
+    assert.equal(await page.textContent("#ambientStatusMeta"), "雷暴 · 远山夜雨");
+    await page.click('.ambient-mode-btn[data-ambient="wild"]');
+    assert.equal(await page.textContent("#ambientStatusMeta"), "野外声 · 远林微风");
+    await page.click('.ambient-mode-btn[data-ambient="city"]');
+    assert.equal(await page.textContent("#ambientStatusMeta"), "城市声 · 夜街远景");
     await page.click('.ambient-mode-btn[data-ambient="off"]');
     await page.click('.eq-preset-btn[data-preset="warm"]');
 

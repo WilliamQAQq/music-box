@@ -6,7 +6,8 @@
 
   const BASE_VINYL_NOISE_GAIN = 0.045;
   const BASE_RADIO_STATIC_GAIN = 0.036;
-  const BASE_AMBIENT_GAIN = 0.19;
+  const BASE_AMBIENT_GAIN = 0.42;
+  const TARGET_AMBIENT_BUFFER_RMS = 0.065;
   const BYPASS_DISCONNECT_DELAY_MS = 140;
 
   function safeDisconnect(fromNode, toNode) {
@@ -553,12 +554,12 @@
   };
 
   /**
-   * 沙龙环境背景音声景配置表：
+   * 沙龙环境背景音声景配置表（面向“智能融乐伴奏”声学调校）：
    * - off: 关闭环境声景
-   * - rain: 雨天 (窗外绵密细雨、微风起伏与屋檐雨滴敲击)
-   * - thunder: 雷暴 (夜雨滂沱、疾风呼啸与远近低频滚雷)
-   * - wild: 野外声 (林间微风、潺潺溪流与虫鸣鸟啭)
-   * - city: 城市声 (远街湿滑路面车流掠过、市井微响与远处钟楼/电车铜铃)
+   * - rain: 雨天 (窗外隔窗暖雨、轻风摇曳与外侧屋檐木质雨滴)
+   * - thunder: 雷暴 (远山夜雨、柔和低风与深沉遥远滚雷，无突兀炸响)
+   * - wild: 野外声 (松林柔和微风、远溪潺潺与立体声边缘轻柔虫鸟)
+   * - city: 城市声 (深夜雨街远景空气垫与无音高湿滑车流掠过，100% 不与任何调性音乐冲突)
    */
   const AMBIENT_PROFILES = {
     off: {
@@ -566,71 +567,92 @@
       shortLabel: "未开启",
       label: "已关闭环境背景音",
       gainScale: 0,
-      hpFreq: 80,
-      lpFreq: 5000,
+      hpFreq: 100,
+      scoopFreq: 1350,
+      scoopQ: 0.6,
+      scoopGain: -7.0,
+      lpFreq: 2400,
     },
     rain: {
       id: "rain",
-      shortLabel: "雨天 · 窗外细雨",
-      label: "雨天声景 · 窗外绵密细雨与屋檐滴落",
-      gainScale: 1.0,
-      hpFreq: 135,
-      lpFreq: 4600,
+      shortLabel: "雨天 · 窗外暖雨",
+      label: "雨天声景 · 窗外绵密暖雨与柔和屋檐雨滴",
+      gainScale: 1.12,
+      hpFreq: 165,
+      scoopFreq: 1350,
+      scoopQ: 0.6,
+      scoopGain: -7.5,
+      lpFreq: 2450,
     },
     thunder: {
       id: "thunder",
-      shortLabel: "雷暴 · 夜雨惊雷",
-      label: "雷暴声景 · 疾风骤雨与远近滚雷轰鸣",
-      gainScale: 1.18,
-      hpFreq: 38,
-      lpFreq: 4800,
+      shortLabel: "雷暴 · 远山夜雨",
+      label: "雷暴声景 · 窗外夜雨与遥远低沉滚雷",
+      gainScale: 0.96,
+      hpFreq: 48,
+      scoopFreq: 1250,
+      scoopQ: 0.58,
+      scoopGain: -8.0,
+      lpFreq: 2100,
     },
     wild: {
       id: "wild",
-      shortLabel: "野外声 · 林溪虫鸟",
-      label: "野外声景 · 林间微风、溪流与虫鸣鸟啭",
-      gainScale: 0.96,
-      hpFreq: 120,
-      lpFreq: 5600,
+      shortLabel: "野外声 · 远林微风",
+      label: "野外声景 · 远林微风、溪流与轻柔虫鸟",
+      gainScale: 0.86,
+      hpFreq: 185,
+      scoopFreq: 1450,
+      scoopQ: 0.62,
+      scoopGain: -7.0,
+      lpFreq: 3200,
     },
     city: {
       id: "city",
-      shortLabel: "城市声 · 夜街车流",
-      label: "城市声景 · 街角车流掠过与远处钟铃",
-      gainScale: 1.04,
-      hpFreq: 55,
-      lpFreq: 3900,
+      shortLabel: "城市声 · 夜街远景",
+      label: "城市声景 · 深夜雨街远景与湿滑车流微响",
+      gainScale: 0.90,
+      hpFreq: 78,
+      scoopFreq: 1200,
+      scoopQ: 0.58,
+      scoopGain: -7.5,
+      lpFreq: 1650,
     },
   };
 
   /**
-   * 按指定声景模式生成 8 秒无缝立体声环境背景音缓冲（首尾等功率余弦交叉淡化确保零接缝循环）：
-   * - rain: 粉红/丝绒雨幕基底 + 立体声随机分布的屋檐/窗玻璃雨滴谐振脉冲
-   * - thunder: 暴雨狂风基底 + 多段远近立体声非线性低频滚雷 (35Hz–190Hz 余韵)
-   * - wild: 林间风吹树叶与溪水潺潺基底 + 立体声夏夜蟋蟀鸣叫 (3.9kHz) 与林鸟双音婉转啼鸣
-   * - city: 城市远景低频底噪 + 左右双向多普勒平移驶过的车流声 + 远方有轨电车/钟楼泛音铜铃
+   * 按指定声景模式生成 16 秒无缝立体声环境背景音缓冲（首尾等功率余弦交叉淡化 + 统一 RMS 归一化与软峰限制）：
+   * - 所有离散声学细节均放置在立体声外缘并经过温润阻尼处理，把正中声场留给人声与主旋律；
+   * - 16 秒长循环显著削弱机械重复感，并统一归一化至 TARGET_AMBIENT_BUFFER_RMS 确保切换声景时响度平滑一致。
    */
   function createAmbientBuffer(ctx, ambientMode) {
     const mode = ambientMode || "rain";
     const sampleRate = ctx.sampleRate;
-    const durationSec = 8;
+    const durationSec = 16;
     const length = Math.max(sampleRate * 4, Math.floor(sampleRate * durationSec));
-    const fadeLen = Math.min(Math.floor(sampleRate * 0.06), Math.floor(length / 8));
+    const fadeLen = Math.min(Math.floor(sampleRate * 0.08), Math.floor(length / 8));
     const totalGen = length + fadeLen;
     const raw0 = new Float32Array(totalGen);
     const raw1 = new Float32Array(totalGen);
 
     let b0_0 = 0, b1_0 = 0, b2_0 = 0;
     let b0_1 = 0, b1_1 = 0, b2_1 = 0;
+    let patLp0 = 0, patLp1 = 0;
+    let gustLp = 0;
+    let leafLp0 = 0, leafLp1 = 0;
+
     for (let w = 0; w < 2048; w++) {
       const n0 = Math.random() * 2 - 1;
       const n1 = Math.random() * 2 - 1;
       b0_0 = 0.992 * b0_0 + n0 * 0.055;
-      b1_0 = 0.95 * b1_0 + n0 * 0.085;
-      b2_0 = 0.82 * b2_0 + n0 * 0.16;
+      b1_0 = 0.955 * b1_0 + n0 * 0.082;
+      b2_0 = 0.84 * b2_0 + n0 * 0.145;
       b0_1 = 0.992 * b0_1 + n1 * 0.055;
-      b1_1 = 0.95 * b1_1 + n1 * 0.085;
-      b2_1 = 0.82 * b2_1 + n1 * 0.16;
+      b1_1 = 0.955 * b1_1 + n1 * 0.082;
+      b2_1 = 0.84 * b2_1 + n1 * 0.145;
+    }
+
+    function brookRipple(t) {
+      return 0.8 + 0.2 * Math.sin(t * Math.PI * 2 * 2.5 + Math.sin(t * 5.2));
     }
 
     for (let i = 0; i < totalGen; i++) {
@@ -639,191 +661,174 @@
       const sec = i / sampleRate;
 
       b0_0 = 0.992 * b0_0 + w0 * 0.055;
-      b1_0 = 0.95 * b1_0 + w0 * 0.085;
-      b2_0 = 0.82 * b2_0 + w0 * 0.16;
-      const pink0 = (b0_0 + b1_0 + b2_0) * 0.08;
+      b1_0 = 0.955 * b1_0 + w0 * 0.082;
+      b2_0 = 0.84 * b2_0 + w0 * 0.145;
+      const pink0 = (b0_0 + b1_0 + b2_0) * 0.082;
 
       b0_1 = 0.992 * b0_1 + w1 * 0.055;
-      b1_1 = 0.95 * b1_1 + w1 * 0.085;
-      b2_1 = 0.82 * b2_1 + w1 * 0.16;
-      const pink1 = (b0_1 + b1_1 + b2_1) * 0.08;
+      b1_1 = 0.955 * b1_1 + w1 * 0.082;
+      b2_1 = 0.84 * b2_1 + w1 * 0.145;
+      const pink1 = (b0_1 + b1_1 + b2_1) * 0.082;
 
       if (mode === "rain" || mode === "thunder") {
         const isThunder = mode === "thunder";
-        const windL = 0.84 + 0.16 * Math.sin(sec * Math.PI * 2 * 0.18 + 0.4);
-        const windR = 0.84 + 0.16 * Math.cos(sec * Math.PI * 2 * 0.21);
-        const patter0 = (w0 - b2_0 * 0.35) * (isThunder ? 0.068 : 0.052);
-        const patter1 = (w1 - b2_1 * 0.35) * (isThunder ? 0.068 : 0.052);
-        const gustSwell = isThunder
-          ? b0_0 * 0.075 * (0.65 + 0.35 * Math.sin(sec * Math.PI * 2 * 0.34))
-          : 0;
-        raw0[i] = (pink0 * (isThunder ? 1.15 : 0.92) + patter0) * windL + gustSwell;
-        raw1[i] = (pink1 * (isThunder ? 1.15 : 0.92) + patter1) * windR + gustSwell * 0.92;
+        const swayL = 0.86 + 0.14 * Math.sin(sec * Math.PI * 2 * 0.125 + 0.4);
+        const swayR = 0.86 + 0.14 * Math.cos(sec * Math.PI * 2 * 0.1875);
+        // 丝绒低通雨丝基底，彻底消除白噪沙哑刺耳感
+        patLp0 = 0.72 * patLp0 + 0.28 * w0;
+        patLp1 = 0.72 * patLp1 + 0.28 * w1;
+        const patter0 = patLp0 * (isThunder ? 0.042 : 0.032);
+        const patter1 = patLp1 * (isThunder ? 0.042 : 0.032);
+        let gustSwell = 0;
+        if (isThunder) {
+          gustLp = 0.97 * gustLp + 0.03 * b0_0;
+          gustSwell = gustLp * 0.24 * (0.65 + 0.35 * Math.sin(sec * Math.PI * 2 * 0.1875));
+        }
+        raw0[i] = (pink0 * (isThunder ? 1.02 : 0.92) + patter0) * swayL + gustSwell;
+        raw1[i] = (pink1 * (isThunder ? 1.02 : 0.92) + patter1) * swayR + gustSwell * 0.88;
       } else if (mode === "wild") {
-        // 林间微风吹拂树叶 + 潺潺溪流声
-        const breezeL = 0.68 + 0.32 * Math.sin(sec * Math.PI * 2 * 0.14) * Math.cos(sec * Math.PI * 2 * 0.23);
-        const breezeR = 0.68 + 0.32 * Math.cos(sec * Math.PI * 2 * 0.16) * Math.sin(sec * Math.PI * 2 * 0.19 + 0.8);
-        const leaves0 = (b2_0 * 0.55 + w0 * 0.12) * 0.055 * breezeL;
-        const leaves1 = (b2_1 * 0.55 + w1 * 0.12) * 0.055 * breezeR;
-        const brook0 = b1_0 * 0.055 * thebrookRipple(sec);
-        const brook1 = b1_1 * 0.055 * thebrookRipple(sec + 0.17);
+        // 柔和松林微风与远溪潺潺
+        const breezeL = 0.72 + 0.28 * Math.sin(sec * Math.PI * 2 * 0.125) * Math.cos(sec * Math.PI * 2 * 0.1875);
+        const breezeR = 0.72 + 0.28 * Math.cos(sec * Math.PI * 2 * 0.125 + 0.5) * Math.sin(sec * Math.PI * 2 * 0.1875 + 0.7);
+        leafLp0 = 0.78 * leafLp0 + 0.22 * (b1_0 * 0.65 + b2_0 * 0.35);
+        leafLp1 = 0.78 * leafLp1 + 0.22 * (b1_1 * 0.65 + b2_1 * 0.35);
+        const leaves0 = leafLp0 * 0.26 * breezeL;
+        const leaves1 = leafLp1 * 0.26 * breezeR;
+        const brook0 = b1_0 * 0.042 * brookRipple(sec);
+        const brook1 = b1_1 * 0.042 * brookRipple(sec + 0.23);
         raw0[i] = leaves0 + brook0;
         raw1[i] = leaves1 + brook1;
       } else if (mode === "city") {
-        // 城市远景低频嗡鸣与街角微风
-        const citySwell = 0.86 + 0.14 * Math.sin(sec * Math.PI * 2 * 0.15);
-        const rumble = Math.sin(sec * Math.PI * 2 * 64) * 0.008 + Math.sin(sec * Math.PI * 2 * 96) * 0.0045;
-        raw0[i] = (b0_0 * 0.095 + b1_0 * 0.038) * citySwell + rumble;
-        raw1[i] = (b0_1 * 0.095 + b1_1 * 0.038) * citySwell + rumble * 0.94;
+        // 深夜城市远景空气垫（纯无音高宽频底噪，绝不产生任何嗡鸣或调性冲突）
+        const citySwell = 0.88 + 0.12 * Math.sin(sec * Math.PI * 2 * 0.125);
+        raw0[i] = (b0_0 * 0.088 + b1_0 * 0.032) * citySwell;
+        raw1[i] = (b0_1 * 0.088 + b1_1 * 0.032) * citySwell;
       }
     }
 
-    function thebrookRipple(t) {
-      return 0.78 + 0.22 * Math.sin(t * Math.PI * 2 * 3.2 + Math.sin(t * 6.5) * 1.2);
-    }
-
-    // 叠加各环境声景的标志性离散声学事件
+    // 叠加克制、远离中央人声区（声像置于外侧）的柔和环境纹理事件
     if (mode === "rain" || mode === "thunder") {
-      // 屋檐/窗玻璃随机水滴敲击声
-      const dropCount = Math.floor((length / sampleRate) * (mode === "thunder" ? 26 : 18));
+      const dropCount = Math.floor((length / sampleRate) * (mode === "thunder" ? 10 : 7));
       for (let d = 0; d < dropCount; d++) {
         const startPos = Math.floor(Math.random() * length);
-        const dropLen = Math.floor(sampleRate * (0.007 + Math.random() * 0.011));
-        const freq = 750 + Math.random() * 1450;
-        const pan = 0.15 + Math.random() * 0.7;
-        const amp = (0.045 + Math.random() * 0.075) * (mode === "thunder" ? 1.15 : 1.0);
+        const dropLen = Math.max(8, Math.floor(sampleRate * (0.005 + Math.random() * 0.006)));
+        const freq = 540 + Math.random() * 680;
+        // 刻意避开中央声场，放置在左右窗框外缘
+        const pan = Math.random() < 0.5 ? (0.08 + Math.random() * 0.18) : (0.74 + Math.random() * 0.18);
+        const amp = (0.012 + Math.random() * 0.018) * (mode === "thunder" ? 1.1 : 1.0);
+        const panL = Math.cos(pan * Math.PI * 0.5);
+        const panR = Math.sin(pan * Math.PI * 0.5);
+        const attackLen = Math.max(1, dropLen * 0.15);
         for (let j = 0; j < dropLen; j++) {
           const idx = (startPos + j) % length;
           const t = j / sampleRate;
-          const env = Math.exp(-j / (dropLen * 0.24));
-          const pitchDrop = freq * (1 + 0.28 * (j / dropLen));
-          const val = Math.sin(2 * Math.PI * pitchDrop * t) * amp * env;
-          raw0[idx] += val * (1 - pan);
-          raw1[idx] += val * pan;
+          const env = Math.exp(-j / (dropLen * 0.22)) * Math.sin(Math.min(1, j / attackLen) * Math.PI * 0.5);
+          const tap = (Math.sin(2 * Math.PI * freq * t) * 0.5 + (Math.random() * 2 - 1) * 0.45) * amp * env;
+          raw0[idx] += tap * panL;
+          raw1[idx] += tap * panR;
         }
       }
     }
 
     if (mode === "thunder") {
-      // 注入 2 场立体声滚雷：初段霹雳裂响 + 远距离低频多峰隆隆回荡
+      // 16 秒内仅安排 2 场低沉遥远的谷地滚雷（双阶深低通，彻底去除突兀炸裂感）
       const strikes = [
-        { posRatio: 0.12, durSec: 2.6, pan: 0.32, strength: 0.36 },
-        { posRatio: 0.56, durSec: 3.1, pan: 0.72, strength: 0.32 },
+        { posRatio: 0.16, durSec: 4.4, pan: 0.24, strength: 0.14 },
+        { posRatio: 0.64, durSec: 3.8, pan: 0.76, strength: 0.1 },
       ];
       strikes.forEach((st) => {
         const startPos = Math.floor(st.posRatio * length);
         const thunderLen = Math.min(length - 1, Math.floor(sampleRate * st.durSec));
-        let lpT0 = 0;
-        let lpT1 = 0;
+        let lpA0 = 0, lpB0 = 0;
+        let lpA1 = 0, lpB1 = 0;
+        const panL = Math.cos(st.pan * Math.PI * 0.5);
+        const panR = Math.sin(st.pan * Math.PI * 0.5);
         for (let j = 0; j < thunderLen; j++) {
           const idx = (startPos + j) % length;
           const normT = j / thunderLen;
           const secT = j / sampleRate;
-          const crackEnv = Math.exp(-normT * 24) * 0.55;
           const rollEnv =
-            Math.sin(Math.min(1, normT * 4.5) * Math.PI * 0.5) *
-            Math.exp(-normT * 2.2) *
-            (0.62 + 0.38 * Math.sin(secT * Math.PI * 2 * 2.4 + Math.cos(secT * 5.2)));
-          const n0 = Math.random() * 2 - 1;
-          const n1 = Math.random() * 2 - 1;
-          lpT0 = 0.968 * lpT0 + 0.032 * n0;
-          lpT1 = 0.968 * lpT1 + 0.032 * n1;
-          const subBoom =
-            Math.sin(2 * Math.PI * (46 - 14 * normT) * secT) * 0.42 +
-            Math.sin(2 * Math.PI * (82 - 22 * normT) * secT) * 0.26;
-          const wave0 = Math.tanh((lpT0 * 2.6 + subBoom) * (crackEnv + rollEnv) * 1.6) * st.strength;
-          const wave1 = Math.tanh((lpT1 * 2.6 + subBoom * 0.95) * (crackEnv + rollEnv) * 1.6) * st.strength;
-          raw0[idx] += wave0 * (1.15 - st.pan * 0.5);
-          raw1[idx] += wave1 * (0.65 + st.pan * 0.5);
+            Math.sin(Math.min(1, normT * 2.8) * Math.PI * 0.5) *
+            Math.exp(-normT * 2.3) *
+            (0.68 + 0.32 * Math.sin(secT * Math.PI * 2 * 1.4 + Math.cos(secT * 2.9)));
+          lpA0 = 0.986 * lpA0 + 0.014 * (Math.random() * 2 - 1);
+          lpB0 = 0.978 * lpB0 + 0.022 * lpA0;
+          lpA1 = 0.986 * lpA1 + 0.014 * (Math.random() * 2 - 1);
+          lpB1 = 0.978 * lpB1 + 0.022 * lpA1;
+          const wave0 = Math.tanh(lpB0 * 18.0 * rollEnv * 1.3) * st.strength;
+          const wave1 = Math.tanh(lpB1 * 18.0 * rollEnv * 1.3) * st.strength;
+          raw0[idx] += wave0 * panL;
+          raw1[idx] += wave1 * panR;
         }
       });
     } else if (mode === "wild") {
-      // 1) 夏夜林间蟋蟀立体声节律鸣叫 (3.85kHz / 4.15kHz)
-      const cricketBursts = 14;
+      // 1) 遥远轻柔的林缘晚虫微鸣（低电平、外缘声像、柔滑起落包络）
+      const cricketBursts = 10;
       for (let c = 0; c < cricketBursts; c++) {
-        const basePos = Math.floor(((c + 0.2) / cricketBursts) * length);
-        const pan = c % 2 === 0 ? 0.22 : 0.78;
-        const carrier = c % 2 === 0 ? 3860 : 4120;
-        const pulses = 3 + (c % 2);
-        const pulseGap = Math.floor(sampleRate * 0.034);
-        const pulseDur = Math.floor(sampleRate * 0.022);
-        for (let p = 0; p < pulses; p++) {
+        const basePos = Math.floor(((c + 0.3) / cricketBursts) * length);
+        const pan = c % 2 === 0 ? 0.1 : 0.9;
+        const panL = Math.cos(pan * Math.PI * 0.5);
+        const panR = Math.sin(pan * Math.PI * 0.5);
+        const carrier = Math.min(sampleRate * 0.42, c % 2 === 0 ? 3420 : 3680);
+        const pulseGap = Math.floor(sampleRate * 0.044);
+        const pulseDur = Math.max(8, Math.floor(sampleRate * 0.026));
+        for (let p = 0; p < 3; p++) {
           const pStart = (basePos + p * pulseGap) % length;
           for (let j = 0; j < pulseDur; j++) {
             const idx = (pStart + j) % length;
-            const win = Math.sin((j / pulseDur) * Math.PI);
-            const sig = Math.sin((2 * Math.PI * carrier * j) / sampleRate) * 0.026 * win;
-            raw0[idx] += sig * (1 - pan);
-            raw1[idx] += sig * pan;
+            const win = Math.pow(Math.sin((j / pulseDur) * Math.PI), 1.5);
+            const sig = Math.sin((2 * Math.PI * carrier * j) / sampleRate) * 0.0075 * win;
+            raw0[idx] += sig * panL;
+            raw1[idx] += sig * panR;
           }
         }
       }
-      // 2) 清脆林鸟婉转啼鸣 (1.9kHz–3.1kHz 滑音与颤音)
+      // 2) 16 秒内仅 3 声远处花园林鸟轻啭（克制弱化，绝不盖过歌曲旋律）
       const birdCalls = [
-        { ratio: 0.09, fStart: 2150, fEnd: 2780, dur: 0.14, pan: 0.28 },
-        { ratio: 0.12, fStart: 2720, fEnd: 2320, dur: 0.16, pan: 0.28 },
-        { ratio: 0.42, fStart: 1920, fEnd: 2560, dur: 0.18, pan: 0.74 },
-        { ratio: 0.45, fStart: 2580, fEnd: 2980, dur: 0.15, pan: 0.74 },
-        { ratio: 0.74, fStart: 2380, fEnd: 1980, dur: 0.17, pan: 0.46 },
+        { ratio: 0.14, fStart: 2050, fEnd: 2480, dur: 0.15, pan: 0.14 },
+        { ratio: 0.49, fStart: 2320, fEnd: 1980, dur: 0.17, pan: 0.86 },
+        { ratio: 0.81, fStart: 1880, fEnd: 2240, dur: 0.14, pan: 0.18 },
       ];
       birdCalls.forEach((bc) => {
         const startPos = Math.floor(bc.ratio * length);
-        const callLen = Math.floor(sampleRate * bc.dur);
+        const callLen = Math.max(16, Math.floor(sampleRate * bc.dur));
+        const panL = Math.cos(bc.pan * Math.PI * 0.5);
+        const panR = Math.sin(bc.pan * Math.PI * 0.5);
         let phase = 0;
         for (let j = 0; j < callLen; j++) {
           const idx = (startPos + j) % length;
           const prog = j / callLen;
-          const env = Math.sin(prog * Math.PI) * Math.pow(1 - prog * 0.3, 1.4);
-          const trill = Math.sin(prog * Math.PI * 2 * 18) * 65;
-          const instFreq = bc.fStart + (bc.fEnd - bc.fStart) * prog + trill;
+          const env = Math.pow(Math.sin(prog * Math.PI), 1.6) * Math.pow(1 - prog * 0.25, 1.2);
+          const trill = Math.sin(prog * Math.PI * 2 * 12) * 32;
+          const instFreq = Math.min(sampleRate * 0.42, bc.fStart + (bc.fEnd - bc.fStart) * prog + trill);
           phase += (2 * Math.PI * instFreq) / sampleRate;
-          const birdSample = (Math.sin(phase) + 0.22 * Math.sin(phase * 2)) * 0.052 * env;
-          raw0[idx] += birdSample * (1 - bc.pan);
-          raw1[idx] += birdSample * bc.pan;
+          const birdSample = Math.sin(phase) * 0.013 * env;
+          raw0[idx] += birdSample * panL;
+          raw1[idx] += birdSample * panR;
         }
       });
     } else if (mode === "city") {
-      // 1) 双向多普勒平移驶过的街角车辆 (平滑左右声像移动 + 轮胎摩擦频段)
+      // 16 秒内 3 趟远街湿滑路面宽频车流掠过（纯宽频滤噪，去除单音发动机与冲突钟铃）
       const passes = [
-        { ratio: 0.08, dur: 2.1, leftToRight: true, speedFreq: 340 },
-        { ratio: 0.44, dur: 2.4, leftToRight: false, speedFreq: 285 },
-        { ratio: 0.76, dur: 1.9, leftToRight: true, speedFreq: 390 },
+        { ratio: 0.1, dur: 3.2, leftToRight: true },
+        { ratio: 0.46, dur: 3.6, leftToRight: false },
+        { ratio: 0.78, dur: 2.9, leftToRight: true },
       ];
       passes.forEach((ps) => {
         const startPos = Math.floor(ps.ratio * length);
-        const passLen = Math.floor(sampleRate * ps.dur);
-        let lpCar = 0;
+        const passLen = Math.min(length - 1, Math.floor(sampleRate * ps.dur));
+        let lpCarA = 0;
+        let lpCarB = 0;
         for (let j = 0; j < passLen; j++) {
           const idx = (startPos + j) % length;
           const prog = j / passLen;
-          const env = Math.pow(Math.sin(prog * Math.PI), 1.6);
-          const pan = ps.leftToRight ? prog : 1 - prog;
-          const dopplerShift = 1.12 - 0.24 * prog;
-          const w = Math.random() * 2 - 1;
-          lpCar = 0.82 * lpCar + 0.18 * w;
-          const engine = Math.sin((2 * Math.PI * ps.speedFreq * dopplerShift * j) / sampleRate) * 0.12;
-          const tire = (lpCar + engine) * 0.135 * env;
+          const env = Math.pow(Math.sin(prog * Math.PI), 2.0);
+          const pan = ps.leftToRight ? (0.12 + 0.76 * prog) : (0.88 - 0.76 * prog);
+          lpCarA = 0.9 * lpCarA + 0.1 * (Math.random() * 2 - 1);
+          lpCarB = 0.86 * lpCarB + 0.14 * lpCarA;
+          const tire = lpCarB * 0.145 * env;
           raw0[idx] += tire * Math.cos(pan * Math.PI * 0.5);
           raw1[idx] += tire * Math.sin(pan * Math.PI * 0.5);
-        }
-      });
-      // 2) 远处有轨电车/钟楼双声泛音铜铃 (528Hz + 792Hz + 1056Hz)
-      const chimes = [0.29, 0.33];
-      chimes.forEach((ratio) => {
-        const startPos = Math.floor(ratio * length);
-        const chimeLen = Math.floor(sampleRate * 0.55);
-        for (let j = 0; j < chimeLen; j++) {
-          const idx = (startPos + j) % length;
-          const secC = j / sampleRate;
-          const env = Math.exp(-secC * 7.5);
-          const bell =
-            (Math.sin(2 * Math.PI * 528 * secC) * 0.55 +
-              Math.sin(2 * Math.PI * 792 * secC) * 0.3 +
-              Math.sin(2 * Math.PI * 1056 * secC) * 0.15) *
-            0.036 *
-            env;
-          raw0[idx] += bell * 0.62;
-          raw1[idx] += bell * 0.38;
         }
       });
     }
@@ -840,6 +845,20 @@
       const fadeOut = Math.cos(t * Math.PI * 0.5);
       ch0[i] = ch0[i] * fadeIn + raw0[length + i] * fadeOut;
       ch1[i] = ch1[i] * fadeIn + raw1[length + i] * fadeOut;
+    }
+
+    // 统一能量归一化 + 柔和软峰压限，确保四大声景响度基线一致且绝无突兀尖峰
+    let sumSq = 0;
+    for (let i = 0; i < length; i++) {
+      sumSq += ch0[i] * ch0[i] + ch1[i] * ch1[i];
+    }
+    const rms = Math.sqrt(sumSq / (2 * length));
+    if (rms > 1e-6) {
+      const norm = TARGET_AMBIENT_BUFFER_RMS / rms;
+      for (let i = 0; i < length; i++) {
+        ch0[i] = Math.tanh(ch0[i] * norm * 1.4) / 1.4;
+        ch1[i] = Math.tanh(ch1[i] * norm * 1.4) / 1.4;
+      }
     }
 
     return buffer;
@@ -935,6 +954,9 @@
     let ambientNodes = null;
     let eqNodes = null;
     let analyserNode = null;
+    let musicDuckAnalyser = null;
+    let duckFloatBuf = null;
+    let duckByteBuf = null;
     let vinylNoiseBuffer = null;
     const radioNoiseBuffers = {};
     const ambientBuffers = {};
@@ -943,6 +965,7 @@
     let vinylConnected = false;
     let radioConnected = false;
     let ambientConnected = false;
+    let ambientDuckConnected = false;
     let eqConnected = false;
     let analyserWanted = false;
     let analyserConnected = false;
@@ -950,8 +973,13 @@
     let vinylDisconnectTimer = null;
     let radioDisconnectTimer = null;
     let ambientDisconnectTimer = null;
+    let ambientDuckTimer = null;
     let eqDisconnectTimer = null;
     let audioSuspendTimer = null;
+
+    let ambientSmoothRms = 0.055;
+    let ambientDuckWarmupTicks = 0;
+    let ambientAdaptiveGain = 0.55;
 
     let sleepFadeFactor = 1;
     let transitionFadeFactor = 1;
@@ -1713,26 +1741,130 @@
       if (ambientNodes) return true;
       if (!ensureBaseGraph()) return false;
       try {
+        const sourceFadeGain = audioCtx.createGain();
+        sourceFadeGain.gain.value = 1;
+
+        // 1) 次低频清理高通，避免与音乐底鼓/大提琴混浊碰撞
         const hp = audioCtx.createBiquadFilter();
         hp.type = "highpass";
-        hp.frequency.value = 120;
+        hp.frequency.value = 165;
         hp.Q.value = 0.707;
 
-        const lp = audioCtx.createBiquadFilter();
-        lp.type = "lowpass";
-        lp.frequency.value = 4800;
-        lp.Q.value = 0.707;
+        // 2) 人声与主旋律专属声场让位凹槽 (1.2kHz–1.45kHz 宽带 -7dB 退让)
+        const midScoop = audioCtx.createBiquadFilter();
+        midScoop.type = "peaking";
+        midScoop.frequency.value = 1350;
+        midScoop.Q.value = 0.6;
+        midScoop.gain.value = -7.5;
+
+        // 3) 双阶 24dB/oct 隔窗空气吸收低通，去除刺耳沙哑白噪高频
+        const lp1 = audioCtx.createBiquadFilter();
+        lp1.type = "lowpass";
+        lp1.frequency.value = 2450;
+        lp1.Q.value = 0.62;
+
+        const lp2 = audioCtx.createBiquadFilter();
+        lp2.type = "lowpass";
+        lp2.frequency.value = 2800;
+        lp2.Q.value = 0.62;
+
+        // 4) 柔膝动态尖峰驯服器，杜绝雨滴/滚雷/鸟鸣瞬间冒头打断音乐
+        const bedComp = audioCtx.createDynamicsCompressor();
+        bedComp.threshold.value = -24;
+        bedComp.knee.value = 16;
+        bedComp.ratio.value = 3.2;
+        bedComp.attack.value = 0.015;
+        bedComp.release.value = 0.28;
+
+        // 5) 音乐响度自适应耦合增益 + 用户总控淡入淡出增益
+        const duckGain = audioCtx.createGain();
+        duckGain.gain.value = ambientAdaptiveGain;
 
         const outGain = audioCtx.createGain();
         outGain.gain.value = 0;
 
-        hp.connect(lp);
-        lp.connect(outGain);
+        sourceFadeGain.connect(hp);
+        hp.connect(midScoop);
+        midScoop.connect(lp1);
+        lp1.connect(lp2);
+
+        let spatialActive = false;
+        if (
+          typeof audioCtx.createDelay === "function" &&
+          typeof audioCtx.createChannelSplitter === "function" &&
+          typeof audioCtx.createChannelMerger === "function"
+        ) {
+          // 隔窗空间远景反射扩散 (19ms/29ms 交叉暗反射) + Mid-Side 立体声环绕退让 (Mid -2.8dB / Side +1.7dB，单声道完全兼容)
+          const spatialSum = audioCtx.createGain();
+          spatialSum.gain.value = 1;
+
+          const directGain = audioCtx.createGain();
+          directGain.gain.value = 0.72;
+          lp2.connect(directGain);
+          directGain.connect(spatialSum);
+
+          const diffSplit = audioCtx.createChannelSplitter(2);
+          const delayL = audioCtx.createDelay(0.08);
+          delayL.delayTime.value = 0.019;
+          const delayR = audioCtx.createDelay(0.08);
+          delayR.delayTime.value = 0.029;
+          const diffMerge = audioCtx.createChannelMerger(2);
+          const diffLp = audioCtx.createBiquadFilter();
+          diffLp.type = "lowpass";
+          diffLp.frequency.value = 1450;
+          diffLp.Q.value = 0.707;
+          const diffWetGain = audioCtx.createGain();
+          diffWetGain.gain.value = 0.34;
+
+          lp2.connect(diffSplit);
+          diffSplit.connect(delayL, 0);
+          diffSplit.connect(delayR, 1);
+          delayL.connect(diffMerge, 0, 1);
+          delayR.connect(diffMerge, 0, 0);
+          diffMerge.connect(diffLp);
+          diffLp.connect(diffWetGain);
+          diffWetGain.connect(spatialSum);
+
+          // Mid-Side 退让矩阵：L' = 0.97*L - 0.25*R, R' = 0.97*R - 0.25*L (把中心让给主唱/乐器，外侧柔和环绕)
+          const msSplit = audioCtx.createChannelSplitter(2);
+          const msMerge = audioCtx.createChannelMerger(2);
+          const lToL = audioCtx.createGain();
+          lToL.gain.value = 0.97;
+          const rToL = audioCtx.createGain();
+          rToL.gain.value = -0.25;
+          const rToR = audioCtx.createGain();
+          rToR.gain.value = 0.97;
+          const lToR = audioCtx.createGain();
+          lToR.gain.value = -0.25;
+
+          spatialSum.connect(msSplit);
+          msSplit.connect(lToL, 0);
+          msSplit.connect(lToR, 0);
+          msSplit.connect(rToR, 1);
+          msSplit.connect(rToL, 1);
+          lToL.connect(msMerge, 0, 0);
+          rToL.connect(msMerge, 0, 0);
+          rToR.connect(msMerge, 0, 1);
+          lToR.connect(msMerge, 0, 1);
+          msMerge.connect(bedComp);
+          spatialActive = true;
+        } else {
+          lp2.connect(bedComp);
+        }
+
+        bedComp.connect(duckGain);
+        duckGain.connect(outGain);
 
         ambientNodes = {
+          sourceFadeGain,
           hp,
-          lp,
+          midScoop,
+          lp1,
+          lp2,
+          bedComp,
+          duckGain,
           outGain,
+          spatialActive,
           source: null,
           activeMode: "",
         };
@@ -1740,6 +1872,81 @@
       } catch (e) {
         console.warn("Ambient soundscape emulation unavailable:", e);
         return false;
+      }
+    }
+
+    function sampleAmbientMusicCoupling() {
+      if (!ambientNodes || !ambientConnected || !musicDuckAnalyser || !audioCtx || audio.paused || audio.muted || audio.volume <= 0) return;
+      let sumSq = 0;
+      let count = 0;
+      if (typeof musicDuckAnalyser.getFloatTimeDomainData === "function") {
+        if (!duckFloatBuf || duckFloatBuf.length !== musicDuckAnalyser.fftSize) {
+          duckFloatBuf = new Float32Array(musicDuckAnalyser.fftSize);
+        }
+        musicDuckAnalyser.getFloatTimeDomainData(duckFloatBuf);
+        count = duckFloatBuf.length;
+        for (let i = 0; i < count; i++) {
+          const s = duckFloatBuf[i];
+          sumSq += s * s;
+        }
+      } else if (typeof musicDuckAnalyser.getByteTimeDomainData === "function") {
+        if (!duckByteBuf || duckByteBuf.length !== musicDuckAnalyser.fftSize) {
+          duckByteBuf = new Uint8Array(musicDuckAnalyser.fftSize);
+        }
+        musicDuckAnalyser.getByteTimeDomainData(duckByteBuf);
+        count = duckByteBuf.length;
+        for (let i = 0; i < count; i++) {
+          const s = (duckByteBuf[i] - 128) / 128;
+          sumSq += s * s;
+        }
+      }
+
+      const rawRms = count > 0 ? Math.sqrt(sumSq / count) : 0;
+      let targetGain = 0.55;
+      if (rawRms >= 1e-6) {
+        const effVol = Math.max(0.08, Math.min(1, Number(audio.volume) || 0));
+        const trackRms = Math.min(0.65, rawRms / effVol);
+        const fastWarmup = ambientDuckWarmupTicks < 5;
+        ambientDuckWarmupTicks += 1;
+        const alpha = fastWarmup ? 0.36 : (trackRms > ambientSmoothRms ? 0.14 : 0.075);
+        ambientSmoothRms = ambientSmoothRms * (1 - alpha) + trackRms * alpha;
+        // 音乐响度比例耦合：无论极轻钢琴 (-38dBFS) 还是饱满爵士/军乐 (-16dBFS)，背景音始终温和稳居音乐之下约 17–20dB
+        const couple = clampNum(0.02 + Math.pow(ambientSmoothRms, 0.9) * 7.6, 0.15, 1.62);
+        // 强音/主唱瞬态温和退让 (约 -1.5 至 -2.5dB)，无抽吸感
+        const peakDuck = 1 / (1 + Math.max(0, trackRms - ambientSmoothRms * 1.12) * 3.2);
+        targetGain = clampNum(couple * peakDuck, 0.14, 1.55);
+      }
+
+      ambientAdaptiveGain = targetGain;
+      const t = audioCtx.currentTime;
+      ambientNodes.duckGain.gain.setTargetAtTime(targetGain, t, 0.32);
+    }
+
+    function startAmbientDuckLoop() {
+      if (!ambientConnected || !isAmbientActive() || audio.paused || !baseGraph || !audioCtx) return;
+      if (!musicDuckAnalyser && typeof audioCtx.createAnalyser === "function") {
+        musicDuckAnalyser = audioCtx.createAnalyser();
+        musicDuckAnalyser.fftSize = 256;
+        musicDuckAnalyser.smoothingTimeConstant = 0.85;
+      }
+      if (musicDuckAnalyser && !ambientDuckConnected) {
+        baseGraph.postStage3Bus.connect(musicDuckAnalyser);
+        ambientDuckConnected = true;
+      }
+      if (!ambientDuckTimer && musicDuckAnalyser) {
+        sampleAmbientMusicCoupling();
+        ambientDuckTimer = setInterval(sampleAmbientMusicCoupling, 120);
+      }
+    }
+
+    function stopAmbientDuckLoop() {
+      if (ambientDuckTimer) {
+        clearInterval(ambientDuckTimer);
+        ambientDuckTimer = null;
+      }
+      if (ambientDuckConnected && baseGraph && musicDuckAnalyser) {
+        safeDisconnect(baseGraph.postStage3Bus, musicDuckAnalyser);
+        ambientDuckConnected = false;
       }
     }
 
@@ -1755,6 +1962,7 @@
       if (!ambientNodes || !ambientConnected || !audioCtx) return;
       const mode = ambientState.mode;
       if (ambientNodes.activeMode === mode && (!isAmbientActive() || ambientNodes.source)) return;
+      const hadPrev = !!ambientNodes.source;
       safeStopSource(ambientNodes.source);
       ambientNodes.source = null;
       ambientNodes.activeMode = mode;
@@ -1764,7 +1972,13 @@
       const src = audioCtx.createBufferSource();
       src.buffer = buf;
       src.loop = true;
-      src.connect(ambientNodes.hp);
+      src.connect(ambientNodes.sourceFadeGain);
+      if (hadPrev && ambientNodes.sourceFadeGain) {
+        const t = audioCtx.currentTime;
+        ambientNodes.sourceFadeGain.gain.cancelScheduledValues(t);
+        ambientNodes.sourceFadeGain.gain.setValueAtTime(0.001, t);
+        ambientNodes.sourceFadeGain.gain.setTargetAtTime(1, t + 0.01, 0.08);
+      }
       src.start();
       ambientNodes.source = src;
     }
@@ -1776,12 +1990,15 @@
       if (!ambientConnected) {
         ambientNodes.outGain.connect(baseGraph.masterGain);
         ambientConnected = true;
+        ambientDuckWarmupTicks = 0;
       }
       syncAmbientSource();
+      startAmbientDuckLoop();
       return true;
     }
 
     function disconnectAmbientBranchImmediate() {
+      stopAmbientDuckLoop();
       if (!ambientNodes || !ambientConnected) return;
       safeDisconnect(ambientNodes.outGain, baseGraph.masterGain);
       safeStopSource(ambientNodes.source);
@@ -1910,11 +2127,12 @@
     }
 
     function getTargetAmbientGain() {
-      if (!isAmbientActive() || audio.paused || audio.volume <= 0) return 0;
+      if (!isAmbientActive() || audio.paused || audio.muted || audio.volume <= 0) return 0;
       const ap = AMBIENT_PROFILES[ambientState.mode] || AMBIENT_PROFILES.off;
       if (!ap.gainScale || ambientState.level <= 0) return 0;
       const baseVol = typeof options.getBaseVolume === "function" ? options.getBaseVolume() : audio.volume;
-      return BASE_AMBIENT_GAIN * Math.min(1, Math.max(0, baseVol)) * ambientState.level * ap.gainScale;
+      const levelCurve = Math.pow(Math.max(0, ambientState.level), 1.3);
+      return BASE_AMBIENT_GAIN * Math.min(1, Math.max(0, baseVol)) * levelCurve * ap.gainScale;
     }
 
     function applyMasterFade(immediate) {
@@ -2016,11 +2234,24 @@
       }
 
       if (ambientNodes) {
-        if (isAmbientActive() && ambientConnected) syncAmbientSource();
+        if (isAmbientActive() && ambientConnected) {
+          syncAmbientSource();
+          if (!audio.paused) startAmbientDuckLoop();
+          else stopAmbientDuckLoop();
+        } else {
+          stopAmbientDuckLoop();
+        }
         const ap = AMBIENT_PROFILES[ambientState.mode] || AMBIENT_PROFILES.off;
-        ambientNodes.hp.frequency.setTargetAtTime(ap.hpFreq, time, rampTime);
-        ambientNodes.lp.frequency.setTargetAtTime(ap.lpFreq, time, rampTime);
-        ambientNodes.outGain.gain.setTargetAtTime(getTargetAmbientGain(), time, rampTime);
+        const nyq = Math.max(1200, (audioCtx.sampleRate || 44100) * 0.45);
+        const targetAmb = getTargetAmbientGain();
+        const ambRamp = immediate ? 0.008 : (targetAmb > 0 ? 0.16 : 0.04);
+        ambientNodes.hp.frequency.setTargetAtTime(Math.min(nyq, ap.hpFreq), time, rampTime);
+        ambientNodes.midScoop.frequency.setTargetAtTime(Math.min(nyq, ap.scoopFreq || 1350), time, rampTime);
+        ambientNodes.midScoop.Q.setTargetAtTime(ap.scoopQ || 0.6, time, rampTime);
+        ambientNodes.midScoop.gain.setTargetAtTime(ap.scoopGain != null ? ap.scoopGain : -7.5, time, rampTime);
+        ambientNodes.lp1.frequency.setTargetAtTime(Math.min(nyq, ap.lpFreq), time, rampTime);
+        ambientNodes.lp2.frequency.setTargetAtTime(Math.min(nyq, ap.lpFreq * 1.15), time, rampTime);
+        ambientNodes.outGain.gain.setTargetAtTime(targetAmb, time, ambRamp);
         if (!isAmbientActive() && ambientConnected) scheduleAmbientDisconnect();
       }
 
@@ -2370,6 +2601,7 @@
     }
 
     function onPlay() {
+      ambientDuckWarmupTicks = 0;
       if (needsAudioGraph()) {
         ensureBaseGraph();
         if (synthFxEnabled) connectSynthBranch();
@@ -2387,6 +2619,7 @@
     }
 
     function onPauseOrEnd() {
+      stopAmbientDuckLoop();
       updateGraph(false);
       scheduleSuspend();
     }
@@ -2422,6 +2655,8 @@
       getAmbientState,
       setAmbientMode,
       setAmbientLevel,
+      getAmbientAdaptiveGain: () => ambientAdaptiveGain,
+      isAmbientSpatialActive: () => !!(ambientNodes && ambientNodes.spatialActive),
       setAnalyserActive,
       readFrequencyData,
       getFrequencyBinCount,
