@@ -1063,6 +1063,48 @@ test("Edge Cache serves public JSON with zero R2 reads while preserving CORS iso
     const persistedAfterTrip = JSON.parse(kvHeadroom.store.get("quota:state:v1"));
     assert.equal(persistedAfterTrip.tripped, true, "Emergency KV write headroom must persist tripped state past 850 writes");
     assert.equal(persistedAfterTrip.dailyKvWrites, 851);
+
+    // 13. HEAD /media/* honors If-None-Match (304), private empty manifest/lyrics send private no-store, and /health counts toward dailyReqs
+    const mediaPath =
+      "https://worker.example/media/" + encodeURIComponent("民谣诗篇") + "/" + encodeURIComponent("Test Track.mp3");
+    const head304 = await handleRequest(
+      new Request(mediaPath, {
+        method: "HEAD",
+        headers: { Origin: "https://williamqaqq.github.io", "If-None-Match": '"a1"' },
+      }),
+      makeEnv()
+    );
+    assert.equal(head304.status, 304, "HEAD /media/* must return 304 when If-None-Match matches ETag");
+
+    const emptyPrivateEnv = makeEnv({ ACCESS_KEY: "priv-key-123", MUSIC_BUCKET: makeMockBucket({}) });
+    const emptyPrivManifest = await handleRequest(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io", "X-Music-Key": "priv-key-123" },
+      }),
+      emptyPrivateEnv
+    );
+    assert.equal(emptyPrivManifest.status, 200);
+    assert.equal(emptyPrivManifest.headers.get("Cache-Control"), "private, no-store");
+
+    const emptyPrivLyrics = await handleRequest(
+      new Request("https://worker.example/lyrics.json", {
+        headers: { Origin: "https://williamqaqq.github.io", "X-Music-Key": "priv-key-123" },
+      }),
+      emptyPrivateEnv
+    );
+    assert.equal(emptyPrivLyrics.status, 200);
+    assert.equal(emptyPrivLyrics.headers.get("Cache-Control"), "private, no-store");
+
+    const healthQuotaEnv = makeEnv({ MAX_DAILY_REQUESTS: "2" });
+    await handleRequest(new Request("https://worker.example/health"), healthQuotaEnv);
+    await handleRequest(new Request("https://worker.example/health"), healthQuotaEnv);
+    const afterHealthManifest = await handleRequest(
+      new Request("https://worker.example/manifest.json", {
+        headers: { Origin: "https://williamqaqq.github.io" },
+      }),
+      healthQuotaEnv
+    );
+    assert.equal(afterHealthManifest.status, 503, "/health requests must count toward daily request quota shield");
   } finally {
     globalThis.caches = origCaches;
   }

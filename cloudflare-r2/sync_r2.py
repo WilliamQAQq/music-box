@@ -121,7 +121,10 @@ def scan_library(root_dir, no_online=False, prev_meta=None, force_rehash=False):
             if os.path.islink(full_path):
                 continue
             real_file = os.path.realpath(full_path)
-            if os.path.commonpath([real_root, real_file]) != real_root:
+            try:
+                if os.path.commonpath([real_root, real_file]) != real_root:
+                    continue
+            except ValueError:
                 continue
             rel_key = os.path.relpath(full_path, root_dir).replace("\\", "/")
             rel_dir = os.path.dirname(rel_key)

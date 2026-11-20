@@ -1364,6 +1364,19 @@
       return true;
     }
 
+    function resetGainParamImmediate(param, val) {
+      if (!param) return;
+      if (audioCtx && typeof param.cancelScheduledValues === "function") {
+        const t = audioCtx.currentTime;
+        param.cancelScheduledValues(t);
+        if (typeof param.setValueAtTime === "function") {
+          param.setValueAtTime(val, t);
+          return;
+        }
+      }
+      param.value = val;
+    }
+
     function disconnectSynthBranchImmediate() {
       if (!synthNodes || !synthConnected) return;
       safeDisconnect(baseGraph.source, synthNodes.inputTrim);
@@ -1372,7 +1385,7 @@
       synthNodes.lfos = [];
       synthConnected = false;
       if (baseGraph && baseGraph.stage1DryGain) {
-        baseGraph.stage1DryGain.gain.value = 1;
+        resetGainParamImmediate(baseGraph.stage1DryGain.gain, 1);
       }
     }
 
@@ -1513,7 +1526,7 @@
       vinylNodes.lfos = [];
       vinylConnected = false;
       if (baseGraph && baseGraph.stage2DryGain) {
-        baseGraph.stage2DryGain.gain.value = 1;
+        resetGainParamImmediate(baseGraph.stage2DryGain.gain, 1);
       }
     }
 
@@ -1724,7 +1737,7 @@
       radioNodes.lfos = [];
       radioConnected = false;
       if (baseGraph && baseGraph.stage3DryGain) {
-        baseGraph.stage3DryGain.gain.value = 1;
+        resetGainParamImmediate(baseGraph.stage3DryGain.gain, 1);
       }
     }
 
@@ -2056,7 +2069,7 @@
       safeDisconnect(eqNodes.wetGain, baseGraph.masterGain);
       eqConnected = false;
       if (baseGraph.eqDryGain) {
-        baseGraph.eqDryGain.gain.value = 1;
+        resetGainParamImmediate(baseGraph.eqDryGain.gain, 1);
       }
     }
 
@@ -2113,13 +2126,13 @@
     }
 
     function getTargetNoiseGain() {
-      if (!vinylFxEnabled || audio.paused || audio.volume <= 0) return 0;
+      if (!vinylFxEnabled || audio.paused || audio.muted || audio.volume <= 0) return 0;
       const baseVol = typeof options.getBaseVolume === "function" ? options.getBaseVolume() : audio.volume;
       return BASE_VINYL_NOISE_GAIN * Math.min(1, Math.max(0, baseVol)) * mixState.vinyl;
     }
 
     function getTargetRadioNoiseGain() {
-      if (!radioFxEnabled || audio.paused || audio.volume <= 0) return 0;
+      if (!radioFxEnabled || audio.paused || audio.muted || audio.volume <= 0) return 0;
       const np = RADIO_NOISE_PROFILES[radioTuning.noiseMode] || RADIO_NOISE_PROFILES.qrn;
       if (!np.gainScale || radioTuning.noiseLevel <= 0) return 0;
       const baseVol = typeof options.getBaseVolume === "function" ? options.getBaseVolume() : audio.volume;
@@ -2141,7 +2154,13 @@
       if (baseGraph && audioCtx) {
         const time = audioCtx.currentTime;
         const target = Math.max(0.015, Math.min(4.5, fadeTarget * getPreampLinear()));
-        baseGraph.masterGain.gain.setTargetAtTime(target, time, immediate ? 0.008 : 0.035);
+        const gainParam = baseGraph.masterGain.gain;
+        if (typeof gainParam.cancelAndHoldAtTime === "function") {
+          try { gainParam.cancelAndHoldAtTime(time); } catch (e) { gainParam.cancelScheduledValues(time); }
+        } else if (typeof gainParam.cancelScheduledValues === "function") {
+          gainParam.cancelScheduledValues(time);
+        }
+        gainParam.setTargetAtTime(target, time, immediate ? 0.008 : 0.035);
       } else if (typeof options.onFallbackGainChange === "function") {
         options.onFallbackGainChange(fadeTarget);
       }
@@ -2453,6 +2472,7 @@
       if (band === "preamp") {
         eqState.preamp = clampNum(db, -6, 12, 0);
         storageSet(KEYS.EQ, JSON.stringify(eqState));
+        fadeInUntilMs = 0;
         if (!audio.paused && needsAudioGraph()) {
           ensureBaseGraph();
           ensureResumed();
@@ -2490,6 +2510,7 @@
 
     function setVolumeBoost(mult, skipApply) {
       volumeBoost = clampNum(mult, 0.5, 2, 1);
+      fadeInUntilMs = 0;
       if (!audio.paused && needsAudioGraph()) {
         ensureBaseGraph();
         ensureResumed();

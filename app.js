@@ -307,8 +307,9 @@
     onClearAudioCache: () => swCachedUrls.clear(),
     onCrossfadeChange: (sec) => {
       if (sec <= 0) {
+        const hadFade = inTailFade || pendingFadeInMs > 0;
         pendingFadeInMs = 0;
-        if (inTailFade) {
+        if (hadFade) {
           inTailFade = false;
           audioFx.setTransitionFadeFactor(1, true);
         }
@@ -1249,7 +1250,7 @@
     cancelPreload();
     isSeeking = false;
     audio.src = t.url;
-    studioCtrl.applyPlaybackSpeed(Number(storageGet(KEYS.SPEED, "1")) || 1, false);
+    studioCtrl.applyPlaybackSpeed(studioCtrl.getPlaybackSpeed(), false);
     els.seek.max = 0;
     els.seek.value = 0;
     syncSlider(els.seek);
@@ -1263,7 +1264,10 @@
     updateQueueUI();
     updateMediaSession(t, cover);
     lyricsCtrl.loadForTrack(t);
-    if (autoPlay) safePlay();
+    if (autoPlay) {
+      userState.recordRecent(t.url);
+      safePlay();
+    }
   }
 
   function handleStartupTarget() {
@@ -1883,7 +1887,7 @@
     }
 
     audio.src = t.url;
-    studioCtrl.applyPlaybackSpeed(Number(storageGet(KEYS.SPEED, "1")) || 1, false);
+    studioCtrl.applyPlaybackSpeed(studioCtrl.getPlaybackSpeed(), false);
     els.seek.max = 0;
     els.seek.value = 0;
     syncSlider(els.seek);
@@ -1998,7 +2002,7 @@
 
   function updateDuration() {
     if (!isFinite(audio.duration)) return;
-    const savedRate = Number(storageGet(KEYS.SPEED, "1")) || 1;
+    const savedRate = studioCtrl.getPlaybackSpeed();
     if (Math.abs(audio.playbackRate - savedRate) > 0.005) {
       studioCtrl.applyPlaybackSpeed(savedRate, false);
     }
@@ -2138,6 +2142,7 @@
   audio.addEventListener("error", () => {
     if (currentIndex === -1 || !audio.error) return;
     setPlayingUI(false);
+    audioFx.onPauseOrEnd();
     pendingFadeInMs = 0;
     inTailFade = false;
     audioFx.setTransitionFadeFactor(1, true);
@@ -2215,7 +2220,9 @@
       previoustrack: prevTrack,
       nexttrack: () => nextTrack(false),
       seekto: (d) => {
-        if (d && isFinite(d.seekTime) && isFinite(audio.duration)) audio.currentTime = d.seekTime;
+        if (d && isFinite(d.seekTime) && isFinite(audio.duration)) {
+          audio.currentTime = Math.max(0, Math.min(audio.duration, d.seekTime));
+        }
       },
     };
     Object.keys(handlers).forEach((k) => {
@@ -2331,12 +2338,14 @@
           else toast("已设定复读终点 B：" + fmtTime(res.state.b) + "（开始复读）");
         }
         break;
-      case "\\":
-        if (userState.getAbLoopState().active || userState.getAbLoopState().b !== null) {
+      case "\\": {
+        const ab = userState.getAbLoopState();
+        if (ab.active || ab.a !== null || ab.b !== null) {
           userState.clearAbLoop();
           toast("已清除 A-B 复读区间");
         }
         break;
+      }
     }
   });
 

@@ -759,6 +759,7 @@ async function servePublicJsonEndpoint(request, env, ctx, tracker, originState, 
     return jsonResponse(emptyFallback, 200, originState.corsOrigin, emptyCacheControl);
   }
   if ((!obj.body && typeof obj.json !== "function") || etagMatches(ifNoneMatch, obj.httpEtag)) {
+    obj.body?.cancel?.().catch(() => {});
     const headers = new Headers({
       "Cache-Control": cacheControl,
     });
@@ -767,6 +768,7 @@ async function servePublicJsonEndpoint(request, env, ctx, tracker, originState, 
     return new Response(null, { status: 304, headers });
   }
   if (method === "HEAD") {
+    obj.body?.cancel?.().catch(() => {});
     const headers = new Headers({
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": cacheControl,
@@ -828,6 +830,7 @@ export async function handleRequest(request, env, ctx, now = new Date()) {
   const tracker = await loadQuotaSnapshot(env, now);
 
   if (url.pathname === "/health") {
+    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
     const evaluation = evaluateQuotaShield(tracker, env);
     return jsonResponse(
       {
@@ -844,8 +847,8 @@ export async function handleRequest(request, env, ctx, now = new Date()) {
   }
 
   if (method === "OPTIONS") {
+    await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
     if (!originState.allowed || !originState.corsOrigin) {
-      await scheduleOrAwaitFlush(env, ctx, tracker, 1, 0, now);
       return new Response(null, { status: 403 });
     }
     const headers = new Headers({ "Access-Control-Max-Age": "86400" });
@@ -970,6 +973,10 @@ export async function handleRequest(request, env, ctx, now = new Date()) {
       headers.set("Cache-Control", secret ? "private, max-age=3600" : "public, max-age=86400");
       applySecurityHeaders(headers, originState.corsOrigin);
 
+      if (etagMatches(request.headers.get("if-none-match"), headObj.httpEtag)) {
+        return new Response(null, { status: 304, headers });
+      }
+
       const parsedRange = parseByteRangeHeader(rangeHeader, headObj.size);
       if (parsedRange.kind === "invalid" || parsedRange.kind === "unsatisfiable") {
         headers.set("Content-Range", `bytes */${headObj.size}`);
@@ -1022,6 +1029,7 @@ export async function handleRequest(request, env, ctx, now = new Date()) {
         (Number.isFinite(obj.range.length) && obj.range.length <= 0)
       );
       if (badObjRange || (parsedRange && parsedRange.kind === "unsatisfiable")) {
+        obj.body?.cancel?.().catch(() => {});
         headers.set("Content-Range", `bytes */${obj.size}`);
         return new Response(null, { status: 416, headers });
       }
@@ -1039,6 +1047,7 @@ export async function handleRequest(request, env, ctx, now = new Date()) {
         ? obj.range.length
         : (parsedRange && Number.isFinite(parsedRange.length) ? parsedRange.length : Math.max(0, obj.size - rOffset));
       if (rOffset >= obj.size || rLength <= 0) {
+        obj.body?.cancel?.().catch(() => {});
         headers.set("Content-Range", `bytes */${obj.size}`);
         return new Response(null, { status: 416, headers });
       }
@@ -1068,9 +1077,10 @@ export async function handleRequest(request, env, ctx, now = new Date()) {
       await scheduleOrAwaitFlush(env, ctx, tracker, 1, 1, now);
       const obj = await env.MUSIC_BUCKET.get("manifest.json");
       if (!obj) {
-        return jsonResponse([], 200, originState.corsOrigin, "public, max-age=30");
+        return jsonResponse([], 200, originState.corsOrigin, "private, no-store");
       }
       if (method === "HEAD") {
+        obj.body?.cancel?.().catch(() => {});
         const headers = new Headers({
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "private, no-store",
@@ -1104,7 +1114,7 @@ export async function handleRequest(request, env, ctx, now = new Date()) {
     return servePublicJsonEndpoint(request, env, ctx, tracker, originState, {
       r2Key: "lyrics.json",
       emptyFallback: {},
-      emptyCacheControl: "public, max-age=60",
+      emptyCacheControl: secret ? "private, no-store" : "public, max-age=60",
       cacheControl: secret ? "private, max-age=120" : "public, max-age=120",
       cacheUrl: `${url.origin}/lyrics.json`,
       now,

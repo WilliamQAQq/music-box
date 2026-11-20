@@ -306,6 +306,7 @@
     "粤语合唱团": "国歌军乐 · 中国",
     "the united states military ensemble": "国歌军乐 · 美国",
     "john philip sousa": "国歌军乐 · 美国",
+    "john philip sousa, mormon tabernacle choir": "国歌军乐 · 美国",
     "the sandpiper chorus": "国歌军乐 · 美国",
     "united states marine band": "国歌军乐 · 美国",
     "united states naval academy band": "国歌军乐 · 美国",

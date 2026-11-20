@@ -1,4 +1,4 @@
-const VERSION = "v44";
+const VERSION = "v45";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v3";
@@ -9,14 +9,14 @@ let audioLruTick = 0;
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=44",
-  "./js/catalog-data.js?v=44",
-  "./js/user-state.js?v=44",
-  "./js/library-loader.js?v=44",
-  "./js/audio-fx.js?v=44",
-  "./js/lyrics.js?v=44",
-  "./js/studio-ui.js?v=44",
-  "./app.js?v=44",
+  "./style.css?v=45",
+  "./js/catalog-data.js?v=45",
+  "./js/user-state.js?v=45",
+  "./js/library-loader.js?v=45",
+  "./js/audio-fx.js?v=45",
+  "./js/lyrics.js?v=45",
+  "./js/studio-ui.js?v=45",
+  "./app.js?v=45",
   "./manifest.webmanifest",
 ];
 
@@ -117,6 +117,7 @@ function buildRangeResponse(fullRes, rangeHeader) {
     }
     const mime = blob.type || fullRes.headers.get("Content-Type") || "application/octet-stream";
     const headers = new Headers(fullRes.headers);
+    headers.delete("Content-Encoding");
     headers.set("Content-Range", "bytes " + start + "-" + end + "/" + total);
     headers.set("Content-Length", String(end - start + 1));
     headers.set("Accept-Ranges", "bytes");
@@ -235,6 +236,11 @@ self.addEventListener("message", (event) => {
           return;
         }
         const headRes = await fetch(absUrl, { method: "HEAD", cache: "no-cache" }).catch(() => null);
+        if (headRes && (headRes.status === 404 || headRes.status === 410)) {
+          audioLruMap.delete(absUrl);
+          await cache.delete(absUrl);
+          return;
+        }
         if (hasCachedAudioMetadataChanged(existing, headRes)) {
           const freshRes = await fetch(absUrl, { cache: "no-cache" });
           if (freshRes && freshRes.status === 200 && (freshRes.type === "basic" || freshRes.type === "cors")) {

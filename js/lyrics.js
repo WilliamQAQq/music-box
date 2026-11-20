@@ -154,7 +154,7 @@
     let mobileLyricsOpen = false;
     let showTrans = storageGet(KEYS.LYRICS_TRANS, "1") !== "0";
 
-    let lyricsCatalog = {};
+    let lyricsCatalog = Object.create(null);
     let lyricsCatalogLoaded = false;
     let lyricsCatalogPromise = null;
     let externalLyricsUrl = "";
@@ -162,7 +162,7 @@
     let externalSourceMode = "hybrid";
     let lyricsReqSeq = 0;
     let catalogSeq = 0;
-    let liveLyricsCache = {};
+    let liveLyricsCache = Object.create(null);
     let liveCacheLoaded = false;
     let currentLyricState = null;
     let lyricLineEls = [];
@@ -242,13 +242,20 @@
     function loadLiveCache() {
       if (liveCacheLoaded) return;
       liveCacheLoaded = true;
+      liveLyricsCache = Object.create(null);
       try {
         const raw = storageGet(KEYS.LIVE_LYRICS, "");
         if (raw) {
           const parsed = JSON.parse(raw);
-          liveLyricsCache = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            Object.keys(parsed).forEach((k) => {
+              if (k !== "__proto__" && k !== "constructor" && k !== "prototype") {
+                liveLyricsCache[k] = parsed[k];
+              }
+            });
+          }
         }
-      } catch (e) { liveLyricsCache = {}; }
+      } catch (e) { liveLyricsCache = Object.create(null); }
     }
 
     function saveLiveCache() {
@@ -297,7 +304,7 @@
       externalLyricsKey = nextKey;
       externalSourceMode = nextMode;
       catalogSeq++;
-      lyricsCatalog = {};
+      lyricsCatalog = Object.create(null);
       lyricsCatalogLoaded = false;
       lyricsCatalogPromise = null;
     }
@@ -344,14 +351,22 @@
         try {
           const [localRes, r2Res] = await Promise.all(tasks);
           if (seq !== catalogSeq) return;
-          const merged = {};
+          const merged = Object.create(null);
+          const mergePlainDict = (src) => {
+            if (!src || typeof src !== "object" || Array.isArray(src)) return;
+            Object.keys(src).forEach((k) => {
+              if (k !== "__proto__" && k !== "constructor" && k !== "prototype") {
+                merged[k] = src[k];
+              }
+            });
+          };
           if (localRes && localRes.ok) {
             anyOk = true;
-            if (localRes.data && typeof localRes.data === "object") Object.assign(merged, localRes.data);
+            mergePlainDict(localRes.data);
           }
           if (r2Res && r2Res.ok) {
             anyOk = true;
-            if (r2Res.data && typeof r2Res.data === "object") Object.assign(merged, r2Res.data);
+            mergePlainDict(r2Res.data);
           }
           lyricsCatalog = merged;
         } catch (e) { /* 若缺失则走在线兜底 */ } finally {
@@ -643,6 +658,12 @@
       exitUserScrollMode(true);
       activeLyricIndex = -1;
       lyricLineEls = [];
+      if (lyricSearchQuery) {
+        debouncedLyricSearch.cancel();
+        lyricSearchQuery = "";
+        if (els.lyricsSearchInput) els.lyricsSearchInput.value = "";
+        if (els.lyricsSearchCount) els.lyricsSearchCount.textContent = "";
+      }
       els.lyricsTrackName.textContent = track.artist ? (track.title + " · " + track.artist) : track.title;
 
       loadLiveCache();
@@ -802,12 +823,15 @@
         }
       });
 
-      global.addEventListener("pointerup", () => {
+      const releasePointerTouch = () => {
         if (isPointerTouchingLyrics) {
           isPointerTouchingLyrics = false;
           scheduleAutoFollowResume();
         }
-      });
+      };
+      global.addEventListener("pointerup", releasePointerTouch);
+      global.addEventListener("pointercancel", releasePointerTouch);
+      global.addEventListener("blur", releasePointerTouch);
 
       els.lyricsScroll.addEventListener("scroll", () => {
         if (userScrolling) {

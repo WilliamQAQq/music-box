@@ -15,6 +15,7 @@
     isSafeMediaUrl,
     normalizeR2BaseUrl,
     resolveR2Track,
+    canonicalTrackKey,
   } = ns.catalog;
 
   const VALID_SOURCE_MODES = { hybrid: 1, r2: 1, github: 1 };
@@ -438,7 +439,8 @@
     }
 
     function canonicalMergeKey(track) {
-      return String((track && (track.path || track.url)) || "")
+      const raw = (track && (track.path || (typeof canonicalTrackKey === "function" ? canonicalTrackKey(track.url) : track.url))) || "";
+      return String(raw)
         .replace(/^\/+/, "")
         .replace(/^music\//i, "")
         .toLowerCase();
@@ -708,8 +710,12 @@
       }
       if (els.r2QuotaSummary) els.r2QuotaSummary.textContent = "正在通过当前页面 Origin 向网关请求额度状态…";
 
+      const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+      const quotaTimeout = ctrl ? setTimeout(() => ctrl.abort(), 10000) : null;
       try {
-        const res = await fetch(r2Base + "/quota", { cache: "no-store", headers });
+        const fetchOpts = { cache: "no-store", headers };
+        if (ctrl) fetchOpts.signal = ctrl.signal;
+        const res = await fetch(r2Base + "/quota", fetchOpts);
         if (reqSeq !== quotaReqSeq) return;
         if (!res.ok) {
           let errMsg = "HTTP " + res.status;
@@ -788,9 +794,11 @@
           els.r2QuotaBadge.setAttribute("data-state", "warn");
         }
         if (els.r2QuotaSummary) {
-          els.r2QuotaSummary.textContent = "额度查询失败：" + ((err && err.message) || "网络异常");
+          const isTimeout = err && err.name === "AbortError";
+          els.r2QuotaSummary.textContent = "额度查询失败：" + (isTimeout ? "网关连接超时，请检查地址或网络" : ((err && err.message) || "网络异常"));
         }
       } finally {
+        if (quotaTimeout !== null) clearTimeout(quotaTimeout);
         if (reqSeq === quotaReqSeq && els.refreshR2QuotaBtn) {
           els.refreshR2QuotaBtn.removeAttribute("aria-busy");
         }

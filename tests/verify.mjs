@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v44", () => {
+test("HTML/SW/CSS structural invariants & asset version v45", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,13 +49,13 @@ test("HTML/SW/CSS structural invariants & asset version v44", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/catalog-data.js?v=44",
-    "js/user-state.js?v=44",
-    "js/library-loader.js?v=44",
-    "js/audio-fx.js?v=44",
-    "js/lyrics.js?v=44",
-    "js/studio-ui.js?v=44",
-    "app.js?v=44",
+    "js/catalog-data.js?v=45",
+    "js/user-state.js?v=45",
+    "js/library-loader.js?v=45",
+    "js/audio-fx.js?v=45",
+    "js/lyrics.js?v=45",
+    "js/studio-ui.js?v=45",
+    "app.js?v=45",
   ];
 
   let lastPos = -1;
@@ -69,7 +69,7 @@ test("HTML/SW/CSS structural invariants & asset version v44", () => {
     html.includes('<link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>'),
     "index.html missing R2 gateway preconnect hint"
   );
-  assert.ok(html.includes('href="style.css?v=44"'), "index.html missing style.css?v=44");
+  assert.ok(html.includes('href="style.css?v=45"'), "index.html missing style.css?v=45");
   assert.ok(html.includes('id="radioFxBtn"'), "index.html missing #radioFxBtn button");
   assert.ok(html.includes('id="radioMixRange"'), "index.html missing #radioMixRange slider");
   assert.ok(
@@ -102,7 +102,7 @@ test("HTML/SW/CSS structural invariants & asset version v44", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v44";'), "sw.js VERSION must match v44");
+  assert.ok(sw.includes('const VERSION = "v45";'), "sw.js VERSION must match v45");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
@@ -392,15 +392,16 @@ test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", as
   vm.createContext(swCtx);
   vm.runInContext(swCode, swCtx, { filename: "sw.js" });
 
-  // Range via Blob slice
+  // Range via Blob slice (and strips Content-Encoding on decoded Blob slices)
   const fullAudio = new Response(new Uint8Array([10, 11, 12, 13, 14, 15, 16, 17, 18, 19]), {
     status: 200,
-    headers: { "Content-Type": "audio/mpeg" },
+    headers: { "Content-Type": "audio/mpeg", "Content-Encoding": "gzip" },
   });
   const partRes = await swCtx.buildRangeResponse(fullAudio, "bytes=2-5");
   assert.equal(partRes.status, 206);
   assert.equal(partRes.headers.get("Content-Range"), "bytes 2-5/10");
   assert.equal(partRes.headers.get("Content-Length"), "4");
+  assert.equal(partRes.headers.get("Content-Encoding"), null, "206 Blob range response must strip Content-Encoding");
   assert.deepEqual(Array.from(new Uint8Array(await partRes.arrayBuffer())), [12, 13, 14, 15]);
 
   const suffixRes = await swCtx.buildRangeResponse(
@@ -702,7 +703,7 @@ test("library-loader & lyrics: root-level path dir and async loadForTrack state 
       ok: true,
       status: 200,
       async json() {
-        return { "a.mp3": { type: "synced", lrc: "[00:00.00]Stale Lyric Line\n[00:05.00]Second" } };
+        return JSON.parse('{"a.mp3":{"type":"synced","lrc":"[00:00.00]Stale Lyric Line\\n[00:05.00]Second"},"__proto__":{"polluted":true}}');
       },
     };
   };
@@ -723,6 +724,7 @@ test("library-loader & lyrics: root-level path dir and async loadForTrack state 
   lyr.syncToTime(1, true);
   lyr.updateCollapsedSubtitle();
   assert.equal(lyricsEls.trackSub.textContent, "B · Test", "Pending track switch must not reuse prior track lyrics");
+  assert.equal(({}).polluted, undefined, "External lyrics.json must never pollute Object.prototype");
   if (resolveLyricsB) resolveLyricsB();
   await pendingB;
 });

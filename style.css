@@ -1565,6 +1565,7 @@ input[type="range"].range.vol { flex: 0 0 100px; max-width: 120px; }
   --scrollbar-thumb: rgba(212, 166, 74, 0.45);
   --scrollbar-track: rgba(18, 10, 6, 0.35);
 
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow-y: auto;

@@ -107,10 +107,11 @@
       ];
       pairs.forEach(({ slider, readout, val }) => {
         if (!slider) return;
-        slider.value = val;
-        slider.setAttribute("aria-valuetext", (val > 0 ? "+" : "") + val + " dB");
+        const cleanVal = Math.abs(val) < 0.05 ? 0 : val;
+        slider.value = cleanVal;
+        slider.setAttribute("aria-valuetext", (cleanVal > 0 ? "+" : "") + cleanVal + " dB");
         syncSlider(slider);
-        if (readout) readout.textContent = (val > 0 ? "+" : "") + val.toFixed(1).replace(/\.0$/, "") + " dB";
+        if (readout) readout.textContent = (cleanVal > 0 ? "+" : "") + cleanVal.toFixed(1).replace(/\.0$/, "") + " dB";
       });
       if (els.eqPresetBtns) {
         Object.keys(audioFx.EQ_PRESETS).forEach((pid) => {
@@ -451,9 +452,12 @@
         return;
       }
       const mc = new MessageChannel();
+      const closeTimer = setTimeout(() => { try { mc.port1.close(); } catch (e) {} }, 4000);
       mc.port1.onmessage = (e) => {
+        clearTimeout(closeTimer);
         const d = e.data || {};
         if (els.swCacheInfo) els.swCacheInfo.textContent = "已离线缓存 " + (d.audioCount || 0) + " 首音轨";
+        try { mc.port1.close(); } catch (err) {}
       };
       navigator.serviceWorker.controller.postMessage({ type: "GET_CACHE_STATS" }, [mc.port2]);
     }
@@ -684,7 +688,10 @@
             return;
           }
           const mc = new MessageChannel();
+          const closeTimer = setTimeout(() => { try { mc.port1.close(); } catch (e) {} }, 4000);
           mc.port1.onmessage = () => {
+            clearTimeout(closeTimer);
+            try { mc.port1.close(); } catch (e) {}
             if (onClearAudioCache) onClearAudioCache();
             refreshSwCacheStats();
             if (toast) toast("已清理本地离线音频缓存");
@@ -717,6 +724,7 @@
       toggleStudio,
       isOpen: () => studioOpen,
       getCrossfadeSec: () => crossfadeSec,
+      getPlaybackSpeed: () => playbackSpeed,
       applyPlaybackSpeed,
       handleShareClick,
       syncStudioBadge,
