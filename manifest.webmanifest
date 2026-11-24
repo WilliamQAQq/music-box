@@ -1,7 +1,7 @@
 {
   "name": "GitHub 音乐盒 · 维多利亚留声机",
   "short_name": "留声机音乐盒",
-  "description": "维多利亚黑胶沙龙主题在线音乐播放器，支持双语音轨唱词、模拟黑胶/合成器 DSP 与播放队列管理。",
+  "description": "维多利亚黑胶沙龙主题在线音乐播放器，支持 210 首曲目、双语音轨唱词、黑胶/合成器/6波段电台/4大声景 DSP、护眼暗夜模式与离线缓存。",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -14,6 +14,18 @@
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%23180f0a'/%3E%3Ccircle cx='96' cy='96' r='74' fill='%2372191d' stroke='%23d4a64a' stroke-width='8'/%3E%3Ccircle cx='96' cy='96' r='26' fill='%23d4a64a'/%3E%3Ccircle cx='96' cy='96' r='9' fill='%23180f0a'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23180f0a'/%3E%3Ccircle cx='96' cy='96' r='60' fill='%2372191d' stroke='%23d4a64a' stroke-width='8'/%3E%3Ccircle cx='96' cy='96' r='21' fill='%23d4a64a'/%3E%3Ccircle cx='96' cy='96' r='7' fill='%23180f0a'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

@@ -410,6 +410,22 @@ async function run() {
       return Array.from(document.querySelectorAll(".queue-item")).includes(moveTarget) && document.body.contains(moveTarget);
     });
     assert.equal(queueKeyedOk, true, "Queue Drawer move must preserve and reuse existing DOM <li> element");
+
+    // Verify Queue Drawer roving tabindex + ArrowDown/ArrowUp/ArrowRight/ArrowLeft keyboard navigation
+    await page.focus(".queue-item .queue-item-play");
+    await page.keyboard.press("ArrowDown");
+    const queueNavState = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll(".queue-item .queue-item-play"));
+      return {
+        secondFocused: btns.length > 1 && document.activeElement === btns[1],
+        firstTabIndex: btns[0] ? btns[0].tabIndex : -99,
+        secondTabIndex: btns[1] ? btns[1].tabIndex : -99,
+      };
+    });
+    assert.equal(queueNavState.secondFocused, true, "ArrowDown in Queue Drawer must move focus to next row");
+    assert.equal(queueNavState.firstTabIndex, -1);
+    assert.equal(queueNavState.secondTabIndex, 0);
+
     await page.click("#queueCloseBtn");
 
     // Personal collections tab: verify Favorite + Recent counts and filtering
@@ -777,6 +793,10 @@ async function run() {
     assert.equal(eyeCareState.bg, "rgb(19, 18, 16)", "Eye-care dark mode root background must be matte charcoal #131210");
 
     await r2Page.click("#studioBtn");
+    await r2Page.waitForFunction(() => {
+      const btn = document.getElementById("studioCloseBtn");
+      return document.activeElement === btn;
+    }, null, { timeout: 3000 });
     await r2Page.click('.theme-mode-btn[data-theme="light"]');
     const lightState = await r2Page.evaluate(() => ({
       eyeCareAttr: document.documentElement.getAttribute("data-eye-care"),
@@ -797,6 +817,8 @@ async function run() {
 
     await r2Page.click('.theme-mode-btn[data-theme="system"]');
     await r2Page.click("#studioCloseBtn");
+    const studioRestoredFocus = await r2Page.evaluate(() => document.activeElement === document.getElementById("studioBtn"));
+    assert.equal(studioRestoredFocus, true, "Closing Studio Popover must restore focus to trigger button");
 
     // Verify zero nested interactive controls & keyboard-accessible playlist/lyric buttons + dynamic ARIA states
     const a11yChecks = await r2Page.evaluate(() => {
@@ -831,6 +853,13 @@ async function run() {
       return !a.paused && a.currentTime > 0.05 && txt.includes("From Cloudflare R2 Edge");
     }, { timeout: 6000 });
     await r2Page.evaluate(() => document.getElementById("audio").pause());
+
+    // Verify live hashchange deep-link navigation using the active track URL
+    await r2Page.evaluate(() => {
+      const src = document.getElementById("audio").getAttribute("src");
+      if (src) window.location.hash = `#track=${encodeURIComponent(src)}&t=12`;
+    });
+    await r2Page.waitForFunction(() => document.getElementById("curTime").textContent === "0:12", null, { timeout: 3000 });
 
     // Temporarily switch to GitHub-only mode, then back to Hybrid: R2 favorite must survive source switching!
     await r2Page.click("#settingsBtn");

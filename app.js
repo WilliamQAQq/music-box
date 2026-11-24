@@ -1228,6 +1228,12 @@
     updatePersonalShelfCountsInPlace();
     if (activeGenre === COLLECTION_FAVORITES || (shelfCategory === "personal" && activeGenre === "all")) {
       applyFilter();
+    } else if (payload && payload.crossTab) {
+      playlistRowCache.forEach((entry, key) => {
+        const idx = trackIdxByUrl.get(key);
+        const title = idx !== undefined && tracks[idx] ? tracks[idx].title : "";
+        updateRowFavState(entry, userState.isFavorite(key), title);
+      });
     } else if (payload && payload.url) {
       const key = canonicalTrackKey(payload.url);
       const entry = playlistRowCache.get(key);
@@ -1288,18 +1294,20 @@
     }
   }
 
+  function applyShareHash(hashStr) {
+    const share = parseTrackShareHash(hashStr);
+    if (!share) return false;
+    const shareKey = canonicalTrackKey(share.url);
+    if (!trackIdxByUrl.has(shareKey)) return false;
+    const idx = trackIdxByUrl.get(shareKey);
+    hideResumeBar();
+    prepareTrackAtTime(idx, share.time, false);
+    toast("已定位分享曲目：" + tracks[idx].title + (share.time > 0 ? " (" + fmtTime(share.time) + ")" : ""));
+    return true;
+  }
+
   function handleStartupTarget() {
-    const share = parseTrackShareHash(window.location.hash);
-    if (share) {
-      const shareKey = canonicalTrackKey(share.url);
-      if (trackIdxByUrl.has(shareKey)) {
-        const idx = trackIdxByUrl.get(shareKey);
-        hideResumeBar();
-        prepareTrackAtTime(idx, share.time, false);
-        toast("已定位分享曲目：" + tracks[idx].title + (share.time > 0 ? " (" + fmtTime(share.time) + ")" : ""));
-        return;
-      }
-    }
+    if (applyShareHash(window.location.hash)) return;
 
     const saved = userState.getResume();
     if (saved && currentIndex === -1 && (saved.time >= 3 || saved.title)) {
@@ -1315,16 +1323,7 @@
   }
 
   window.addEventListener("hashchange", () => {
-    const share = parseTrackShareHash(window.location.hash);
-    if (share) {
-      const shareKey = canonicalTrackKey(share.url);
-      if (trackIdxByUrl.has(shareKey)) {
-        const idx = trackIdxByUrl.get(shareKey);
-        hideResumeBar();
-        prepareTrackAtTime(idx, share.time, false);
-        toast("已定位分享曲目：" + tracks[idx].title);
-      }
-    }
+    if (tracks.length) applyShareHash(window.location.hash);
   });
 
   if (els.resumePlayBtn) {
@@ -1502,6 +1501,7 @@
     const frag = document.createDocumentFragment();
     const seenKeys = new Set();
     const occCounts = new Map();
+    const focusIdx = (pos >= 0 && pos < order.length) ? pos : 0;
 
     for (let i = 0; i < order.length; i++) {
       const t = tracks[order[i]];
@@ -1574,10 +1574,16 @@
           _sub: null,
           _actionsHidden: null,
           _nextHidden: null,
+          _tabIndex: null,
         };
         queueRowCache.set(cacheKey, entry);
       }
 
+      const rowTabIndex = i === focusIdx ? 0 : -1;
+      if (entry._tabIndex !== rowTabIndex) {
+        entry.playRowBtn.tabIndex = rowTabIndex;
+        entry._tabIndex = rowTabIndex;
+      }
       if (entry._qidx !== i) {
         entry.li.dataset.qidx = String(i);
         entry._qidx = i;
@@ -1681,6 +1687,44 @@
       if (e.target.closest(".queue-item-play")) {
         errorStreak = 0;
         playAt(qIdx);
+      }
+    });
+    els.queueList.addEventListener("keydown", (e) => {
+      const playBtn = e.target.closest(".queue-item-play");
+      const actBtn = e.target.closest(".queue-act-btn");
+      if (!playBtn && !actBtn) return;
+
+      if (playBtn && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End")) {
+        const playBtns = Array.from(els.queueList.querySelectorAll(".queue-item-play"));
+        if (!playBtns.length) return;
+        const idx = playBtns.indexOf(playBtn);
+        if (idx < 0) return;
+        let nextIdx = idx;
+        if (e.key === "ArrowDown") nextIdx = Math.min(playBtns.length - 1, idx + 1);
+        else if (e.key === "ArrowUp") nextIdx = Math.max(0, idx - 1);
+        else if (e.key === "Home") nextIdx = 0;
+        else if (e.key === "End") nextIdx = playBtns.length - 1;
+        e.preventDefault();
+        playBtns.forEach((btn, i) => { btn.tabIndex = i === nextIdx ? 0 : -1; });
+        playBtns[nextIdx].focus();
+        return;
+      }
+      if (playBtn && e.key === "ArrowRight") {
+        const li = playBtn.closest(".queue-item");
+        const firstAct = li ? li.querySelector(".queue-act-btn:not([hidden])") : null;
+        if (firstAct) {
+          e.preventDefault();
+          firstAct.focus();
+        }
+        return;
+      }
+      if (actBtn && e.key === "ArrowLeft") {
+        const li = actBtn.closest(".queue-item");
+        const rowPlay = li ? li.querySelector(".queue-item-play") : null;
+        if (rowPlay) {
+          e.preventDefault();
+          rowPlay.focus();
+        }
       }
     });
   }
@@ -2263,6 +2307,20 @@
           audio.currentTime = Math.max(0, Math.min(audio.duration, d.seekTime));
         }
       },
+      seekbackward: (d) => {
+        if (!isFinite(audio.duration)) return;
+        const offset = (d && isFinite(d.seekOffset) && d.seekOffset > 0) ? d.seekOffset : 10;
+        audio.currentTime = Math.max(0, audio.currentTime - offset);
+      },
+      seekforward: (d) => {
+        if (!isFinite(audio.duration)) return;
+        const offset = (d && isFinite(d.seekOffset) && d.seekOffset > 0) ? d.seekOffset : 10;
+        audio.currentTime = Math.min(audio.duration, audio.currentTime + offset);
+      },
+      stop: () => {
+        audio.pause();
+        if (isFinite(audio.duration)) audio.currentTime = 0;
+      },
     };
     Object.keys(handlers).forEach((k) => {
       try { navigator.mediaSession.setActionHandler(k, handlers[k]); } catch (e) { /* 不支持该动作 */ }
@@ -2282,15 +2340,32 @@
     } catch (e) { /* 忽略浏览器未就绪或不支持的字段异常 */ }
   }
 
+  function inferArtworkMime(src) {
+    if (!src) return undefined;
+    if (src.startsWith("data:image/svg+xml")) return "image/svg+xml";
+    if (src.startsWith("data:image/png")) return "image/png";
+    if (src.startsWith("data:image/webp")) return "image/webp";
+    if (src.startsWith("data:image/jpeg") || src.startsWith("data:image/jpg")) return "image/jpeg";
+    const clean = src.split("?")[0].split("#")[0].toLowerCase();
+    if (clean.endsWith(".svg")) return "image/svg+xml";
+    if (clean.endsWith(".png")) return "image/png";
+    if (clean.endsWith(".webp")) return "image/webp";
+    if (clean.endsWith(".jpg") || clean.endsWith(".jpeg")) return "image/jpeg";
+    return undefined;
+  }
+
   function updateMediaSession(t, cover) {
     if (!("mediaSession" in navigator)) return;
     const s = libraryLoader.getSettings();
     try {
+      const artSrc = cover || DEFAULT_COVER;
+      const artType = inferArtworkMime(artSrc);
+      const artEntry = artType ? { src: artSrc, sizes: "512x512", type: artType } : { src: artSrc, sizes: "512x512" };
       navigator.mediaSession.metadata = new MediaMetadata({
         title: t.title,
         artist: t.artist || (t.source === "r2" ? "Cloudflare R2" : s.owner),
         album: (t.album && t.album.toLowerCase() !== "unknown album" ? t.album : "") || t.genre || (t.source === "r2" ? "R2 云端私藏" : s.repo),
-        artwork: cover ? [{ src: cover, sizes: "512x512" }] : [],
+        artwork: artSrc ? [artEntry] : [],
       });
     } catch (e) { /* ignore */ }
   }

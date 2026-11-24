@@ -294,6 +294,20 @@
 
     loadPersistedLists();
 
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("storage", (e) => {
+        if (!e || (e.storageArea && e.storageArea !== localStorage)) return;
+        if (e.key === KEYS.FAVORITES || e.key === null) {
+          loadPersistedLists();
+          emit("favorites", { crossTab: true, count: favoriteList.length });
+        }
+        if (e.key === KEYS.RECENT || e.key === null) {
+          if (e.key === KEYS.RECENT) loadPersistedLists();
+          emit("recent", { crossTab: true, count: recentList.length });
+        }
+      });
+    }
+
     return {
       subscribe,
       isFavorite,

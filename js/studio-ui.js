@@ -433,6 +433,25 @@
       }
     }
 
+    let lastStudioTrigger = null;
+
+    function focusStudioEntry() {
+      if (typeof requestAnimationFrame !== "function") return;
+      requestAnimationFrame(() => {
+        if (studioOpen && els.studioCloseBtn && els.studioPanel && !els.studioPanel.contains(document.activeElement)) {
+          els.studioCloseBtn.focus({ preventScroll: true });
+        }
+      });
+    }
+
+    function restoreStudioFocus() {
+      const target = (lastStudioTrigger && document.contains(lastStudioTrigger))
+        ? lastStudioTrigger
+        : els.studioBtn;
+      if (target && typeof target.focus === "function") target.focus();
+      lastStudioTrigger = null;
+    }
+
     function applyFallbackStudioState(open, restoreFocus) {
       studioOpen = open;
       els.studioPanel.classList.toggle(":popover-open", open);
@@ -441,14 +460,19 @@
       syncSpectrumRunState();
       if (open) {
         refreshSwCacheStats();
-      } else if (restoreFocus && els.studioBtn) {
-        els.studioBtn.focus();
+        focusStudioEntry();
+      } else if (restoreFocus) {
+        restoreStudioFocus();
       }
     }
 
     function openStudio(triggerEl) {
       if (!els.studioPanel) return;
       if (onBeforeOpen) onBeforeOpen();
+      const active = document.activeElement;
+      lastStudioTrigger = (triggerEl && triggerEl.nodeType === 1)
+        ? triggerEl
+        : (active && active !== document.body && !els.studioPanel.contains(active) ? active : els.studioBtn);
       let openedNatively = false;
       if (hasNativePopover) {
         try {
@@ -462,13 +486,19 @@
 
     function closeStudio(restoreFocus) {
       if (!els.studioPanel) return;
+      let closedNatively = false;
       if (hasNativePopover) {
         try {
-          if (els.studioPanel.matches(":popover-open")) els.studioPanel.hidePopover();
+          if (els.studioPanel.matches(":popover-open")) {
+            els.studioPanel.hidePopover();
+            closedNatively = true;
+          }
         } catch (e) { /* ignore */ }
       }
       if (studioOpen || els.studioPanel.classList.contains("studio-open") || els.studioPanel.classList.contains(":popover-open")) {
         applyFallbackStudioState(false, restoreFocus);
+      } else if (closedNatively && restoreFocus) {
+        restoreStudioFocus();
       }
     }
 
@@ -546,7 +576,10 @@
           if (studioOpen && onBeforeOpen) onBeforeOpen();
           setPressedButtonState(els.studioBtn, studioOpen);
           syncSpectrumRunState();
-          if (studioOpen) refreshSwCacheStats();
+          if (studioOpen) {
+            refreshSwCacheStats();
+            focusStudioEntry();
+          }
         });
       } else {
         document.addEventListener("pointerdown", (e) => {
@@ -593,6 +626,12 @@
       }
 
       document.addEventListener("visibilitychange", syncSpectrumRunState);
+      const reducedMotionQuery = typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-reduced-motion: reduce)")
+        : null;
+      if (reducedMotionQuery && typeof reducedMotionQuery.addEventListener === "function") {
+        reducedMotionQuery.addEventListener("change", syncSpectrumRunState);
+      }
       audio.addEventListener("play", syncSpectrumRunState);
       audio.addEventListener("playing", syncSpectrumRunState);
       audio.addEventListener("pause", syncSpectrumRunState);

@@ -1,23 +1,27 @@
-const VERSION = "v47";
+const VERSION = "v48";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v3";
+const AUDIO_LRU_KEY = "./__audio-lru-v1__";
 const MAX_CACHED_AUDIO = 18;
 const audioLruMap = new Map();
 let audioLruTick = 0;
+let audioLruHydrated = false;
+let audioLruHydratePromise = null;
+let audioLruPersistTimer = null;
 
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./js/theme-init.js?v=47",
-  "./style.css?v=47",
-  "./js/catalog-data.js?v=47",
-  "./js/user-state.js?v=47",
-  "./js/library-loader.js?v=47",
-  "./js/audio-fx.js?v=47",
-  "./js/lyrics.js?v=47",
-  "./js/studio-ui.js?v=47",
-  "./app.js?v=47",
+  "./js/theme-init.js?v=48",
+  "./style.css?v=48",
+  "./js/catalog-data.js?v=48",
+  "./js/user-state.js?v=48",
+  "./js/library-loader.js?v=48",
+  "./js/audio-fx.js?v=48",
+  "./js/lyrics.js?v=48",
+  "./js/studio-ui.js?v=48",
+  "./app.js?v=48",
   "./manifest.webmanifest",
 ];
 
@@ -65,6 +69,17 @@ async function networkFirst(request, cacheName) {
     if (fallback) return fallback;
     throw err;
   }
+}
+
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const netRes = await fetch(request);
+  if (netRes && netRes.ok && netRes.type === "basic") {
+    cache.put(request, netRes.clone()).catch(() => {});
+  }
+  return netRes;
 }
 
 async function staleWhileRevalidate(request, cacheName) {
@@ -126,10 +141,63 @@ function buildRangeResponse(fullRes, rangeHeader) {
   });
 }
 
+async function ensureLruHydrated() {
+  if (audioLruHydrated) return;
+  if (audioLruHydratePromise) return audioLruHydratePromise;
+  audioLruHydratePromise = (async () => {
+    try {
+      const dataCache = await caches.open(DATA_CACHE);
+      const res = await dataCache.match(AUDIO_LRU_KEY);
+      if (res && res.ok) {
+        const parsed = await res.json();
+        if (parsed && Array.isArray(parsed.entries)) {
+          for (const pair of parsed.entries) {
+            if (Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "number" && isFinite(pair[1])) {
+              const prev = audioLruMap.get(pair[0]) || 0;
+              if (pair[1] > prev) audioLruMap.set(pair[0], pair[1]);
+              if (pair[1] > audioLruTick) audioLruTick = pair[1];
+            }
+          }
+        }
+        if (typeof parsed.tick === "number" && isFinite(parsed.tick) && parsed.tick > audioLruTick) {
+          audioLruTick = parsed.tick;
+        }
+      }
+    } catch (e) { /* ignore */ }
+    audioLruHydrated = true;
+    audioLruHydratePromise = null;
+  })();
+  return audioLruHydratePromise;
+}
+
+async function persistAudioLru() {
+  try {
+    const dataCache = await caches.open(DATA_CACHE);
+    const payload = JSON.stringify({ tick: audioLruTick, entries: Array.from(audioLruMap.entries()) });
+    await dataCache.put(AUDIO_LRU_KEY, new Response(payload, {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+  } catch (e) { /* ignore */ }
+}
+
+function schedulePersistAudioLru() {
+  if (typeof setTimeout !== "function") {
+    persistAudioLru();
+    return;
+  }
+  if (audioLruPersistTimer) clearTimeout(audioLruPersistTimer);
+  audioLruPersistTimer = setTimeout(() => {
+    audioLruPersistTimer = null;
+    persistAudioLru();
+  }, 250);
+}
+
 function touchAudioCacheEntry(reqOrUrl) {
   const keyUrl = typeof reqOrUrl === "string" ? reqOrUrl : (reqOrUrl && reqOrUrl.url) || "";
   if (keyUrl) {
     audioLruMap.set(keyUrl, ++audioLruTick);
+    schedulePersistAudioLru();
   }
 }
 
@@ -148,6 +216,7 @@ function hasCachedAudioMetadataChanged(cachedRes, headRes) {
 }
 
 async function handleAudioRequest(request) {
+  await ensureLruHydrated();
   const rangeHeader = request.headers.get("range");
   const cleanReq = new Request(request.url, { method: "GET" });
   const cache = await caches.open(AUDIO_CACHE);
@@ -174,6 +243,7 @@ async function handleAudioRequest(request) {
 }
 
 async function trimAudioCache(cache) {
+  await ensureLruHydrated();
   const keys = await cache.keys();
   const excess = keys.length - MAX_CACHED_AUDIO;
   if (excess <= 0) return;
@@ -188,6 +258,7 @@ async function trimAudioCache(cache) {
     audioLruMap.delete(victim.url);
     await cache.delete(victim);
   }
+  await persistAudioLru();
 }
 
 self.addEventListener("fetch", (event) => {
@@ -206,6 +277,10 @@ self.addEventListener("fetch", (event) => {
   }
   if (req.mode === "navigate" || /\.html$/i.test(url.pathname) || url.pathname.endsWith("/")) {
     event.respondWith(networkFirst(req, SHELL_CACHE));
+    return;
+  }
+  if (/\.(css|js)$/i.test(url.pathname) && url.searchParams.has("v")) {
+    event.respondWith(cacheFirst(req, SHELL_CACHE));
     return;
   }
   if (/\.(css|js|webmanifest)$/i.test(url.pathname)) {
@@ -257,8 +332,15 @@ self.addEventListener("message", (event) => {
   }
   if (data.type === "CLEAR_AUDIO_CACHE") {
     audioLruMap.clear();
+    if (audioLruPersistTimer) {
+      clearTimeout(audioLruPersistTimer);
+      audioLruPersistTimer = null;
+    }
     event.waitUntil(
-      caches.delete(AUDIO_CACHE).then(() => {
+      Promise.all([
+        caches.delete(AUDIO_CACHE),
+        caches.open(DATA_CACHE).then((c) => c.delete(AUDIO_LRU_KEY)).catch(() => false),
+      ]).then(() => {
         if (event.ports && event.ports[0]) event.ports[0].postMessage({ cleared: true });
       })
     );

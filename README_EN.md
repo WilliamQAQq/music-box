@@ -36,7 +36,7 @@
 
 ## 🏛️ Key Highlights
 
-- **Victorian Vinyl Gramophone Aesthetic**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and a responsive layout that adapts seamlessly from a two-column desktop salon to an iPad two-row cabinet and a slide-up mobile drawer.
+- **Victorian Vinyl Gramophone Aesthetic & Eye-Care Dark Mode**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and [`js/theme-init.js`](js/theme-init.js) zero-flicker theme initialization (**Classic Dark / Eye-Care Low-Glare / Warm Parchment Light / System** with `D` shortcut), adapting seamlessly across desktop, iPad, and mobile.
 - **18 Curated Record Collections & National Anthem Editions**: **210 tracks across 159 artists**, organized into 11 salon genres and 7 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan, United Kingdom). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
 - **Time-Synced Scrolling Lyrics (Victorian Libretto Folio)**:
   - **164 vocal & analog-broadcast tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 118 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **46 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
@@ -46,8 +46,8 @@
 - **Personal Collections, Resume Bar & Timestamped Deep Links**:
   - Dedicated **♥ Personal Collections** (`Favorites` + 45-track `Recent History`) synced with heart buttons (`F` shortcut), using Keyed DOM reuse across both the playlist and Queue Drawer for flicker-free updates;
   - Automatic **Resume Playback Bar** on return visits, plus one-click copy of `#track=...&t=...` share deep links opening directly to the current timestamp.
-- **Phonograph Studio Popover (`E` shortcut / `调` Console Button)**:
-  - **Live Brass Spectrum & 3-Band EQ**: Real-time Canvas spectrum analyzer (automatically pauses frame loops when hidden, scrolled offscreen, or paused), paired with a bypassable 3-band vintage EQ (110Hz / 1.1kHz / 7.5kHz) + 5 presets (`Flat / Warm / Jazz / Rock / Vocal`) and independent Vinyl/Synth/Radio mix sliders;
+- **Phonograph Studio Popover & Ambient Soundscapes (`E` shortcut / `调` Console Button)**:
+  - **Live Brass Spectrum, Preamp & 3-Band EQ**: Real-time Canvas spectrum analyzer (automatically pauses frame loops when hidden, scrolled offscreen, or paused), paired with a master preamp (up to 150% volume boost + soft-clip limiter), bypassable 3-band vintage EQ (110Hz / 1.1kHz / 7.5kHz) + 5 presets (`Flat / Warm / Jazz / Rock / Vocal`), 6-band Radio DSP (SW / LW / FM / VHF / AIR / SEA + 6 noise modes), and 4 auto-ducked ambient soundscapes (Rain / Thunder / Wild / City);
   - **Pitch-Preserving Speed, Crossfade, Sleep Timer & A-B Loop**: `0.75x–1.5x` turntable speed, `0/2/4/6s` track Crossfade, A-B loop practice (`[` / `]` / `\`), and `End of Track / 15 / 30 / 60m` Sleep Timer with 10-second gentle fadeout.
 - **In-Panel Lyric Search & `.lrc` Export**: Libretto panel adds live keyword filtering (`搜`) and single-click `.lrc` file export (`导`, optionally including bilingual lines).
 - **Interactive Play Queue & Multi-Token Search**: Enqueue any track as **Play Next (`+`)** right from the list or manage the live order (jump, promote to next, remove, reshuffle, clear upcoming) in the slide-over **Queue Drawer (`Q`)**. Toolbar search supports space-separated multi-keyword `AND` filtering with debounced input, one-click clear (`×`), and a quick **Locate Current Track (`定位`)** button.
@@ -110,7 +110,7 @@
 | `V` | Toggle vinyl record emulation | `S` / `R` | Toggle synth / radio station mode |
 | `E` | Toggle Phonograph Studio popover | `F` | Favorite / Unfavorite track |
 | `Q` | Toggle play queue drawer | `[` / `]` / `\` | Set A-B loop A / B / Clear |
-| `Esc` | Close active overlay / modal | | |
+| `D` | Toggle eye-care dark / theme mode | `Esc` | Close active overlay / modal |
 
 ---
 

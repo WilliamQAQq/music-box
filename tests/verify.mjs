@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v47", () => {
+test("HTML/SW/CSS structural invariants & asset version v48", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,14 +49,14 @@ test("HTML/SW/CSS structural invariants & asset version v47", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/theme-init.js?v=47",
-    "js/catalog-data.js?v=47",
-    "js/user-state.js?v=47",
-    "js/library-loader.js?v=47",
-    "js/audio-fx.js?v=47",
-    "js/lyrics.js?v=47",
-    "js/studio-ui.js?v=47",
-    "app.js?v=47",
+    "js/theme-init.js?v=48",
+    "js/catalog-data.js?v=48",
+    "js/user-state.js?v=48",
+    "js/library-loader.js?v=48",
+    "js/audio-fx.js?v=48",
+    "js/lyrics.js?v=48",
+    "js/studio-ui.js?v=48",
+    "app.js?v=48",
   ];
 
   let lastPos = -1;
@@ -71,7 +71,7 @@ test("HTML/SW/CSS structural invariants & asset version v47", () => {
     "index.html missing R2 gateway preconnect hint"
   );
   assert.ok(html.includes('<meta name="color-scheme" content="light dark">'), "index.html missing light dark color-scheme meta");
-  assert.ok(html.includes('href="style.css?v=47"'), "index.html missing style.css?v=47");
+  assert.ok(html.includes('href="style.css?v=48"'), "index.html missing style.css?v=48");
   assert.ok(html.includes('class="skip-link visually-hidden"'), "index.html missing skip link for keyboard users");
   assert.ok(html.includes('<search class="toolbar" id="mainCatalog"'), "index.html must use semantic <search> landmark for toolbar");
   assert.ok(html.includes('id="lyricsScroll" role="region"'), "Scrollable #lyricsScroll must have role=region when aria-label is set");
@@ -112,12 +112,18 @@ test("HTML/SW/CSS structural invariants & asset version v47", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v47";'), "sw.js VERSION must match v47");
+  assert.ok(sw.includes('const VERSION = "v48";'), "sw.js VERSION must match v48");
+  assert.ok(html.includes('<meta name="text-scale" content="scale">'), "index.html must opt in to OS text-scale");
+  assert.ok(html.includes('app.js?v=48'), "index.html must reference ?v=48 assets");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
+  assert.ok(sw.includes("cacheFirst(req, SHELL_CACHE)"), "sw.js must use cacheFirst for versioned CSS/JS assets");
+  assert.ok(sw.includes("AUDIO_LRU_KEY") && sw.includes("ensureLruHydrated"), "sw.js must persist audio LRU metadata across SW restarts");
   assert.ok(sw.includes("parsedUrl.origin !== self.location.origin"), "sw.js CACHE_TRACK must compare strict origin equality");
   assert.ok(!sw.includes('return caches.match("./index.html");\n}'), "staleWhileRevalidate must not fall back to HTML for JS/CSS assets");
   assert.equal(lyricsJs.includes("innerHTML"), false, "lyrics.js must use replaceChildren() instead of innerHTML");
   assert.ok(css.includes("color-scheme: light dark;"), "style.css must declare color-scheme: light dark");
+  assert.ok(css.includes(".lyrics-body:has(> .lyrics-scroll:focus-visible)"), "style.css must draw focus ring on unmasked .lyrics-body");
+  assert.ok(css.includes(".ghost-btn:hover:not(:disabled)"), "style.css must gate .ghost-btn:hover with :not(:disabled)");
   assert.ok(css.includes("scroll-padding-bottom:") && css.includes("scroll-padding-top:"), "style.css must set scroll-padding on html so fixed bars never obscure focused controls");
   assert.ok(css.includes(".r2-quota-toggle::before") && css.includes(".r2-quota-panel[open] > .r2-quota-toggle::before"), "style.css must provide directional disclosure cue when hiding native summary marker");
   assert.ok(css.includes(".playlist-play-btn") && css.includes(".lyric-line-btn"), "style.css must style sibling native buttons for playlist rows and timed lyrics");
@@ -347,6 +353,23 @@ test("user-state: favorites, recent deduplication/cap, resume & A-B loop", () =>
   assert.equal(ctrl.getRecentUrls()[0], "https://gw.example.workers.dev/media/Private/A.mp3");
   ctrl.saveResume("https://gw.example.workers.dev/media/Private/A.mp3?exp=2000&sig=new", 55, "Signed A", true);
   assert.equal(ctrl.getResume().url, "https://gw.example.workers.dev/media/Private/A.mp3");
+
+  // Cross-tab storage sync updates favorites & recent without overwriting other tabs
+  let storageHandler = null;
+  const { sandbox: syncSb, store: syncStore } = createBrowserSandbox();
+  syncSb.window.addEventListener = (ev, fn) => {
+    if (ev === "storage") storageHandler = fn;
+  };
+  loadScriptIntoSandbox(syncSb, "js/catalog-data.js");
+  loadScriptIntoSandbox(syncSb, "js/user-state.js");
+  const syncCtrl = syncSb.__MusicBox.createUserStateController();
+  const syncEvents = [];
+  syncCtrl.subscribe("favorites", (p) => syncEvents.push(p));
+  syncStore.set(syncSb.__MusicBox.catalog.KEYS.FAVORITES, JSON.stringify(["remote-tab.mp3"]));
+  assert.equal(typeof storageHandler, "function");
+  storageHandler({ key: syncSb.__MusicBox.catalog.KEYS.FAVORITES, storageArea: syncSb.localStorage });
+  assert.equal(syncCtrl.isFavorite("remote-tab.mp3"), true);
+  assert.equal(syncEvents[0] && syncEvents[0].crossTab, true);
 });
 
 test("music.json & lyrics.json integrity on disk", () => {
@@ -411,6 +434,8 @@ test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", as
     Blob,
     URL,
     Promise,
+    setTimeout,
+    clearTimeout,
   };
   swCtx.self = swCtx;
   vm.createContext(swCtx);
@@ -457,6 +482,24 @@ test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", as
   });
   await Promise.all(pendingMsgs);
   assert.equal(swFetchCount, fetchBefore, "CACHE_TRACK must reject prefix-spoofed cross-origin URLs");
+
+  // cacheFirst serves versioned CSS/JS from cache without network fetch, and LRU persists to DATA_CACHE
+  const verReq = new Request("https://williamqaqq.github.io/music-box/app.js?v=48");
+  mockCacheStore.set(verReq.url, new Response("/* cached v48 */", { status: 200 }));
+  const fetchBeforeCf = swFetchCount;
+  const cfRes = await swCtx.cacheFirst(verReq, "music-box-shell-v48");
+  assert.equal(swFetchCount, fetchBeforeCf, "cacheFirst must serve cached versioned asset without fetching");
+  assert.equal(await cfRes.text(), "/* cached v48 */");
+
+  swCtx.touchAudioCacheEntry("https://williamqaqq.github.io/music-box/music/lru-test.mp3");
+  await swCtx.persistAudioLru();
+  const persistedLru = mockCacheStore.get("./__audio-lru-v1__");
+  assert.ok(persistedLru, "persistAudioLru must write LRU state to DATA_CACHE");
+  const lruJson = await persistedLru.json();
+  assert.ok(
+    Array.isArray(lruJson.entries) && lruJson.entries.some(([u]) => u.endsWith("lru-test.mp3")),
+    "Persisted LRU must retain touched track URL"
+  );
 });
 
 test("audio-fx: EQ & radio station DSP branches delay disconnect until gain ramp finishes", async () => {
