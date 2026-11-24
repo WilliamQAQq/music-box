@@ -3401,12 +3401,48 @@ body.radio-fx-active .playlist-item.playing .eq span {
   gap: 8px;
 }
 .studio-share-wrap,
-.studio-cache-wrap {
+.studio-cache-wrap,
+.studio-backup-wrap {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
+}
+.lucky-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.shortcuts-table th,
+.shortcuts-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.shortcuts-table th {
+  color: var(--brass-hi);
+  font-size: 12px;
+  font-weight: 700;
+}
+.shortcuts-table td:first-child {
+  white-space: nowrap;
+  width: 1%;
+}
+.shortcuts-table kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border-hi);
+  background: var(--wood-mid);
+  color: var(--brass-hi);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
 }
 .share-copy-btn {
   position: relative;

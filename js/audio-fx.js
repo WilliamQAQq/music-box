@@ -560,6 +560,7 @@
    * - thunder: 雷暴 (远山夜雨、柔和低风与深沉遥远滚雷，无突兀炸响)
    * - wild: 野外声 (松林柔和微风、远溪潺潺与立体声边缘轻柔虫鸟)
    * - city: 城市声 (深夜雨街远景空气垫与无音高湿滑车流掠过，100% 不与任何调性音乐冲突)
+   * - fireplace: 壁炉声 (维多利亚壁炉暖火呼吸气流与外缘柔和松木轻啪)
    */
   const AMBIENT_PROFILES = {
     off: {
@@ -616,6 +617,17 @@
       scoopQ: 0.58,
       scoopGain: -7.5,
       lpFreq: 1650,
+    },
+    fireplace: {
+      id: "fireplace",
+      shortLabel: "壁炉声 · 暖炉柴火",
+      label: "壁炉声景 · 维多利亚壁炉暖火与松木轻啪",
+      gainScale: 0.94,
+      hpFreq: 85,
+      scoopFreq: 1300,
+      scoopQ: 0.6,
+      scoopGain: -7.5,
+      lpFreq: 2650,
     },
   };
 
@@ -703,6 +715,12 @@
         const citySwell = 0.88 + 0.12 * Math.sin(sec * Math.PI * 2 * 0.125);
         raw0[i] = (b0_0 * 0.088 + b1_0 * 0.032) * citySwell;
         raw1[i] = (b0_1 * 0.088 + b1_1 * 0.032) * citySwell;
+      } else if (mode === "fireplace") {
+        // 维多利亚壁炉暖火气流与柔和炭火呼吸
+        const draftL = 0.82 + 0.18 * Math.sin(sec * Math.PI * 2 * 0.125 + 0.3) * Math.cos(sec * Math.PI * 2 * 0.1875);
+        const draftR = 0.82 + 0.18 * Math.cos(sec * Math.PI * 2 * 0.125) * Math.sin(sec * Math.PI * 2 * 0.1875 + 0.6);
+        raw0[i] = (b0_0 * 0.092 + b1_0 * 0.042) * draftL;
+        raw1[i] = (b0_1 * 0.092 + b1_1 * 0.042) * draftR;
       }
     }
 
@@ -831,6 +849,27 @@
           raw1[idx] += tire * Math.sin(pan * Math.PI * 0.5);
         }
       });
+    } else if (mode === "fireplace") {
+      // 16 秒内 22 声置于立体声外缘的柔和松木轻啪与炭火微爆
+      const popCount = 22;
+      for (let c = 0; c < popCount; c++) {
+        const startPos = Math.floor(Math.random() * length);
+        const popLen = Math.max(10, Math.floor(sampleRate * (0.004 + Math.random() * 0.007)));
+        const freq = 420 + Math.random() * 1030;
+        const pan = Math.random() < 0.5 ? (0.10 + Math.random() * 0.18) : (0.72 + Math.random() * 0.18);
+        const panL = Math.cos(pan * Math.PI * 0.5);
+        const panR = Math.sin(pan * Math.PI * 0.5);
+        const amp = 0.016 + Math.random() * 0.022;
+        const attackLen = Math.max(1, popLen * 0.12);
+        for (let j = 0; j < popLen; j++) {
+          const idx = (startPos + j) % length;
+          const t = j / sampleRate;
+          const env = Math.exp(-j / (popLen * 0.24)) * Math.sin(Math.min(1, j / attackLen) * Math.PI * 0.5);
+          const crackle = (Math.sin(2 * Math.PI * freq * t) * 0.55 + (Math.random() * 2 - 1) * 0.45) * amp * env;
+          raw0[idx] += crackle * panL;
+          raw1[idx] += crackle * panR;
+        }
+      }
     }
 
     const buffer = ctx.createBuffer(2, length, sampleRate);

@@ -41,7 +41,7 @@ function loadScriptIntoSandbox(sandbox, relPath) {
   vm.runInContext(code, sandbox, { filename: relPath });
 }
 
-test("HTML/SW/CSS structural invariants & asset version v48", () => {
+test("HTML/SW/CSS structural invariants & asset version v49", () => {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "style.css"), "utf8");
@@ -49,14 +49,14 @@ test("HTML/SW/CSS structural invariants & asset version v48", () => {
   const lyricsJs = fs.readFileSync(path.join(ROOT, "js/lyrics.js"), "utf8");
 
   const expectedScripts = [
-    "js/theme-init.js?v=48",
-    "js/catalog-data.js?v=48",
-    "js/user-state.js?v=48",
-    "js/library-loader.js?v=48",
-    "js/audio-fx.js?v=48",
-    "js/lyrics.js?v=48",
-    "js/studio-ui.js?v=48",
-    "app.js?v=48",
+    "js/theme-init.js?v=49",
+    "js/catalog-data.js?v=49",
+    "js/user-state.js?v=49",
+    "js/library-loader.js?v=49",
+    "js/audio-fx.js?v=49",
+    "js/lyrics.js?v=49",
+    "js/studio-ui.js?v=49",
+    "app.js?v=49",
   ];
 
   let lastPos = -1;
@@ -71,7 +71,7 @@ test("HTML/SW/CSS structural invariants & asset version v48", () => {
     "index.html missing R2 gateway preconnect hint"
   );
   assert.ok(html.includes('<meta name="color-scheme" content="light dark">'), "index.html missing light dark color-scheme meta");
-  assert.ok(html.includes('href="style.css?v=48"'), "index.html missing style.css?v=48");
+  assert.ok(html.includes('href="style.css?v=49"'), "index.html missing style.css?v=49");
   assert.ok(html.includes('class="skip-link visually-hidden"'), "index.html missing skip link for keyboard users");
   assert.ok(html.includes('<search class="toolbar" id="mainCatalog"'), "index.html must use semantic <search> landmark for toolbar");
   assert.ok(html.includes('id="lyricsScroll" role="region"'), "Scrollable #lyricsScroll must have role=region when aria-label is set");
@@ -99,9 +99,15 @@ test("HTML/SW/CSS structural invariants & asset version v48", () => {
     html.includes('data-ambient="thunder"') &&
     html.includes('data-ambient="wild"') &&
     html.includes('data-ambient="city"') &&
+    html.includes('data-ambient="fireplace"') &&
     html.includes('id="ambientLevelRange"'),
     "index.html missing ambient soundscape controls"
   );
+  assert.ok(html.includes('id="luckyPlayBtn"'), "index.html missing #luckyPlayBtn");
+  assert.ok(html.includes('id="shortcutsBtn"'), "index.html missing #shortcutsBtn");
+  assert.ok(html.includes('<dialog class="modal" id="shortcutsModal" closedby="any"'), "index.html missing native #shortcutsModal");
+  assert.equal(html.includes('id="shortcutsModal" role="dialog"'), false, "Native #shortcutsModal must not set redundant role=dialog");
+  assert.ok(html.includes('id="exportProfileBtn"') && html.includes('id="importProfileBtn"'), "index.html missing profile backup controls");
   assert.ok(html.includes('id="eqPreamp"'), "index.html missing #eqPreamp preamp slider");
   assert.ok(html.includes('http-equiv="Content-Security-Policy"'), "index.html missing Content-Security-Policy meta");
   assert.ok(html.includes("script-src 'self'"), "CSP must restrict script-src to 'self'");
@@ -112,9 +118,9 @@ test("HTML/SW/CSS structural invariants & asset version v48", () => {
   assert.ok(html.includes('id="setR2Url"'), "Missing #setR2Url input");
   assert.ok(html.includes('id="r2QuotaDetails"'), "Missing #r2QuotaDetails monitor panel");
   assert.ok(html.includes('id="quotaDailyBar"'), "Missing #quotaDailyBar <progress> meter");
-  assert.ok(sw.includes('const VERSION = "v48";'), "sw.js VERSION must match v48");
+  assert.ok(sw.includes('const VERSION = "v49";'), "sw.js VERSION must match v49");
   assert.ok(html.includes('<meta name="text-scale" content="scale">'), "index.html must opt in to OS text-scale");
-  assert.ok(html.includes('app.js?v=48'), "index.html must reference ?v=48 assets");
+  assert.ok(html.includes('app.js?v=49'), "index.html must reference ?v=49 assets");
   assert.ok(sw.includes("networkFirst(req, SHELL_CACHE)"), "sw.js must use networkFirst for HTML document navigation");
   assert.ok(sw.includes("cacheFirst(req, SHELL_CACHE)"), "sw.js must use cacheFirst for versioned CSS/JS assets");
   assert.ok(sw.includes("AUDIO_LRU_KEY") && sw.includes("ensureLruHydrated"), "sw.js must persist audio LRU metadata across SW restarts");
@@ -370,11 +376,25 @@ test("user-state: favorites, recent deduplication/cap, resume & A-B loop", () =>
   storageHandler({ key: syncSb.__MusicBox.catalog.KEYS.FAVORITES, storageArea: syncSb.localStorage });
   assert.equal(syncCtrl.isFavorite("remote-tab.mp3"), true);
   assert.equal(syncEvents[0] && syncEvents[0].crossTab, true);
+
+  // Profile export & import merges safe URLs and rejects invalid/unsafe entries
+  const exported = ctrl.exportProfileData();
+  assert.equal(exported.app, "github-music-box");
+  assert.ok(exported.favorites.length >= 1 && exported.recent.length >= 1);
+  assert.equal(ctrl.importProfileData("bad").ok, false);
+  const imported = ctrl.importProfileData({
+    favorites: ["music/Imported.mp3", "javascript:alert(1)"],
+    recent: ["music/RecentImport.mp3", "data:text/html,xss"],
+  });
+  assert.equal(imported.ok, true);
+  assert.equal(ctrl.isFavorite("music/Imported.mp3"), true);
+  assert.equal(ctrl.isFavorite("javascript:alert(1)"), false);
+  assert.equal(ctrl.getRecentUrls()[0], "music/RecentImport.mp3");
 });
 
 test("music.json & lyrics.json integrity on disk", () => {
   const musicList = JSON.parse(fs.readFileSync(path.join(ROOT, "music.json"), "utf8"));
-  assert.ok(Array.isArray(musicList) && musicList.length >= 190, "music.json should contain 190+ tracks");
+  assert.ok(Array.isArray(musicList) && musicList.length === 232, "music.json should contain 232 tracks");
   let missingAudio = 0;
   for (const item of musicList) {
     assert.ok(item.url && item.title, "Track must have url and title");
@@ -402,6 +422,17 @@ test("music.json & lyrics.json integrity on disk", () => {
   assert.equal(lyricsMap[gstkKey].type, "synced");
   assert.ok(lyricsMap[gstkKey].lrc.includes("God save our gracious King"));
   assert.ok(lyricsMap[gstkKey].tlyric.includes("天佑吾王"));
+
+  const genreCounts = new Map();
+  for (const item of musicList) {
+    genreCounts.set(item.genre, (genreCounts.get(item.genre) || 0) + 1);
+    assert.ok(lyricsMap[item.url], `Missing lyrics.json entry for ${item.url}`);
+  }
+  assert.equal(genreCounts.get("国歌军乐 · 英国"), 10, "UK National Anthem & Marches must have 10 tracks");
+  assert.equal(genreCounts.get("光影留声 · 银幕经典"), 5, "Film Scores genre must have 5 tracks");
+  assert.equal(genreCounts.get("霓虹夜航 · 都市律动"), 5, "City Pop & Synthwave genre must have 5 tracks");
+  assert.equal(genreCounts.get("拉丁微醺 · 波萨香颂"), 5, "Bossa Nova & Chanson genre must have 5 tracks");
+  assert.equal(genreCounts.get("街巷叙事 · 民谣流行"), 6, "Urban Folk genre must have 6 tracks");
 });
 
 test("sw.js: Blob Range slicing (206/416) & networkFirst 5xx cache fallback", async () => {
@@ -603,6 +634,8 @@ test("audio-fx: EQ & radio station DSP branches delay disconnect until gain ramp
     const t = fx.setRadioNoiseMode(noise, false);
     assert.equal(t.noiseMode, noise);
   }
+  assert.equal(fx.setAmbientMode("fireplace", false).mode, "fireplace");
+  assert.equal(fx.setAmbientMode("off", false).mode, "off");
   assert.equal(fx.setRadioNoiseLevel(1.5).noiseLevel, 1.5);
   fx.toggleRadioFx();
   assert.equal(fx.isRadioEnabled(), false);

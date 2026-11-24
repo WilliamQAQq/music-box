@@ -798,6 +798,46 @@
       if (els.shareTrackBtn) {
         els.shareTrackBtn.addEventListener("click", handleShareClick);
       }
+      if (els.exportProfileBtn) {
+        els.exportProfileBtn.addEventListener("click", () => {
+          if (typeof userState.exportProfileData !== "function") return;
+          const data = userState.exportProfileData();
+          const json = JSON.stringify(data, null, 2);
+          const blob = new Blob([json], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "music-box-collection.json";
+          a.rel = "noopener";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
+          if (toast) toast("已导出雅集备份（珍藏 " + data.favorites.length + " 首 · 足迹 " + data.recent.length + " 首）");
+        });
+      }
+      if (els.importProfileBtn && els.importProfileInput) {
+        els.importProfileBtn.addEventListener("click", () => {
+          els.importProfileInput.click();
+        });
+        els.importProfileInput.addEventListener("change", async () => {
+          const file = els.importProfileInput.files && els.importProfileInput.files[0];
+          els.importProfileInput.value = "";
+          if (!file || typeof userState.importProfileData !== "function") return;
+          try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            const res = userState.importProfileData(parsed);
+            if (!res || !res.ok) {
+              if (toast) toast((res && res.error) || "导入雅集失败", true);
+              return;
+            }
+            if (toast) toast("已合并导入雅集（珍藏 " + res.favoritesCount + " 首 · 足迹 " + res.recentCount + " 首）");
+          } catch (err) {
+            if (toast) toast("无法解析雅集 JSON 文件", true);
+          }
+        });
+      }
       if (els.clearAudioCacheBtn) {
         els.clearAudioCacheBtn.addEventListener("click", () => {
           if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) {

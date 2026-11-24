@@ -149,7 +149,7 @@
       id: "国歌军乐 · 英国",
       category: "military",
       flag: "🇬🇧",
-      sub: "天佑吾王 · 统治吧不列颠尼亚 · 博吉上校 · 希望与荣耀之地",
+      sub: "天佑吾王 · 耶路撒冷 · 我向祖国起誓 · 统治吧不列颠尼亚 · 勇敢的苏格兰",
       seal: "#1e3a8a",
       desc: "日不落帝国的国歌、海军战歌与近卫军进行曲，铜管号角与爱德华时代唱片的庄严回响。",
     },
@@ -176,6 +176,30 @@
       sub: "Die With A Smile · APT. · BIRDS OF A FEATHER · 跳楼机 · 暮色回响",
       seal: "#be123c",
       desc: "2024—2026 席卷全球榜单与短视频热浪的当代高传唱度金曲，汇集欧美冠军单曲与华语人气新作。",
+    },
+    {
+      id: "光影留声 · 银幕经典",
+      category: "salon",
+      flag: "🎬",
+      sub: "坂本龙一 · 久石让 · 莫里康内 · 教父 · 月亮河",
+      seal: "#7c3aed",
+      desc: "传世银幕配乐与经典电影主题曲，在胶片光影与弦乐钢琴间重温旧梦。",
+    },
+    {
+      id: "霓虹夜航 · 都市律动",
+      category: "salon",
+      flag: "🌃",
+      sub: "竹内玛莉亚 · 松原美纪 · 山下达郎 · HOME · M83",
+      seal: "#0284c7",
+      desc: "昭和复古 City Pop 与模拟合成器夜航经典，海风、霓虹与午夜调频电台的律动。",
+    },
+    {
+      id: "拉丁微醺 · 波萨香颂",
+      category: "salon",
+      flag: "☕",
+      sub: "伊帕内玛女孩 · 三月之水 · 玫瑰人生 · Chan Chan",
+      seal: "#d97706",
+      desc: "里约海滩微醺波萨诺瓦、古巴传统颂乐与巴黎左岸香颂，慵懒温暖的午后咖啡馆。",
     },
   ];
 
@@ -344,6 +368,27 @@
     "military band": "国歌军乐 · 英国",
     "f. j. ricketts (kenneth j. alford)": "国歌军乐 · 英国",
     "dame clara butt": "国歌军乐 · 英国",
+    "royal choral society": "国歌军乐 · 英国",
+    "band of hm royal marines": "国歌军乐 · 英国",
+    "pipes and drums of the royal scots dragoon guards": "国歌军乐 · 英国",
+    "john mccormack": "国歌军乐 · 英国",
+    "ryuichi sakamoto": "光影留声 · 银幕经典",
+    "joe hisaishi": "光影留声 · 银幕经典",
+    "ennio morricone": "光影留声 · 银幕经典",
+    "nino rota": "光影留声 · 银幕经典",
+    "audrey hepburn, henry mancini": "光影留声 · 银幕经典",
+    "mariya takeuchi": "霓虹夜航 · 都市律动",
+    "miki matsubara": "霓虹夜航 · 都市律动",
+    "tatsuro yamashita": "霓虹夜航 · 都市律动",
+    "home": "霓虹夜航 · 都市律动",
+    "m83": "霓虹夜航 · 都市律动",
+    "stan getz, joão gilberto, astrud gilberto": "拉丁微醺 · 波萨香颂",
+    "antônio carlos jobim, elis regina": "拉丁微醺 · 波萨香颂",
+    "édith piaf": "拉丁微醺 · 波萨香颂",
+    "buena vista social club": "拉丁微醺 · 波萨香颂",
+    "françoise hardy": "拉丁微醺 · 波萨香颂",
+    "朴树": "街巷叙事 · 民谣流行",
+    "赵雷": "街巷叙事 · 民谣流行",
   };
 
   // 同名/共享歌手曲目的文件名级风格映射(确保本地旧缓存与 GitHub API 兜底时 100% 精确归类)
@@ -420,12 +465,42 @@
     "帝国海軍軍楽隊 - 海軍記念日を称ふる歌 (海军纪念日颂歌).mp3": "国歌军乐 · 日本",
     "帝国海軍軍楽隊 (1909) - 君が代 ／ 君が代行進曲 (1909年).mp3": "国歌军乐 · 日本",
 
-    // 国歌军乐 · 英国 (5)
+    // 国歌军乐 · 英国 (10)
     "Band of the Grenadier Guards - God Save the King (天佑吾王 - 英国国歌).mp3": "国歌军乐 · 英国",
     "United States Army Strings - Rule, Britannia! (统治吧，不列颠尼亚).mp3": "国歌军乐 · 英国",
     "Military Band - The British Grenadiers (英国近卫掷弹兵进行曲).mp3": "国歌军乐 · 英国",
     "F. J. Ricketts (Kenneth J. Alford) - Colonel Bogey March (博吉上校进行曲).mp3": "国歌军乐 · 英国",
     "Dame Clara Butt - Land of Hope and Glory (希望与荣耀之地).mp3": "国歌军乐 · 英国",
+    "Royal Choral Society - Jerusalem (耶路撒冷 - 英格兰颂歌).mp3": "国歌军乐 · 英国",
+    "Royal Choral Society - I Vow to Thee, My Country (我向祖国起誓).mp3": "国歌军乐 · 英国",
+    "Band of HM Royal Marines - Heart of Oak (橡木之心 - 皇家海军军歌).mp3": "国歌军乐 · 英国",
+    "Pipes and Drums of the Royal Scots Dragoon Guards - Scotland the Brave (勇敢的苏格兰).mp3": "国歌军乐 · 英国",
+    "John McCormack - It's a Long Way to Tipperary (遥远的蒂珀雷里 - 1914年唱片).mp3": "国歌军乐 · 英国",
+
+    // 光影留声 · 银幕经典 (5)
+    "Ryuichi Sakamoto - Merry Christmas Mr. Lawrence (圣诞快乐，劳伦斯先生).mp3": "光影留声 · 银幕经典",
+    "Joe Hisaishi - One Summer's Day (那个夏天 · 千与千寻).mp3": "光影留声 · 银幕经典",
+    "Ennio Morricone - Cinema Paradiso (天堂电影院).mp3": "光影留声 · 银幕经典",
+    "Nino Rota - Speak Softly Love (教父主题曲).mp3": "光影留声 · 银幕经典",
+    "Audrey Hepburn, Henry Mancini - Moon River (月亮河 · 蒂凡尼的早餐).mp3": "光影留声 · 银幕经典",
+
+    // 霓虹夜航 · 都市律动 (5)
+    "Mariya Takeuchi - Plastic Love (プラスティック・ラブ).mp3": "霓虹夜航 · 都市律动",
+    "Miki Matsubara - Stay With Me (真夜中のドア).mp3": "霓虹夜航 · 都市律动",
+    "Tatsuro Yamashita - Ride on Time.mp3": "霓虹夜航 · 都市律动",
+    "HOME - Resonance.mp3": "霓虹夜航 · 都市律动",
+    "M83 - Midnight City.mp3": "霓虹夜航 · 都市律动",
+
+    // 拉丁微醺 · 波萨香颂 (5)
+    "Stan Getz, João Gilberto, Astrud Gilberto - The Girl from Ipanema (伊帕内玛女孩).mp3": "拉丁微醺 · 波萨香颂",
+    "Antônio Carlos Jobim, Elis Regina - Águas de Março (三月之水).mp3": "拉丁微醺 · 波萨香颂",
+    "Édith Piaf - La Vie en rose (玫瑰人生).mp3": "拉丁微醺 · 波萨香颂",
+    "Buena Vista Social Club - Chan Chan.mp3": "拉丁微醺 · 波萨香颂",
+    "Françoise Hardy - Comment te dire adieu.mp3": "拉丁微醺 · 波萨香颂",
+
+    // 街巷叙事 · 民谣流行 (增补)
+    "朴树 - 平凡之路.mp3": "街巷叙事 · 民谣流行",
+    "赵雷 - 成都.mp3": "街巷叙事 · 民谣流行",
 
     // 古典沙龙 · 剧场礼乐 (同名/共享歌手曲目显式锁定)
     "The Red Army Choir - Коробейники (SPOTISAVER).mp3": "古典沙龙 · 剧场礼乐",
@@ -505,7 +580,15 @@
         } catch (e) { /* ignore malformed URI */ }
       }
     }
-    if (genre) return String(genre);
+    if (genre) {
+      const rawG = String(genre);
+      if (GENRE_META.has(rawG) || rawG.startsWith("国歌军乐")) return rawG;
+      const gl = rawG.toLowerCase();
+      if (/\b(soundtrack|film score|ost|cinema)\b/.test(gl)) return "光影留声 · 银幕经典";
+      if (/\b(city pop|synthwave|vaporwave|retrowave)\b/.test(gl)) return "霓虹夜航 · 都市律动";
+      if (/\b(bossa|chanson|samba|afro-cuban|son cubano)\b/.test(gl)) return "拉丁微醺 · 波萨香颂";
+      return rawG;
+    }
     if (!artist) return "";
     return ARTIST_GENRE_MAP[String(artist).trim().toLowerCase()] || "";
   }

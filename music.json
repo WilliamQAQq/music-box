@@ -64,6 +64,14 @@
     "dir": "music"
   },
   {
+    "title": "Águas de Março (三月之水)",
+    "artist": "Antônio Carlos Jobim, Elis Regina",
+    "album": "Elis & Tom",
+    "genre": "拉丁微醺 · 波萨香颂",
+    "url": "music/Antônio Carlos Jobim, Elis Regina - Águas de Março (三月之水).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Chopin: Nocturne in E-flat major, Op. 9 No. 2",
     "artist": "Arthur Rubinstein",
     "album": "Chopin: Nocturnes",
@@ -77,6 +85,22 @@
     "album": "国歌军乐特辑",
     "genre": "国歌军乐 · 俄罗斯",
     "url": "music/Arturo Toscanini, NBC Symphony Orchestra - Интернационал (国际歌 - 1944).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Moon River (月亮河 · 蒂凡尼的早餐)",
+    "artist": "Audrey Hepburn, Henry Mancini",
+    "album": "Breakfast at Tiffany's OST",
+    "genre": "光影留声 · 银幕经典",
+    "url": "music/Audrey Hepburn, Henry Mancini - Moon River (月亮河 · 蒂凡尼的早餐).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Heart of Oak (橡木之心 - 皇家海军军歌)",
+    "artist": "Band of HM Royal Marines",
+    "album": "Royal Navy Ceremonial Marches",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/Band of HM Royal Marines - Heart of Oak (橡木之心 - 皇家海军军歌).mp3",
     "dir": "music"
   },
   {
@@ -181,6 +205,14 @@
     "album": "Geogaddi",
     "genre": "暗夜怪谈 · 模拟恐怖",
     "url": "music/Boards of Canada - Gyroscope.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Chan Chan",
+    "artist": "Buena Vista Social Club",
+    "album": "Buena Vista Social Club",
+    "genre": "拉丁微醺 · 波萨香颂",
+    "url": "music/Buena Vista Social Club - Chan Chan.mp3",
     "dir": "music"
   },
   {
@@ -304,6 +336,14 @@
     "dir": "music"
   },
   {
+    "title": "Cinema Paradiso (天堂电影院)",
+    "artist": "Ennio Morricone",
+    "album": "Cinema Paradiso OST",
+    "genre": "光影留声 · 银幕经典",
+    "url": "music/Ennio Morricone - Cinema Paradiso (天堂电影院).mp3",
+    "dir": "music"
+  },
+  {
     "title": "'O Sole Mio",
     "artist": "Enrico Caruso",
     "album": "Neapolitan Classical Salon",
@@ -373,6 +413,14 @@
     "album": "",
     "genre": "古典沙龙 · 剧场礼乐",
     "url": "music/Francis_Shaw_-_Military_March_(SkySound7.com).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Comment te dire adieu",
+    "artist": "Françoise Hardy",
+    "album": "Comment te dire adieu",
+    "genre": "拉丁微醺 · 波萨香颂",
+    "url": "music/Françoise Hardy - Comment te dire adieu.mp3",
     "dir": "music"
   },
   {
@@ -448,6 +496,14 @@
     "dir": "music"
   },
   {
+    "title": "Resonance",
+    "artist": "HOME",
+    "album": "Odyssey",
+    "genre": "霓虹夜航 · 都市律动",
+    "url": "music/HOME - Resonance.mp3",
+    "dir": "music"
+  },
+  {
     "title": "Daisy Bell (Bicycle Built for Two, 1961)",
     "artist": "IBM 7094 (Max Mathews)",
     "album": "Bell Labs Computer Speech Archive",
@@ -480,11 +536,27 @@
     "dir": "music"
   },
   {
+    "title": "One Summer's Day (那个夏天 · 千与千寻)",
+    "artist": "Joe Hisaishi",
+    "album": "Spirited Away OST",
+    "genre": "光影留声 · 银幕经典",
+    "url": "music/Joe Hisaishi - One Summer's Day (那个夏天 · 千与千寻).mp3",
+    "dir": "music"
+  },
+  {
     "title": "My One And Only Love",
     "artist": "John Coltrane, Johnny Hartman",
     "album": "John Coltrane And Johnny Hartman",
     "genre": "黄金年代 · 爵士名伶",
     "url": "music/My One And Only Love_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "It's a Long Way to Tipperary (遥远的蒂珀雷里 - 1914年唱片)",
+    "artist": "John McCormack",
+    "album": "1914 Edwardian Gramophone Archive",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/John McCormack - It's a Long Way to Tipperary (遥远的蒂珀雷里 - 1914年唱片).mp3",
     "dir": "music"
   },
   {
@@ -776,6 +848,14 @@
     "dir": "music"
   },
   {
+    "title": "Midnight City",
+    "artist": "M83",
+    "album": "Hurry Up, We're Dreaming",
+    "genre": "霓虹夜航 · 都市律动",
+    "url": "music/M83 - Midnight City.mp3",
+    "dir": "music"
+  },
+  {
     "title": "Mandela Catalogue Amazing Grace (Full Version)",
     "artist": "Mandela Catalogue",
     "album": "",
@@ -784,11 +864,27 @@
     "dir": "music"
   },
   {
+    "title": "Plastic Love (プラスティック・ラブ)",
+    "artist": "Mariya Takeuchi",
+    "album": "VARIETY",
+    "genre": "霓虹夜航 · 都市律动",
+    "url": "music/Mariya Takeuchi - Plastic Love (プラスティック・ラブ).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Das Lied der Deutschen (德意志之歌 - 德国国歌)",
     "artist": "Michel Nowak Ensemble",
     "album": "Deutsche Nationalhymne & Marschmusik",
     "genre": "国歌军乐 · 德国",
     "url": "music/Michel Nowak Ensemble - Das Lied der Deutschen (Deutschlandlied).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Stay With Me (真夜中のドア)",
+    "artist": "Miki Matsubara",
+    "album": "POCKET PARK",
+    "genre": "霓虹夜航 · 都市律动",
+    "url": "music/Miki Matsubara - Stay With Me (真夜中のドア).mp3",
     "dir": "music"
   },
   {
@@ -821,6 +917,14 @@
     "album": "国歌军乐特辑",
     "genre": "国歌军乐 · 法国",
     "url": "music/Musique de la Garde Républicaine - La Marseillaise (马赛曲 - 共和国卫队军乐版).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Speak Softly Love (教父主题曲)",
+    "artist": "Nino Rota",
+    "album": "The Godfather OST",
+    "genre": "光影留声 · 银幕经典",
+    "url": "music/Nino Rota - Speak Softly Love (教父主题曲).mp3",
     "dir": "music"
   },
   {
@@ -888,6 +992,14 @@
     "dir": "music"
   },
   {
+    "title": "Scotland the Brave (勇敢的苏格兰)",
+    "artist": "Pipes and Drums of the Royal Scots Dragoon Guards",
+    "album": "Highland Pipes & Military Marches",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/Pipes and Drums of the Royal Scots Dragoon Guards - Scotland the Brave (勇敢的苏格兰).mp3",
+    "dir": "music"
+  },
+  {
     "title": "Swan Lake Suite, Op. 20a: I. Scene (Swan Theme. Moderato)",
     "artist": "Pyotr Ilyich Tchaikovsky, Berliner Philharmoniker",
     "album": "Tchaikovsky: Swan Lake Suite, Op. 20a",
@@ -912,6 +1024,22 @@
     "dir": "music"
   },
   {
+    "title": "I Vow to Thee, My Country (我向祖国起誓)",
+    "artist": "Royal Choral Society",
+    "album": "British Ceremonial Anthems",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/Royal Choral Society - I Vow to Thee, My Country (我向祖国起誓).mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Jerusalem (耶路撒冷 - 英格兰颂歌)",
+    "artist": "Royal Choral Society",
+    "album": "British Ceremonial Anthems",
+    "genre": "国歌军乐 · 英国",
+    "url": "music/Royal Choral Society - Jerusalem (耶路撒冷 - 英格兰颂歌).mp3",
+    "dir": "music"
+  },
+  {
     "title": "God Save the King (天佑吾王 - 英国国歌)",
     "artist": "Royal Philharmonic Orchestra, City of London Choir",
     "album": "God Save The King (British National Anthem)",
@@ -925,6 +1053,14 @@
     "album": "ライブ・アット・びーどろ'77",
     "genre": "蓝调之音 · 器乐爵士",
     "url": "music/ボディー・アンド・ソウル (Live at Vidro'77)_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Merry Christmas Mr. Lawrence (圣诞快乐，劳伦斯先生)",
+    "artist": "Ryuichi Sakamoto",
+    "album": "Merry Christmas Mr. Lawrence OST",
+    "genre": "光影留声 · 银幕经典",
+    "url": "music/Ryuichi Sakamoto - Merry Christmas Mr. Lawrence (圣诞快乐，劳伦斯先生).mp3",
     "dir": "music"
   },
   {
@@ -960,6 +1096,14 @@
     "dir": "music"
   },
   {
+    "title": "The Girl from Ipanema (伊帕内玛女孩)",
+    "artist": "Stan Getz, João Gilberto, Astrud Gilberto",
+    "album": "Getz/Gilberto",
+    "genre": "拉丁微醺 · 波萨香颂",
+    "url": "music/Stan Getz, João Gilberto, Astrud Gilberto - The Girl from Ipanema (伊帕内玛女孩).mp3",
+    "dir": "music"
+  },
+  {
     "title": "國際歌",
     "artist": "Tang Dynasty",
     "album": "Unknown Album",
@@ -973,6 +1117,14 @@
     "album": "Unknown Album",
     "genre": "赤焰岁月 · 华语摇滚",
     "url": "music/天堂_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "Ride on Time",
+    "artist": "Tatsuro Yamashita",
+    "album": "Ride on Time",
+    "genre": "霓虹夜航 · 都市律动",
+    "url": "music/Tatsuro Yamashita - Ride on Time.mp3",
     "dir": "music"
   },
   {
@@ -1272,6 +1424,14 @@
     "dir": "music"
   },
   {
+    "title": "La Vie en rose (玫瑰人生)",
+    "artist": "Édith Piaf",
+    "album": "Chansons Parisiennes",
+    "genre": "拉丁微醺 · 波萨香颂",
+    "url": "music/Édith Piaf - La Vie en rose (玫瑰人生).mp3",
+    "dir": "music"
+  },
+  {
     "title": "snowfall",
     "artist": "Øneheart, reidenshi",
     "album": "暗夜怪谈 · 模拟恐怖",
@@ -1552,6 +1712,14 @@
     "dir": "music"
   },
   {
+    "title": "平凡之路",
+    "artist": "朴树",
+    "album": "猎户星座",
+    "genre": "街巷叙事 · 民谣流行",
+    "url": "music/朴树 - 平凡之路.mp3",
+    "dir": "music"
+  },
+  {
     "title": "玛卡瑞纳",
     "artist": "海龟先生",
     "album": "海龟先生",
@@ -1653,6 +1821,14 @@
     "album": "蛙池 2020-2021",
     "genre": "先锋浪潮 · 独立摇滚",
     "url": "music/河流 The River_spotdown.org.mp3",
+    "dir": "music"
+  },
+  {
+    "title": "成都",
+    "artist": "赵雷",
+    "album": "无法长大",
+    "genre": "街巷叙事 · 民谣流行",
+    "url": "music/赵雷 - 成都.mp3",
     "dir": "music"
   },
   {

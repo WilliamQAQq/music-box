@@ -8,8 +8,8 @@
 [**简体中文**](README.md) · **English**
 
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_Listen_Live-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
-[![Tracks](https://img.shields.io/badge/Records-210_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
-[![Genres](https://img.shields.io/badge/Collections-18_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections-18-editions)
+[![Tracks](https://img.shields.io/badge/Records-232_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
+[![Genres](https://img.shields.io/badge/Collections-21_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections-18-editions)
 [![Lyrics](https://img.shields.io/badge/Scrolling_Lyrics-Synced_Bilingual_LRC-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
 
 ### 👉 [Enter the Live Phonograph Salon: https://williamqaqq.github.io/music-box/](https://williamqaqq.github.io/music-box/)
@@ -37,9 +37,9 @@
 ## 🏛️ Key Highlights
 
 - **Victorian Vinyl Gramophone Aesthetic & Eye-Care Dark Mode**: Damask wallpaper motifs, walnut-and-brass cabinet framing, a spinning vinyl platter with an animated dropping tonearm, and [`js/theme-init.js`](js/theme-init.js) zero-flicker theme initialization (**Classic Dark / Eye-Care Low-Glare / Warm Parchment Light / System** with `D` shortcut), adapting seamlessly across desktop, iPad, and mobile.
-- **18 Curated Record Collections & National Anthem Editions**: **210 tracks across 159 artists**, organized into 11 salon genres and 7 dedicated National Anthem & Military March editions (China, USA, Russia, France, Germany, Japan, United Kingdom). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential and shuffle playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
+- **21 Curated Record Collections & National Anthem Editions**: **232 tracks across 180 artists**, organized into 14 salon genres and 7 dedicated National Anthem & Military March editions (10 tracks each for China, USA, Russia, France, Germany, Japan, and United Kingdom). The shelf features an interactive "All / Salon Genres / Anthems & Marches" sub-filter, supports single-click sequential, shuffle, and **🎲 Lucky Drop (`X`)** playback, and seamlessly switches between **By Genre / By Artist / All Tracks** views.
 - **Time-Synced Scrolling Lyrics (Victorian Libretto Folio)**:
-  - **164 vocal & analog-broadcast tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 118 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **46 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
+  - **179 vocal & analog-broadcast tracks** feature line-by-line `[mm:ss.xx]` `.lrc` synchronized lyrics (**all 131 foreign-language tracks include bilingual Chinese translations**, toggleable via the `译` button), while **53 instrumental tracks** display a dedicated `INSTRUMENTAL` plaque.
   - **Auto-Scroll + Free Manual Browsing**: Lyrics smoothly center on the active line as the music plays. Scrolling manually via mouse wheel, touch, keyboard, or scrollbar automatically pauses auto-follow and surfaces a **"↻ Return to Current Line"** button (or auto-resumes after 5.5 seconds of inactivity).
   - **Click-to-Seek**: Click any timestamped lyric line to jump straight to that moment in the recording.
 - **Zero API Limits · Lazy Lyrics · PWA Offline Cache & Smart Preload**: Instant boot from same-origin [`music.json`](music.json) paired with 64-bit FNV-1a library signatures; [`lyrics.json`](lyrics.json) now loads strictly on demand upon track playback (zero cold-boot lyric transfer); [`sw.js`](sw.js) and [`manifest.webmanifest`](manifest.webmanifest) deliver Range-safe offline track caching, while **⚙️ Cabinet Settings** connects any public/private GitHub repo.
@@ -47,7 +47,7 @@
   - Dedicated **♥ Personal Collections** (`Favorites` + 45-track `Recent History`) synced with heart buttons (`F` shortcut), using Keyed DOM reuse across both the playlist and Queue Drawer for flicker-free updates;
   - Automatic **Resume Playback Bar** on return visits, plus one-click copy of `#track=...&t=...` share deep links opening directly to the current timestamp.
 - **Phonograph Studio Popover & Ambient Soundscapes (`E` shortcut / `调` Console Button)**:
-  - **Live Brass Spectrum, Preamp & 3-Band EQ**: Real-time Canvas spectrum analyzer (automatically pauses frame loops when hidden, scrolled offscreen, or paused), paired with a master preamp (up to 150% volume boost + soft-clip limiter), bypassable 3-band vintage EQ (110Hz / 1.1kHz / 7.5kHz) + 5 presets (`Flat / Warm / Jazz / Rock / Vocal`), 6-band Radio DSP (SW / LW / FM / VHF / AIR / SEA + 6 noise modes), and 4 auto-ducked ambient soundscapes (Rain / Thunder / Wild / City);
+  - **Live Brass Spectrum, Preamp & 3-Band EQ**: Real-time Canvas spectrum analyzer (automatically pauses frame loops when hidden, scrolled offscreen, or paused), paired with a master preamp (up to 150% volume boost + soft-clip limiter), bypassable 3-band vintage EQ (110Hz / 1.1kHz / 7.5kHz) + 5 presets (`Flat / Warm / Jazz / Rock / Vocal`), 6-band Radio DSP (SW / LW / FM / VHF / AIR / SEA + 6 noise modes), 5 auto-ducked ambient soundscapes (Rain / Thunder / Wild / City / Fireplace), and JSON collection backup/restore;
   - **Pitch-Preserving Speed, Crossfade, Sleep Timer & A-B Loop**: `0.75x–1.5x` turntable speed, `0/2/4/6s` track Crossfade, A-B loop practice (`[` / `]` / `\`), and `End of Track / 15 / 30 / 60m` Sleep Timer with 10-second gentle fadeout.
 - **In-Panel Lyric Search & `.lrc` Export**: Libretto panel adds live keyword filtering (`搜`) and single-click `.lrc` file export (`导`, optionally including bilingual lines).
 - **Interactive Play Queue & Multi-Token Search**: Enqueue any track as **Play Next (`+`)** right from the list or manage the live order (jump, promote to next, remove, reshuffle, clear upcoming) in the slide-over **Queue Drawer (`Q`)**. Toolbar search supports space-separated multi-keyword `AND` filtering with debounced input, one-click clear (`×`), and a quick **Locate Current Track (`定位`)** button.
@@ -68,9 +68,9 @@
 
 ---
 
-## 💿 Curated Record Collections (18 Editions)
+## 💿 Curated Record Collections (21 Editions)
 
-### 🎷 Salon Genres (11 Collections)
+### 🎷 Salon Genres (14 Collections)
 
 | Collection | Featured Artists | Curatorial Notes | Tracks |
 | :--- | :--- | :--- | :---: |
@@ -84,7 +84,10 @@
 | **流金热浪 · 时代新声**<br>*(Modern Viral & Pop Hits)* | Billie Eilish · Lady Gaga & Bruno Mars · ROSÉ · Kendrick Lamar · Wen Yixin | Recent global chart-toppers and contemporary Chinese viral pop hits | **10** |
 | **蓝调之音 · 器乐爵士**<br>*(Instrumental Jazz & Cool Bop)* | Miles Davis · John Coltrane · Ryo Fukui · Glenn Miller | Late-night trumpet, saxophone, and piano trio improvisations & big band swing | **9** |
 | **灵魂低吟 · 节奏蓝调**<br>*(Classic Soul & R&B)* | Bill Withers · Etta James · Sam Cooke · David Tao | Warm, heartfelt soul classics, blues ballads, and rhythm & blues grooves | **6** |
-| **街巷叙事 · 民谣流行**<br>*(Urban Folk & Ballads)* | Vadim Kazachenko · Angang · Chen Doujiang · Ren Haoming | Intimate acoustic storytelling, retro Estrada & folk-pop ballads | **4** |
+| **街巷叙事 · 民谣流行**<br>*(Urban Folk & Ballads)* | Pu Shu · Zhao Lei · Vadim Kazachenko · Angang · Chen Doujiang | Intimate acoustic storytelling, retro Estrada & folk-pop ballads | **6** |
+| **光影留声 · 银幕经典**<br>*(Cinema & Silver Screen)* | Ryuichi Sakamoto · Joe Hisaishi · Ennio Morricone · Nino Rota · Audrey Hepburn | Iconic film scores and silver-screen theme classics | **5** |
+| **霓虹夜航 · 都市律动**<br>*(City Pop & Night Drive)* | Mariya Takeuchi · Miki Matsubara · Tatsuro Yamashita · HOME · M83 | Showa-era City Pop and analog synthwave night-drive anthems | **5** |
+| **拉丁微醺 · 波萨香颂**<br>*(Bossa Nova & Chanson)* | Stan Getz & Gilberto · Elis Regina · Édith Piaf · Buena Vista Social Club | Rio Bossa Nova, Cuban Son, and Parisian Left Bank chansons | **5** |
 
 ### 🎺 National Anthems & Military Marches (7 Nations)
 
@@ -96,7 +99,7 @@
 | 🇫🇷 **国歌军乐 · 法国**<br>*(France Anthems & Marches)* | La Marseillaise · Le Chant du départ · Le Chant des Partisans · Sambre-et-Meuse | French Revolutionary brass fanfares, First Empire anthem & Garde Républicaine chorus | **10** |
 | 🇩🇪 **国歌军乐 · 德国**<br>*(Germany Traditional Marches)* | Das Lied der Deutschen · Erika · Preußens Gloria · Alte Kameraden · Königgrätzer · Wacht am Rhein | Classical European ceremonial brass repertoire, marching soldier songs & Prussian infantry brass | **10** |
 | 🇯🇵 **国歌军乐 · 日本**<br>*(Japan Ceremonial Marches)* | Kimigayo · Gunkan Kōshinkyoku · Review March · Yuki no Shingun · Roei no Uta | Vintage Meiji/Taisho/Showa 78 RPM gramophone brass marches, military choirs & imperial anthem | **10** |
-| 🇬🇧 **国歌军乐 · 英国**<br>*(UK Anthems & Marches)* | God Save the King · Rule, Britannia! · The British Grenadiers · Colonel Bogey · Land of Hope and Glory | Band of the Grenadier Guards, Edwardian diva Clara Butt 78 RPM & Royal Navy war standards | **5** |
+| 🇬🇧 **国歌军乐 · 英国**<br>*(UK Anthems & Marches)* | God Save the King · Jerusalem · I Vow to Thee · Rule, Britannia! · Scotland the Brave | Band of the Grenadier Guards, Royal Marines, Highland pipes & Royal Choral Society anthems | **10** |
 
 ---
 
@@ -110,7 +113,8 @@
 | `V` | Toggle vinyl record emulation | `S` / `R` | Toggle synth / radio station mode |
 | `E` | Toggle Phonograph Studio popover | `F` | Favorite / Unfavorite track |
 | `Q` | Toggle play queue drawer | `[` / `]` / `\` | Set A-B loop A / B / Clear |
-| `D` | Toggle eye-care dark / theme mode | `Esc` | Close active overlay / modal |
+| `D` | Toggle eye-care dark / theme mode | `X` | Lucky Drop (random needle drop) |
+| `/` | Focus catalog search input | `?` / `Esc` | Open shortcuts guide / close overlay |
 
 ---
 

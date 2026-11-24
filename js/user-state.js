@@ -2,7 +2,7 @@
   "use strict";
 
   const ns = global.__MusicBox || (global.__MusicBox = {});
-  const { KEYS, storageGet, storageSet, canonicalTrackKey } = ns.catalog;
+  const { KEYS, storageGet, storageSet, canonicalTrackKey, isSafeMediaUrl } = ns.catalog;
   const toTrackKey = (u) => (typeof canonicalTrackKey === "function" ? canonicalTrackKey(u) : String(u || ""));
 
   const MAX_RECENT = 45;
@@ -308,6 +308,69 @@
       });
     }
 
+    function exportProfileData() {
+      return {
+        app: "github-music-box",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        favorites: favoriteList.slice(),
+        recent: recentList.slice(),
+      };
+    }
+
+    function importProfileData(data) {
+      if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return { ok: false, error: "无效的雅集备份文件" };
+      }
+      const hasFavs = Array.isArray(data.favorites);
+      const hasRecent = Array.isArray(data.recent);
+      if (!hasFavs && !hasRecent) {
+        return { ok: false, error: "备份中未包含珍藏或聆听记录" };
+      }
+
+      if (hasFavs) {
+        const nextFavs = [];
+        const seenFav = new Set();
+        const pushFav = (raw) => {
+          if (typeof raw !== "string") return;
+          const clean = raw.trim();
+          if (!clean || (typeof isSafeMediaUrl === "function" && !isSafeMediaUrl(clean))) return;
+          const k = toTrackKey(clean);
+          if (!k || seenFav.has(k)) return;
+          seenFav.add(k);
+          nextFavs.push(k);
+        };
+        data.favorites.forEach(pushFav);
+        favoriteList.forEach(pushFav);
+        favoriteList = nextFavs.slice(0, 500);
+        favoriteSet.clear();
+        favoriteList.forEach((u) => favoriteSet.add(toTrackKey(u)));
+        storageSet(KEYS.FAVORITES, JSON.stringify(favoriteList));
+        emit("favorites", { crossTab: true, imported: true, count: favoriteList.length });
+      }
+
+      if (hasRecent) {
+        const nextRecent = [];
+        const seenRec = new Set();
+        const pushRec = (raw) => {
+          if (typeof raw !== "string") return;
+          const clean = raw.trim();
+          if (!clean || (typeof isSafeMediaUrl === "function" && !isSafeMediaUrl(clean))) return;
+          const k = toTrackKey(clean);
+          if (!k || seenRec.has(k)) return;
+          seenRec.add(k);
+          nextRecent.push(k);
+        };
+        data.recent.forEach(pushRec);
+        recentList.forEach(pushRec);
+        recentList = nextRecent.slice(0, MAX_RECENT);
+        storageSet(KEYS.RECENT, JSON.stringify(recentList));
+        emit("recent", { crossTab: true, imported: true, count: recentList.length });
+      }
+
+      return { ok: true, favoritesCount: favoriteList.length, recentCount: recentList.length };
+    }
+
     return {
       subscribe,
       isFavorite,
@@ -319,6 +382,8 @@
       getRecentCount: () => recentList.length,
       getRecentRankMap,
       clearRecent,
+      exportProfileData,
+      importProfileData,
       saveResume,
       getResume,
       clearResume,

@@ -6,14 +6,14 @@
 <meta name="text-scale" content="scale">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#190f0a">
-<script src="js/theme-init.js?v=48"></script>
+<script src="js/theme-init.js?v=49"></script>
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; media-src 'self' blob: https: http:; connect-src 'self' https: http:; object-src 'none'; base-uri 'self'; form-action 'self';">
 <title>GitHub 音乐盒 · 维多利亚留声机</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372191d' stroke='%23d4a64a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23d4a64a'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='%231b110d'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://music-box-r2-gateway.chattsun268.workers.dev" crossorigin>
-<link rel="stylesheet" href="style.css?v=48">
+<link rel="stylesheet" href="style.css?v=49">
 </head>
 <body>
 
@@ -39,6 +39,9 @@
     </div>
   </div>
   <div class="topbar-actions">
+    <button type="button" id="shortcutsBtn" class="icon-btn" title="键盘快捷键指南 (快捷键 ?)" aria-label="键盘快捷键指南">
+      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm0-13a3.2 3.2 0 0 0-3.2 3.2 1 1 0 0 0 2 0A1.2 1.2 0 1 1 12 11.4a1 1 0 0 0-1 1v1.2a1 1 0 0 0 2 0v-.55A3.2 3.2 0 0 0 12 7zm0 8.2a1.15 1.15 0 1 0 1.15 1.15A1.15 1.15 0 0 0 12 15.2z"/></svg>
+    </button>
     <button type="button" id="themeToggleBtn" class="icon-btn theme-toggle-btn" title="切换护眼暗夜模式 (快捷键 D)" aria-label="切换护眼暗夜模式" aria-pressed="false">
       <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M12.3 3.05a1 1 0 0 0-.98 1.24 7 7 0 0 1-8.03 8.03 1 1 0 0 0-1.15 1.18A9.5 9.5 0 1 0 13.48 3.1a1 1 0 0 0-1.18-.05zm5.2 2.45a1 1 0 0 0 1 1h.75v.75a1 1 0 1 0 2 0V6.5H22a1 1 0 1 0 0-2h-.75v-.75a1 1 0 1 0-2 0v.75h-.75a1 1 0 0 0-1 1z"/></svg>
     </button>
@@ -69,9 +72,9 @@
       </div>
 
       <div class="genre-shelf-tabs" id="genreShelfTabs" role="tablist" aria-label="唱片专区分类">
-        <button type="button" id="shelfTabAll" class="shelf-tab on" data-category="all" role="tab" aria-selected="true" aria-controls="genreShelf">全部专区 (20)</button>
+        <button type="button" id="shelfTabAll" class="shelf-tab on" data-category="all" role="tab" aria-selected="true" aria-controls="genreShelf">全部专区 (23)</button>
         <button type="button" id="shelfTabPersonal" class="shelf-tab" data-category="personal" role="tab" aria-selected="false" aria-controls="genreShelf">&#9829; 我的雅集 (0)</button>
-        <button type="button" id="shelfTabSalon" class="shelf-tab" data-category="salon" role="tab" aria-selected="false" aria-controls="genreShelf">&#127927; 沙龙流派 (11)</button>
+        <button type="button" id="shelfTabSalon" class="shelf-tab" data-category="salon" role="tab" aria-selected="false" aria-controls="genreShelf">&#127927; 沙龙流派 (14)</button>
         <button type="button" id="shelfTabMilitary" class="shelf-tab" data-category="military" role="tab" aria-selected="false" aria-controls="genreShelf">&#127930; 国歌军乐 (7)</button>
       </div>
 
@@ -87,6 +90,7 @@
           <button type="button" data-view="artist" aria-pressed="false">按作者</button>
           <button type="button" data-view="flat" aria-pressed="false">全部</button>
         </div>
+        <button type="button" id="luckyPlayBtn" class="ghost-btn sm-btn lucky-btn" title="随缘落针随机起奏 (快捷键 X)" aria-label="随缘落针随机起奏">&#127922; 随缘</button>
         <button type="button" id="locateTrackBtn" class="ghost-btn sm-btn locate-btn" title="定位当前正在播放的曲目" hidden>&#8982; 定位</button>
         <span class="count" id="trackCount">0 首</span>
       </search>
@@ -484,6 +488,7 @@
           <button type="button" class="studio-pill-btn ambient-mode-btn" data-ambient="thunder" aria-pressed="false">雷暴</button>
           <button type="button" class="studio-pill-btn ambient-mode-btn" data-ambient="wild" aria-pressed="false">野外声</button>
           <button type="button" class="studio-pill-btn ambient-mode-btn" data-ambient="city" aria-pressed="false">城市声</button>
+          <button type="button" class="studio-pill-btn ambient-mode-btn" data-ambient="fireplace" aria-pressed="false">壁炉声</button>
         </div>
       </div>
       <div class="studio-sliders">
@@ -571,18 +576,61 @@
         <span class="studio-meta" id="swCacheInfo">缓存就绪</span>
         <button type="button" id="clearAudioCacheBtn" class="ghost-btn sm-btn">清理离线缓存</button>
       </div>
+      <div class="studio-backup-wrap">
+        <span class="studio-meta">个人雅集备份（珍藏与足迹）</span>
+        <div class="studio-pills">
+          <button type="button" id="exportProfileBtn" class="ghost-btn sm-btn">导出雅集</button>
+          <button type="button" id="importProfileBtn" class="ghost-btn sm-btn">导入雅集</button>
+          <input type="file" id="importProfileInput" accept="application/json,.json" hidden>
+        </div>
+      </div>
     </section>
+  </div>
+</dialog>
+
+<dialog class="modal" id="shortcutsModal" closedby="any" aria-labelledby="shortcutsModalTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="shortcutsModalTitle">留声机快捷键指南</h2>
+      <button type="button" id="closeShortcutsBtn" class="icon-btn" aria-label="关闭" autofocus>&times;</button>
+    </div>
+    <table class="shortcuts-table">
+      <caption class="visually-hidden">留声机键盘快捷键一览</caption>
+      <thead>
+        <tr>
+          <th scope="col">按键</th>
+          <th scope="col">功能说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><kbd>Space</kbd></td><td>播放 / 暂停</td></tr>
+        <tr><td><kbd>N</kbd> / <kbd>P</kbd></td><td>下一首 / 上一首</td></tr>
+        <tr><td><kbd>&larr;</kbd> / <kbd>&rarr;</kbd></td><td>快退 / 快进 5 秒</td></tr>
+        <tr><td><kbd>&uarr;</kbd> / <kbd>&darr;</kbd></td><td>音量增减 5%</td></tr>
+        <tr><td><kbd>M</kbd></td><td>静音 / 恢复音量</td></tr>
+        <tr><td><kbd>X</kbd></td><td>随缘落针（随机选曲起奏）</td></tr>
+        <tr><td><kbd>F</kbd></td><td>收藏 / 取消收藏当前曲目</td></tr>
+        <tr><td><kbd>L</kbd></td><td>展开 / 收起滚动唱词面板</td></tr>
+        <tr><td><kbd>V</kbd> / <kbd>S</kbd> / <kbd>R</kbd></td><td>切换黑胶 / 合成器 / 无线电台音效</td></tr>
+        <tr><td><kbd>E</kbd></td><td>打开 / 收起留声机调音台</td></tr>
+        <tr><td><kbd>Q</kbd></td><td>打开 / 收起播放队列抽屉</td></tr>
+        <tr><td><kbd>D</kbd></td><td>切换护眼暗夜 / 主题模式</td></tr>
+        <tr><td><kbd>/</kbd></td><td>快速聚焦曲库搜索框</td></tr>
+        <tr><td><kbd>[</kbd> / <kbd>]</kbd> / <kbd>\</kbd></td><td>设定 A-B 复读起点 / 终点 / 清除</td></tr>
+        <tr><td><kbd>?</kbd> / <kbd>Esc</kbd></td><td>打开快捷键指南 / 关闭当前浮层</td></tr>
+      </tbody>
+    </table>
   </div>
 </dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script defer src="js/catalog-data.js?v=48"></script>
-<script defer src="js/user-state.js?v=48"></script>
-<script defer src="js/library-loader.js?v=48"></script>
-<script defer src="js/audio-fx.js?v=48"></script>
-<script defer src="js/lyrics.js?v=48"></script>
-<script defer src="js/studio-ui.js?v=48"></script>
-<script defer src="app.js?v=48"></script>
+<script defer src="js/catalog-data.js?v=49"></script>
+<script defer src="js/user-state.js?v=49"></script>
+<script defer src="js/library-loader.js?v=49"></script>
+<script defer src="js/audio-fx.js?v=49"></script>
+<script defer src="js/lyrics.js?v=49"></script>
+<script defer src="js/studio-ui.js?v=49"></script>
+<script defer src="app.js?v=49"></script>
 </body>
 </html>

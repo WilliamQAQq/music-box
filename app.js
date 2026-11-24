@@ -46,6 +46,9 @@
     bannerSub: $("bannerSub"),
     bannerCta: $("bannerCta"),
     themeToggleBtn: $("themeToggleBtn"),
+    shortcutsBtn: $("shortcutsBtn"),
+    shortcutsModal: $("shortcutsModal"),
+    closeShortcutsBtn: $("closeShortcutsBtn"),
     reloadBtn: $("reloadBtn"),
     settingsBtn: $("settingsBtn"),
     genreShelfTabs: $("genreShelfTabs"),
@@ -63,6 +66,7 @@
     resumeDismissBtn: $("resumeDismissBtn"),
     searchInput: $("searchInput"),
     searchClearBtn: $("searchClearBtn"),
+    luckyPlayBtn: $("luckyPlayBtn"),
     locateTrackBtn: $("locateTrackBtn"),
     trackCount: $("trackCount"),
     playlist: $("playlist"),
@@ -131,6 +135,9 @@
     shareStatus: $("shareStatus"),
     swCacheInfo: $("swCacheInfo"),
     clearAudioCacheBtn: $("clearAudioCacheBtn"),
+    exportProfileBtn: $("exportProfileBtn"),
+    importProfileBtn: $("importProfileBtn"),
+    importProfileInput: $("importProfileInput"),
     queueToggleBtn: $("queueToggleBtn"),
     queueCountBadge: $("queueCountBadge"),
     queueBackdrop: $("queueBackdrop"),
@@ -524,14 +531,16 @@
     }
 
     let summaryItem;
+    const salonGenreCount = GENRE_PRESETS.filter((p) => p.category === "salon" && counts.has(p.id)).length;
+    const totalGenreCount = Array.from(counts.values()).filter((c) => c > 0).length;
     if (shelfCategory === "salon") {
       summaryItem = {
         id: "all",
         category: "salon",
         name: "全部沙龙流派",
-        sub: "十一大维多利亚沙龙唱片集",
+        sub: salonGenreCount + " 大维多利亚沙龙唱片集",
         seal: "#c98236",
-        desc: "涵盖爵士名伶、交响夜曲、器乐爵士、节奏蓝调、独立与华语摇滚、城市民谣、古典剧场礼乐、暗夜模拟恐怖、世界民谣及当代热门新声。",
+        desc: "涵盖爵士名伶、交响夜曲、器乐爵士、节奏蓝调、独立与华语摇滚、城市民谣、古典剧场礼乐、暗夜模拟恐怖、世界民谣、银幕经典、都市律动、波萨香颂及当代热门新声。",
         count: salonTrackCount,
       };
     } else if (shelfCategory === "military") {
@@ -549,9 +558,9 @@
         id: "all",
         category: "all",
         name: "全部馆藏",
-        sub: "十八大专区完整唱片库",
+        sub: totalGenreCount + " 大专区完整唱片库",
         seal: "#d4a64a",
-        desc: "留声机全馆典藏唱片，涵盖爵士、摇滚、古典沙龙、模拟恐怖、世界民谣、热门新声及七国国歌军乐特辑。",
+        desc: "留声机全馆典藏唱片，涵盖爵士、摇滚、古典沙龙、模拟恐怖、世界民谣、银幕经典、都市律动、波萨香颂、热门新声及七国国歌军乐特辑。",
         count: tracks.length,
       };
     }
@@ -2292,6 +2301,71 @@
     else setVolume(lastVolume || 100);
   });
 
+  function playLuckyTrack() {
+    if (!tracks.length) {
+      toast("唱片库尚未就绪", true);
+      return;
+    }
+    const basePool = filteredTracks.length ? filteredTracks.slice() : tracks.map((_, i) => i);
+    const curPosInPool = basePool.indexOf(currentIndex);
+    const candidates = (basePool.length > 1 && curPosInPool !== -1)
+      ? basePool.toSpliced(curPosInPool, 1)
+      : basePool;
+    const pickedIdx = candidates[Math.floor(Math.random() * candidates.length)];
+    order = arrangeOrder(basePool, pickedIdx);
+    pos = order.indexOf(pickedIdx);
+    errorStreak = 0;
+    playAt(pos);
+    toast("\uD83C\uDFB2 随缘落针：《" + tracks[pickedIdx].title + "》");
+  }
+
+  if (els.luckyPlayBtn) {
+    els.luckyPlayBtn.addEventListener("click", playLuckyTrack);
+  }
+
+  function isShortcutsModalOpen() {
+    const m = els.shortcutsModal;
+    if (!m) return false;
+    return typeof m.showModal === "function" ? !!m.open : !m.hidden;
+  }
+
+  function openShortcutsModal() {
+    const m = els.shortcutsModal;
+    if (!m) return;
+    if (studioCtrl.isOpen()) studioCtrl.closeStudio(false);
+    if (typeof m.showModal === "function") {
+      if (!m.open) m.showModal();
+    } else {
+      m.hidden = false;
+    }
+    if (els.closeShortcutsBtn) els.closeShortcutsBtn.focus();
+  }
+
+  function closeShortcutsModal() {
+    const m = els.shortcutsModal;
+    if (!m || !isShortcutsModalOpen()) return;
+    if (typeof m.close === "function") m.close();
+    else m.hidden = true;
+  }
+
+  if (els.shortcutsBtn) els.shortcutsBtn.addEventListener("click", openShortcutsModal);
+  if (els.closeShortcutsBtn) els.closeShortcutsBtn.addEventListener("click", closeShortcutsModal);
+
+  // Fallback light-dismiss for browsers without <dialog closedby="any">
+  if (typeof HTMLDialogElement === "function" && !("closedBy" in HTMLDialogElement.prototype)) {
+    const isOutsideDialog = (ev, dlg) => {
+      const r = dlg.getBoundingClientRect();
+      return ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom;
+    };
+    document.querySelectorAll('dialog[closedby="any"]').forEach((dlg) => {
+      let pressedOutside = false;
+      dlg.addEventListener("pointerdown", (ev) => { pressedOutside = isOutsideDialog(ev, dlg); });
+      dlg.addEventListener("pointerup", (ev) => {
+        if (pressedOutside && isOutsideDialog(ev, dlg) && dlg.open) dlg.close();
+      });
+    });
+  }
+
   /* ---------------- media session ---------------- */
 
   function setupMediaSession() {
@@ -2380,6 +2454,12 @@
       }
       return;
     }
+    if (isShortcutsModalOpen()) {
+      if (e.key === "Escape" && !(els.shortcutsModal && typeof els.shortcutsModal.showModal === "function")) {
+        closeShortcutsModal();
+      }
+      return;
+    }
     if (e.key === "Escape") {
       if (studioCtrl.isOpen()) { studioCtrl.closeStudio(true); return; }
       if (els.queueDrawer && !els.queueDrawer.hidden) { closeQueueDrawer(true); return; }
@@ -2439,6 +2519,18 @@
       case "q": case "Q": toggleQueueDrawer(els.queueToggleBtn); break;
       case "e": case "E": studioCtrl.toggleStudio(els.studioBtn); break;
       case "d": case "D": studioCtrl.toggleEyeCareTheme(); break;
+      case "x": case "X": playLuckyTrack(); break;
+      case "/":
+        e.preventDefault();
+        if (els.searchInput) {
+          els.searchInput.focus();
+          els.searchInput.select();
+        }
+        break;
+      case "?":
+        e.preventDefault();
+        openShortcutsModal();
+        break;
       case "f": case "F":
         if (currentIndex !== -1) toggleTrackFavoriteByIndex(currentIndex);
         else toast("请先选择一首曲目再收藏", true);

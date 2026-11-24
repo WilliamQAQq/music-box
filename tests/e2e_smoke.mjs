@@ -486,6 +486,8 @@ async function run() {
     assert.equal(await page.textContent("#ambientStatusMeta"), "野外声 · 远林微风");
     await page.click('.ambient-mode-btn[data-ambient="city"]');
     assert.equal(await page.textContent("#ambientStatusMeta"), "城市声 · 夜街远景");
+    await page.click('.ambient-mode-btn[data-ambient="fireplace"]');
+    assert.equal(await page.textContent("#ambientStatusMeta"), "壁炉声 · 暖炉柴火");
     await page.click('.ambient-mode-btn[data-ambient="off"]');
     await page.click('.eq-preset-btn[data-preset="warm"]');
 
@@ -860,6 +862,22 @@ async function run() {
       if (src) window.location.hash = `#track=${encodeURIComponent(src)}&t=12`;
     });
     await r2Page.waitForFunction(() => document.getElementById("curTime").textContent === "0:12", null, { timeout: 3000 });
+
+    // Verify Lucky Drop (#luckyPlayBtn), '/' quick search focus, and '?' shortcuts guide modal
+    await r2Page.click("#luckyPlayBtn");
+    await r2Page.waitForFunction(() => document.getElementById("trackTitle").textContent !== "未播放", null, { timeout: 3000 });
+    await r2Page.keyboard.press("/");
+    assert.equal(
+      await r2Page.evaluate(() => document.activeElement === document.getElementById("searchInput")),
+      true,
+      "'/' shortcut must focus #searchInput"
+    );
+    await r2Page.keyboard.press("Escape");
+    await r2Page.evaluate(() => document.activeElement && document.activeElement.blur());
+    await r2Page.keyboard.press("?");
+    await r2Page.waitForFunction(() => document.getElementById("shortcutsModal").open === true, null, { timeout: 3000 });
+    await r2Page.click("#closeShortcutsBtn");
+    await r2Page.waitForFunction(() => document.getElementById("shortcutsModal").open === false, null, { timeout: 3000 });
 
     // Temporarily switch to GitHub-only mode, then back to Hybrid: R2 favorite must survive source switching!
     await r2Page.click("#settingsBtn");
