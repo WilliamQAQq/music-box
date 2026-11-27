@@ -584,9 +584,16 @@
       const rawG = String(genre);
       if (GENRE_META.has(rawG) || rawG.startsWith("国歌军乐")) return rawG;
       const gl = rawG.toLowerCase();
-      if (/\b(soundtrack|film score|ost|cinema)\b/.test(gl)) return "光影留声 · 银幕经典";
+      if (/\b(indie|post-rock|post-punk|shoegaze|alternative|dream pop|synth)\b/.test(gl)) return "先锋浪潮 · 独立摇滚";
+      if (/\b(soundtrack|film score|ost|cinema|score)\b/.test(gl)) return "光影留声 · 银幕经典";
       if (/\b(city pop|synthwave|vaporwave|retrowave)\b/.test(gl)) return "霓虹夜航 · 都市律动";
       if (/\b(bossa|chanson|samba|afro-cuban|son cubano)\b/.test(gl)) return "拉丁微醺 · 波萨香颂";
+      if (/\b(vocal jazz|crooner|torch)\b/.test(gl)) return "黄金年代 · 爵士名伶";
+      if (/\b(jazz|swing|bop|ragtime|bebop)\b/.test(gl)) return "蓝调之音 · 器乐爵士";
+      if (/\b(soul|r&b|rnb|blues|funk|motown)\b/.test(gl)) return "灵魂低吟 · 节奏蓝调";
+      if (/\b(rock|metal|punk|grunge)\b/.test(gl)) return "赤焰岁月 · 华语摇滚";
+      if (/\b(classical|tango|orchestra|piano|march|hymn|anthem)\b/.test(gl)) return "古典沙龙 · 剧场礼乐";
+      if (/\b(folk|pop|ballad|acoustic|singer)\b/.test(gl)) return "街巷叙事 · 民谣流行";
       return rawG;
     }
     if (!artist) return "";

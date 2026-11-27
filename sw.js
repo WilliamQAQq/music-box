@@ -1,4 +1,4 @@
-const VERSION = "v49";
+const VERSION = "v50";
 const SHELL_CACHE = "music-box-shell-" + VERSION;
 const DATA_CACHE = "music-box-data-" + VERSION;
 const AUDIO_CACHE = "music-box-audio-v3";
@@ -13,15 +13,15 @@ let audioLruPersistTimer = null;
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./js/theme-init.js?v=49",
-  "./style.css?v=49",
-  "./js/catalog-data.js?v=49",
-  "./js/user-state.js?v=49",
-  "./js/library-loader.js?v=49",
-  "./js/audio-fx.js?v=49",
-  "./js/lyrics.js?v=49",
-  "./js/studio-ui.js?v=49",
-  "./app.js?v=49",
+  "./js/theme-init.js?v=50",
+  "./style.css?v=50",
+  "./js/catalog-data.js?v=50",
+  "./js/user-state.js?v=50",
+  "./js/library-loader.js?v=50",
+  "./js/audio-fx.js?v=50",
+  "./js/lyrics.js?v=50",
+  "./js/studio-ui.js?v=50",
+  "./app.js?v=50",
   "./manifest.webmanifest",
 ];
 

@@ -2326,7 +2326,7 @@
   function isShortcutsModalOpen() {
     const m = els.shortcutsModal;
     if (!m) return false;
-    return typeof m.showModal === "function" ? !!m.open : !m.hidden;
+    return typeof m.showModal === "function" ? !!m.open : (m.hasAttribute("open") && !m.hidden);
   }
 
   function openShortcutsModal() {
@@ -2336,6 +2336,7 @@
     if (typeof m.showModal === "function") {
       if (!m.open) m.showModal();
     } else {
+      m.setAttribute("open", "");
       m.hidden = false;
     }
     if (els.closeShortcutsBtn) els.closeShortcutsBtn.focus();
@@ -2344,10 +2345,17 @@
   function closeShortcutsModal() {
     const m = els.shortcutsModal;
     if (!m || !isShortcutsModalOpen()) return;
-    if (typeof m.close === "function") m.close();
-    else m.hidden = true;
+    if (typeof m.close === "function") {
+      m.close();
+    } else {
+      m.removeAttribute("open");
+      m.hidden = true;
+    }
   }
 
+  if (els.shortcutsModal && typeof els.shortcutsModal.showModal !== "function") {
+    els.shortcutsModal.hidden = true;
+  }
   if (els.shortcutsBtn) els.shortcutsBtn.addEventListener("click", openShortcutsModal);
   if (els.closeShortcutsBtn) els.closeShortcutsBtn.addEventListener("click", closeShortcutsModal);
 

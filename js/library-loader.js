@@ -204,7 +204,7 @@
 
     function isModalOpen() {
       if (!els.settingsModal) return false;
-      return isNativeDialog() ? !!els.settingsModal.open : !els.settingsModal.hidden;
+      return isNativeDialog() ? !!els.settingsModal.open : (els.settingsModal.hasAttribute("open") && !els.settingsModal.hidden);
     }
 
     function setBackgroundInert(isInert) {
@@ -226,6 +226,7 @@
         lastModalTrigger = (triggerEl && triggerEl.nodeType === 1)
           ? triggerEl
           : (active && active !== document.body ? active : els.settingsBtn);
+        els.settingsModal.setAttribute("open", "");
         els.settingsModal.hidden = false;
         setBackgroundInert(true);
       }
@@ -241,6 +242,7 @@
         els.settingsModal.close();
         return;
       }
+      els.settingsModal.removeAttribute("open");
       els.settingsModal.hidden = true;
       setBackgroundInert(false);
       const target = (lastModalTrigger && lastModalTrigger !== document.body && !lastModalTrigger.hidden)
@@ -858,6 +860,7 @@
           });
         }
       } else {
+        els.settingsModal.hidden = true;
         els.settingsModal.addEventListener("click", (e) => {
           if (e.target === els.settingsModal) closeSettings();
         });

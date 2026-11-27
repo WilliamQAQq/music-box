@@ -9,7 +9,7 @@
 
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_%E5%9C%A8%E7%BA%BF%E8%90%BD%E9%92%88%E8%AF%95%E5%90%AC-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
 [![Tracks](https://img.shields.io/badge/%E9%A6%86%E8%97%8F%E5%94%B1%E7%89%87-232_%E9%A6%96-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
-[![Genres](https://img.shields.io/badge/%E9%A3%8E%E6%A0%BC%E4%B8%8E%E5%86%9B%E4%B9%90-21_%E5%A4%A7%E4%B8%93%E5%8C%BA-4d8a88?style=for-the-badge&labelColor=24150e)](#-%E9%A6%86%E8%97%8F%E5%8D%81%E5%85%AB%E5%A4%A7%E9%A3%8E%E6%A0%BC%E4%B8%8E%E5%9B%BD%E6%AD%8C%E5%86%9B%E4%B9%90%E4%B8%93%E5%8C%BA)
+[![Genres](https://img.shields.io/badge/%E9%A3%8E%E6%A0%BC%E4%B8%8E%E5%86%9B%E4%B9%90-21_%E5%A4%A7%E4%B8%93%E5%8C%BA-4d8a88?style=for-the-badge&labelColor=24150e)](#-%E9%A6%86%E8%97%8F%E4%BA%8C%E5%8D%81%E4%B8%80%E5%A4%A7%E9%A3%8E%E6%A0%BC%E4%B8%8E%E5%9B%BD%E6%AD%8C%E5%86%9B%E4%B9%90%E4%B8%93%E5%8C%BA)
 [![Lyrics](https://img.shields.io/badge/%E6%BB%9A%E5%8A%A8%E5%94%B1%E8%AF%8D-LRC_%E5%8F%8C%E8%AF%AD%E5%90%8C%E6%AD%A5-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
 
 ### 👉 [立即进入在线留声机：https://williamqaqq.github.io/music-box/](https://williamqaqq.github.io/music-box/)

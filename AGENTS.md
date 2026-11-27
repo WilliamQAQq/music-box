@@ -7,7 +7,7 @@
 一个以 **GitHub 仓库为存储**的在线音乐播放器,部署在 GitHub Pages。
 
 - 在线地址:https://williamqaqq.github.io/music-box/
-- 仓库:https://github.com/WilliamQAQq/music-box (公开,曲库约 941MB)
+- 仓库:https://github.com/WilliamQAQq/music-box (公开,曲库约 991MB / 232 首)
 - 纯前端静态项目,无框架、无构建步骤,按 `defer` 顺序加载模块化脚本(`window.__MusicBox`)。
 
 ## 文件结构
@@ -39,7 +39,7 @@
 │   └── e2e_smoke.mjs     Playwright 无头浏览器端到端验证(桌面、手机、iPad 与 R2 网关/混排实测)
 ├── music.json            音乐清单(前端主数据源:标题/歌手/专辑/风格/相对路径)
 ├── lyrics.json           全馆时间轴滚动歌词库(LRC 原文/双语译文/纯器乐标记)
-├── music/                音乐文件(mp3 等,目前 210 首)
+├── music/                音乐文件(mp3 等,目前 232 首)
 └── .github/
     ├── assets/           README 实机预览图
     ├── gen_music_json.py 清单生成脚本(扫描 music/ 并读取 ID3 标签与在线歌词)
@@ -50,7 +50,7 @@
 
 1. 前端 `app.js` 启动后 `fetch("music.json")`(同源相对路径,`cache: no-store`)得到曲目列表并渲染。
    老访客有 localStorage 缓存时先秒开缓存,同时后台拉最新 `music.json`,有变化自动刷新列表(加歌后刷新页面即见)。
-2. 顶部展示十八大「风格歌单与国歌军乐」唱片集卡片(含「全部专区 / 🎷 沙龙流派 / 🎺 国歌军乐」分组切换,可一键整张播放或筛选进入歌单),列表支持「按风格 / 按作者 / 全部」三种视图切换(默认"按风格")。
+2. 顶部展示二十一大「风格歌单与国歌军乐」唱片集卡片(含「全部专区 / 🎷 沙龙流派 / 🎺 国歌军乐」分组切换,可一键整张播放或筛选进入歌单),列表支持「按风格 / 按作者 / 全部」三种视图切换(默认"按风格")。
 3. 点击播放时,`<audio>` 的 src 直接用 music.json 里的相对 URL(浏览器自动按页面域名解析)。
 4. 若 `music.json` 缺失或为空,前端自动回退到 GitHub API(`git/trees`)列文件(有 60 次/小时/IP 限流,仅作兜底)。
 
@@ -81,7 +81,7 @@ npx.cmd wrangler secret put CF_ACCOUNT_ID --config cloudflare-r2/wrangler.toml  
 ```
 
 ### 改前端代码
-改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=49` / `VERSION = "v49"`)**。
+改完 `index.html / style.css / app.js / js/*.js` 后,**必须同步递增 `index.html` 与 `sw.js` 里的缓存版本号(当前为 `?v=50` / `VERSION = "v50"`)**。
 否则访问者浏览器或 Service Worker 会继续命中旧缓存,看不到更新(本项目踩过这个坑)。
 
 ### 运行本地测试与静态检查
@@ -100,7 +100,7 @@ python .github/gen_music_json.py   # 需要 mutagen: pip install mutagen
 
 - **工作流依赖 mutagen**:`update-music.yml` 里那行 `python -m pip install --quiet mutagen` 不能删,否则 Actions 生成的 music.json 丢失所有 ID3 歌手信息(曾因此出过事故)。
 - **无 ID3 标签的文件 / 风格归类**:在 `.github/gen_music_json.py` 的 `MANUAL_ARTIST` 补歌手,`ARTIST_GENRE` / `MANUAL_GENRE` 维护风格歌单映射(无映射时自动按 ID3 `genre` 标签推断或归入"其他典藏")。
-- **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前曲库约 941MB(单曲最大约 15.5MB,.git 约 952MB,已接近 1GB 容量阈值,后续如需大批量增补新歌建议优先走 Cloudflare R2 `sync_r2.py` 扩容或先精简旧曲目比特率)。私有仓库无法免费启用 GitHub Pages,需保持公开。
+- **GitHub 限制**:仓库建议 <1GB、单文件 <100MB。当前曲库约 991MB(单曲最大约 15.5MB,.git 约 954MB,已接近 1GB 容量阈值，需严格保持工作树 < 995MB，后续如需大批量增补新歌建议优先走 Cloudflare R2 `sync_r2.py` 扩容或精简旧曲目比特率)。私有仓库无法免费启用 GitHub Pages,需保持公开。系统文件如 `desktop.ini` / `Thumbs.db` 必须由 `.gitignore` 排除，避免污染工作树。
 - **浏览器缓存**:`music.json` 用 `no-store` 拉取(有本地缓存时先秒开缓存并后台静默更新),`sw.js` 对 HTML 导航请求采用 `networkFirst` 确保入口页不锁死旧版本;前端 JS/CSS 靠 `?v=` 版本号破缓存。
 - **`hidden` 属性**:style.css 里有全局 `[hidden]{display:none !important}`,不要删,否则带 `display` 样式的元素(如横幅)用 `hidden` 隐藏不掉。
 - **URL 编码**:前端用相对 URL(原样交给浏览器),API 兜底路径时按路径段 `encodeURIComponent`。

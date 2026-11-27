@@ -9,7 +9,7 @@
 
 [![Live Salon](https://img.shields.io/badge/%E2%96%B6_Listen_Live-Victorian_Salon-d4a64a?style=for-the-badge&labelColor=24150e)](https://williamqaqq.github.io/music-box/)
 [![Tracks](https://img.shields.io/badge/Records-232_Tracks-a8333a?style=for-the-badge&labelColor=24150e)](music.json)
-[![Genres](https://img.shields.io/badge/Collections-21_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections-18-editions)
+[![Genres](https://img.shields.io/badge/Collections-21_Curated_Genres-4d8a88?style=for-the-badge&labelColor=24150e)](#-curated-record-collections-21-editions)
 [![Lyrics](https://img.shields.io/badge/Scrolling_Lyrics-Synced_Bilingual_LRC-88507c?style=for-the-badge&labelColor=24150e)](lyrics.json)
 
 ### 👉 [Enter the Live Phonograph Salon: https://williamqaqq.github.io/music-box/](https://williamqaqq.github.io/music-box/)

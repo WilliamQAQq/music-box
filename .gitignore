@@ -1,6 +1,10 @@
 __pycache__/
 *.pyc
 .DS_Store
+desktop.ini
+[Dd]esktop.ini
+Thumbs.db
+[Tt]humbs.db
 .wrangler/
 r2_music/
 cloudflare-r2/.wrangler/

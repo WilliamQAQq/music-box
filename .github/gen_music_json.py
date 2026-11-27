@@ -430,25 +430,26 @@ def infer_genre_from_tag(raw_genre):
     if not raw_genre:
         return ""
     g = raw_genre.lower()
-    if any(k in g for k in ("soundtrack", "film score", "ost", "cinema")):
-        return "光影留声 · 银幕经典"
-    if any(k in g for k in ("city pop", "synthwave", "vaporwave", "retrowave")):
-        return "霓虹夜航 · 都市律动"
-    if any(k in g for k in ("bossa", "chanson", "samba", "afro-cuban", "son cubano")):
-        return "拉丁微醺 · 波萨香颂"
-    if any(k in g for k in ("vocal jazz", "crooner", "torch")):
-        return "黄金年代 · 爵士名伶"
-    if any(k in g for k in ("jazz", "swing", "bop", "ragtime")):
-        return "蓝调之音 · 器乐爵士"
-    if any(k in g for k in ("soul", "r&b", "rnb", "blues", "funk", "motown")):
-        return "灵魂低吟 · 节奏蓝调"
-    if any(k in g for k in ("indie", "post-rock", "shoegaze", "alternative", "synth")):
+    # Check indie / post-rock / post-punk / shoegaze FIRST with word boundaries before ost or general rock
+    if re.search(r"\b(indie|post-rock|post-punk|shoegaze|alternative|dream pop|synth)\b", g):
         return "先锋浪潮 · 独立摇滚"
-    if any(k in g for k in ("rock", "metal", "punk", "grunge")):
+    if re.search(r"\b(soundtrack|film score|ost|cinema|score)\b", g):
+        return "光影留声 · 银幕经典"
+    if re.search(r"\b(city pop|synthwave|vaporwave|retrowave)\b", g):
+        return "霓虹夜航 · 都市律动"
+    if re.search(r"\b(bossa|chanson|samba|afro-cuban|son cubano)\b", g):
+        return "拉丁微醺 · 波萨香颂"
+    if re.search(r"\b(vocal jazz|crooner|torch)\b", g):
+        return "黄金年代 · 爵士名伶"
+    if re.search(r"\b(jazz|swing|bop|ragtime|bebop)\b", g):
+        return "蓝调之音 · 器乐爵士"
+    if re.search(r"\b(soul|r&b|rnb|blues|funk|motown)\b", g):
+        return "灵魂低吟 · 节奏蓝调"
+    if re.search(r"\b(rock|metal|punk|grunge)\b", g):
         return "赤焰岁月 · 华语摇滚"
-    if any(k in g for k in ("classical", "tango", "orchestra", "piano", "march", "hymn", "anthem")):
+    if re.search(r"\b(classical|tango|orchestra|piano|march|hymn|anthem)\b", g):
         return "古典沙龙 · 剧场礼乐"
-    if any(k in g for k in ("folk", "pop", "ballad", "acoustic", "singer")):
+    if re.search(r"\b(folk|pop|ballad|acoustic|singer)\b", g):
         return "街巷叙事 · 民谣流行"
     return raw_genre
 
