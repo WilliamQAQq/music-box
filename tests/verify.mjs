@@ -933,78 +933,85 @@ test("v50 regression: genre tag inference word boundaries & precedence", () => {
   assert.equal(inferGenre("", "Lost Songs"), "Lost Songs", "Lost Songs must not match ost");
 });
 
-test("v50 regression: Chengdu audio length, lyrics alignment & UK anthems", () => {
+test("v50 regression: synced lyric integrity (Chengdu, Jerusalem, I Vow, Aguas, Miki)", () => {
   const lyricsMap = JSON.parse(fs.readFileSync(path.join(ROOT, "lyrics.json"), "utf8"));
+  const musicList = JSON.parse(fs.readFileSync(path.join(ROOT, "music.json"), "utf8"));
+  const parse = (txt) => String(txt || "").split("\n").filter((l) => /^\[\d+:\d+(\.\d+)?\]/.test(l)).map((l) => {
+    const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/);
+    return { tag: l.slice(0, l.indexOf("]") + 1), t: Number(m[1]) * 60 + Number(m[2]), text: m[3] };
+  });
 
-  // Chengdu
-  const chengduKey = "music/赵雷 - 成都.mp3";
-  assert.ok(lyricsMap[chengduKey], "Chengdu lyrics entry must exist");
-  const chengduLines = lyricsMap[chengduKey].lrc.trim().split("\n");
-  assert.ok(chengduLines.length >= 28, "Chengdu must contain full 28+ lines through song end");
-  const lastLine = chengduLines[chengduLines.length - 1];
-  assert.ok(lastLine.includes("直到所有的灯都熄灭了也不停留") && lastLine.includes("[04:"), "Chengdu must end with final chorus past 4:40");
-
-  // Águas de Março
-  const aguasKey = "music/Antônio Carlos Jobim, Elis Regina - Águas de Março (三月之水).mp3";
-  const aguasEntry = lyricsMap[aguasKey];
-  assert.ok(aguasEntry && aguasEntry.lrc && aguasEntry.tlyric, "Águas de Março must have lrc and tlyric");
-  const aguasLrc = aguasEntry.lrc.trim().split("\n");
-  const aguasTlyric = aguasEntry.tlyric.trim().split("\n");
-  assert.equal(aguasLrc.length, 46, "Águas de Março must have 46 lrc lines");
-  assert.equal(aguasTlyric.length, 46, "Águas de Março must have 46 tlyric lines 1:1");
-  for (let i = 0; i < 46; i++) {
-    const lrcTs = aguasLrc[i].slice(0, aguasLrc[i].indexOf("]") + 1);
-    const trTs = aguasTlyric[i].slice(0, aguasTlyric[i].indexOf("]") + 1);
-    assert.equal(lrcTs, trTs, `Águas de Março timestamp mismatch at line ${i + 1}`);
-  }
-
-  // Jerusalem & I Vow to Thee
-  const jerusalemKey = "music/Royal Choral Society - Jerusalem (耶路撒冷 - 英格兰颂歌).mp3";
-  const jerusalemEntry = lyricsMap[jerusalemKey];
-  const jLrc = jerusalemEntry.lrc.trim().split("\n");
-  const jTr = jerusalemEntry.tlyric.trim().split("\n");
-  assert.equal(jLrc.length, jTr.length, "Jerusalem lrc and tlyric count must match");
-  assert.ok(jLrc[0].startsWith("[00:13.50]"), "Jerusalem line 1 must match audio onset at 13.50s");
-
-  const vowKey = "music/Royal Choral Society - I Vow to Thee, My Country (我向祖国起誓).mp3";
-  const vowEntry = lyricsMap[vowKey];
-  const vLrc = vowEntry.lrc.trim().split("\n");
-  const vTr = vowEntry.tlyric.trim().split("\n");
-  assert.equal(vLrc.length, 12, "I Vow to Thee must have 12 lines");
-  assert.equal(vLrc.length, vTr.length, "I Vow to Thee lrc and tlyric count must match");
-  assert.ok(vLrc[0].startsWith("[00:10.80]"), "I Vow to Thee line 1 must match audio onset at 10.80s");
-});
-
-test("v50 regression: non-native dialog fallback does not lock shortcuts", () => {
-  // Simulate browser without native showModal
-  let modalHidden = true;
-  let modalAttributes = new Set();
-  const mockModal = {
-    get hidden() { return modalHidden; },
-    set hidden(v) { modalHidden = !!v; },
-    hasAttribute(name) { return modalAttributes.has(name); },
-    setAttribute(name) { modalAttributes.add(name); },
-    removeAttribute(name) { modalAttributes.delete(name); },
-    showModal: undefined, // no native showModal
-    close: undefined,
+  const keys = {
+    chengdu: "music/赵雷 - 成都.mp3",
+    jerusalem: "music/Royal Choral Society - Jerusalem (耶路撒冷 - 英格兰颂歌).mp3",
+    vow: "music/Royal Choral Society - I Vow to Thee, My Country (我向祖国起誓).mp3",
+    aguas: "music/Antônio Carlos Jobim, Elis Regina - Águas de Março (三月之水).mp3",
   };
-
-  function isShortcutsModalOpen(m) {
-    if (!m) return false;
-    return typeof m.showModal === "function" ? !!m.open : (m.hasAttribute("open") && !m.hidden);
+  for (const [name, key] of Object.entries(keys)) {
+    const e = lyricsMap[key];
+    assert.ok(e, `${name}: lyrics entry missing`);
+    assert.equal(e.type, "synced", `${name}: must declare type synced`);
+    const L = parse(e.lrc);
+    for (let i = 1; i < L.length; i++) assert.ok(L[i].t > L[i - 1].t, `${name}: timestamps must strictly increase at line ${i + 1}`);
+    if (e.tlyric) {
+      const T = parse(e.tlyric);
+      assert.deepEqual(T.map((x) => x.tag), L.map((x) => x.tag), `${name}: tlyric timestamps must match lrc 1:1`);
+    }
   }
 
-  // Initially closed
-  assert.equal(isShortcutsModalOpen(mockModal), false, "Modal must be closed initially without showModal");
+  // Chengdu: complete song with half-line granularity, ends after 4:30 (audio is ~328s, was truncated at 270s)
+  const cd = parse(lyricsMap[keys.chengdu].lrc);
+  assert.ok(cd.length >= 40, "Chengdu must keep half-line granularity (>=40 lines)");
+  assert.ok(cd[cd.length - 1].t > 270, "Chengdu lyrics must extend past the old 270s truncation");
+  assert.ok(cd[0].t > 17.9, "Chengdu first line must not precede the vocal entry (shifted +0.65s)");
+  const cdSize = fs.statSync(path.join(ROOT, keys.chengdu)).size;
+  assert.ok(cdSize > 3000000, "Chengdu audio must be the full-length encode, not the 270s cut");
 
-  // Open in fallback
-  mockModal.setAttribute("open", "");
-  mockModal.hidden = false;
-  assert.equal(isShortcutsModalOpen(mockModal), true, "Modal must be open after openShortcutsModal fallback");
+  // Aguas: 46 lines 1:1 with translation
+  assert.equal(parse(lyricsMap[keys.aguas].lrc).length, 46);
 
-  // Close in fallback
-  mockModal.removeAttribute("open");
-  mockModal.hidden = true;
-  assert.equal(isShortcutsModalOpen(mockModal), false, "Modal must be closed after closeShortcutsModal fallback");
+  // Every entry in the catalog: translation timestamps must exist in the main lrc
+  const orphans = [];
+  for (const item of musicList) {
+    const e = lyricsMap[item.url];
+    if (!e || !e.tlyric) continue;
+    const have = new Set(parse(e.lrc).map((x) => x.tag));
+    const bad = parse(e.tlyric).filter((x) => x.text.trim() && !have.has(x.tag));
+    if (bad.length) orphans.push(`${item.url}: ${bad.length}`);
+  }
+  assert.deepEqual(orphans, [], "tlyric lines with no matching lrc timestamp would be silently dropped");
 });
 
+test("v50 regression: shortcuts modal fallback uses the real app.js implementation", () => {
+  const src = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  const grab = (name) => {
+    const m = src.match(new RegExp(`function ${name}\\(\\) \\{[\\s\\S]*?\\r?\\n  \\}\\r?\\n`));
+    assert.ok(m, `app.js must define ${name}()`);
+    return m[0];
+  };
+  const attrs = new Set();
+  const modal = {
+    hidden: true,
+    showModal: undefined, // legacy browser: no native <dialog>
+    close: undefined,
+    hasAttribute: (n) => attrs.has(n),
+    setAttribute: (n) => attrs.add(n),
+    removeAttribute: (n) => attrs.delete(n),
+  };
+  const ctx = {
+    els: { shortcutsModal: modal, closeShortcutsBtn: { focus() {} } },
+    studioCtrl: { isOpen: () => false, closeStudio() {} },
+  };
+  vm.createContext(ctx);
+  vm.runInContext(
+    [grab("isShortcutsModalOpen"), grab("openShortcutsModal"), grab("closeShortcutsModal")].join("\n") +
+      "\nthis.api = { isOpen: isShortcutsModalOpen, open: openShortcutsModal, close: closeShortcutsModal };",
+    ctx
+  );
+  assert.equal(ctx.api.isOpen(), false, "closed by default: the keydown handler must not early-return and lock shortcuts");
+  ctx.api.open();
+  assert.equal(ctx.api.isOpen(), true);
+  ctx.api.close();
+  assert.equal(ctx.api.isOpen(), false);
+  assert.equal(modal.hidden, true);
+});
